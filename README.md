@@ -7,6 +7,8 @@
 **Mira a dónde se van tus tokens de Claude Code.**
 Un monitor local: dashboard web, mascota flotante en el escritorio y alertas de contexto.
 
+**Español** · [English](README.en.md) · [Português](README.pt-BR.md)
+
 [![CI](https://github.com/NormanSMA/ClaudeHub/actions/workflows/ci.yml/badge.svg)](https://github.com/NormanSMA/ClaudeHub/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/NormanSMA/ClaudeHub)](https://github.com/NormanSMA/ClaudeHub/releases/latest)
 ![Node](https://img.shields.io/badge/Node-24%2B-339933?logo=nodedotjs&logoColor=white)
@@ -38,6 +40,7 @@ Un monitor local: dashboard web, mascota flotante en el escritorio y alertas de 
 - [Instalar con una IA](#instalar-con-una-ia)
 - [Uso](#uso)
 - [Límite de contexto real](#límite-de-contexto-real)
+- [Límites de tu plan](#límites-de-tu-plan-5-horas-y-semanal)
 - [Cómo funciona](#cómo-funciona)
 - [Configuración](#configuración)
 - [API local](#api-local)
@@ -82,9 +85,10 @@ Abre `http://127.0.0.1:4318`.
 | **Ajustes** | Edita tu nombre, el umbral de alerta, los minutos de actividad y la ventana de contexto de cada modelo, sin tocar archivos. |
 | **Filtros de fecha** | Todo, 30 días, 7 días o un rango Desde y Hasta. |
 | **Mascota flotante** | Un personaje pixel siempre visible. Se arrastra, recuerda su posición y al tocarla abre el panel de chats activos. |
-| **Alertas** | Notificación del sistema cuando un chat pasa del umbral de contexto (85% por defecto). |
+| **Límites del plan** | Tu límite de 5 horas y el semanal como porcentaje, con cuánto falta para que se restablezcan, junto a los chats activos (planes Pro y Max). |
+| **Alertas** | Notificación del sistema cuando un chat o tu límite de 5 horas pasan del umbral (85% por defecto). |
 | **Bandeja del sistema** | Icono con los tokens de hoy en el tooltip y menú para abrir el dashboard. |
-| **Línea de estado** | Script opcional que muestra `ctx 43%` en Claude Code y le da a ClaudeHub el tamaño real de la ventana. |
+| **Línea de estado** | Script opcional que muestra `ctx 43% | 5h 51%` en Claude Code y le da a ClaudeHub el tamaño real de la ventana y los límites de tu plan. |
 | **Inicio automático** | Arranca con el sistema y, si quieres, al iniciar cualquier sesión de Claude Code. |
 | **Tema** | Oscuro, claro o automático, con la paleta terracota de Claude. |
 | **Enlaces a vistas** | La pestaña queda en la dirección (`#/modelos`), así que puedes enlazarla. |
@@ -129,7 +133,7 @@ Abre `http://127.0.0.1:4318`.
 | Durmiendo | No hay chats activos. |
 | Despierta | Hay chats abiertos, pero ninguno escribe ahora. |
 | Trabajando | Un chat escribió en el último minuto. |
-| Alerta | Algún chat superó el umbral de contexto. |
+| Alerta | Algún chat, o tu límite de 5 horas, superó el umbral. |
 
 Al tocarla se abre el panel de chats activos. Si abres el dashboard desde ahí, la mascota se oculta y vuelve cuando lo cierras.
 
@@ -286,7 +290,7 @@ Agrega esto en `~/.claude/settings.json`:
 Además de guardar el tamaño, el script muestra en la barra de Claude Code una línea como:
 
 ```
-[Opus] ctx 43% (430k/1.0M)
+[Opus] ctx 43% (430k/1.0M) | 5h 51% | 7d 33%
 ```
 
 El color cambia a amarillo desde 60% y a rojo desde 85%.
@@ -298,6 +302,28 @@ Orden de prioridad del límite:
 3. Estimación: hasta 200 000 tokens se asume una ventana de 200 000; si el chat ya la superó, 1 000 000.
 
 Si ya tienes una línea de estado propia, pídele a tu script que invoque a `statusline.cjs` pasándole el mismo JSON por entrada estándar.
+
+## Límites de tu plan (5 horas y semanal)
+
+Con la línea de estado activada, ClaudeHub muestra tus límites de uso, los mismos que ves en **Límites de uso del plan** de Claude:
+
+- **Límite de 5 horas:** porcentaje usado y cuánto falta para que se restablezca.
+- **Semanal:** lo mismo para la ventana de 7 días.
+- **Tokens en la ventana:** cuántos tokens de Claude Code de este equipo caben dentro de cada ventana.
+
+Aparecen arriba de la pestaña **Activos** y en el panel de la mascota. Si tu límite de 5 horas pasa del umbral de alerta, la mascota se alerta y el sistema te avisa, una vez por ventana.
+
+Cosas que debes saber:
+
+- Claude Code solo envía estos datos a suscriptores **Pro y Max**, y solo después de la primera respuesta de la sesión.
+- El porcentaje lo calcula Anthropic e incluye todo tu uso del plan, también el de la web y las apps. Los tokens de ClaudeHub solo cuentan Claude Code en este equipo, así que no suman el mismo total.
+- El dato se actualiza cada vez que Claude Code ejecuta la línea de estado, por ejemplo al enviar un mensaje. Si pasan más de 15 minutos sin actividad, ClaudeHub lo avisa. Una ventana vencida se oculta.
+- Sin la línea de estado, ClaudeHub no puede leer estos límites: no salen en los registros.
+- **La app de escritorio de Claude no ejecuta la línea de estado**: es una función de la terminal. Si usas Claude Code solo desde la app de escritorio, no verás los porcentajes; ClaudeHub no puede leerlos en otro sitio. Funciona con `claude` en una terminal.
+
+### Aviso de límite alcanzado
+
+Esto no necesita la línea de estado. Cuando llegas a un límite, Claude Code lo anota en los registros con la hora exacta de reinicio. ClaudeHub lo lee y muestra un aviso rojo, por ejemplo **Límite de 5 horas alcanzado. Se restablece en 1 h 12 min**, además de una notificación del sistema y la mascota en alerta. Funciona también con la app de escritorio.
 
 ## Cómo funciona
 
@@ -381,6 +407,7 @@ Lo más fácil es la pestaña **Ajustes** del dashboard. También puedes editar 
 | `CLAUDEHUB_CACHE` | Ruta del caché en disco. |
 | `CLAUDEHUB_CONFIG` | Ruta del archivo de configuración. |
 | `CLAUDEHUB_WINDOWS` | Ruta del archivo de ventanas reales de contexto. |
+| `CLAUDEHUB_PLAN` | Ruta del archivo de límites del plan. |
 
 ### Archivos que crea
 
@@ -389,6 +416,7 @@ Lo más fácil es la pestaña **Ajustes** del dashboard. También puedes editar 
 | `cache.json` | Caché de lectura, solo con datos de uso. Se regenera si lo borras. |
 | `config.json` | Tu configuración. Se crea al guardar en Ajustes. |
 | `context-windows.json` | Ventanas de contexto reales, si activas la línea de estado. |
+| `rate-limits.json` | Límites del plan (5 horas y semanal), si activas la línea de estado. |
 | `overlay-pos.json` | Última posición de la mascota. |
 | `setup.json` | Marca de que ya se configuró el inicio automático. |
 | `tray.pid` | Identificador de la bandeja en ejecución. |
@@ -406,7 +434,7 @@ Solo responde en `127.0.0.1`. Rechaza con `403` cualquier petición cuyo `Host` 
 | `GET /api/sessions` | Chats con título, proyecto, fechas y tokens. |
 | `GET /api/projects` | Tokens por proyecto. |
 | `GET /api/live` | Última actividad y tokens de hoy. |
-| `GET /api/active` | Chats activos con su uso de contexto y el origen del límite. |
+| `GET /api/active` | Chats activos con su uso de contexto y el origen del límite, y los límites del plan (`plan`). |
 | `GET /api/config` | Nombre del saludo y si está el modo demo. |
 | `GET /api/settings` | Configuración actual, su ruta y los modelos vistos. |
 | `PUT /api/settings` | Valida y guarda la configuración. Exige `application/json`. |
@@ -447,6 +475,7 @@ ClaudeHub/
 │  │  ├─ config.ts        configuración validada
 │  │  ├─ paths.ts         carpetas de datos por sistema
 │  │  ├─ windows.ts       ventanas de contexto reales
+│  │  ├─ plan.ts          límites del plan (5 horas y semanal)
 │  │  ├─ models.ts        "claude-opus-5-5" -> "Opus 5.5"
 │  │  └─ cli.ts           resumen por terminal
 │  ├─ server/index.ts     API local y archivos estáticos

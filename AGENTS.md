@@ -43,7 +43,7 @@ curl "http://127.0.0.1:4317/api/active"
 | `/api/roles` | Cuánto gastó el orquestador y cuánto los subagentes. |
 | `/api/sessions` | Qué chats gastaron más, con su título. |
 | `/api/projects` | Qué proyectos gastaron más. |
-| `/api/active` | Qué chats están activos y cuánta ventana de contexto usan. |
+| `/api/active` | Qué chats están activos y cuánta ventana de contexto usan. Incluye `plan`: límite de 5 horas y semanal del plan (porcentaje, reinicio y tokens), o `null` si no hay datos. |
 | `/api/live` | Tokens de hoy y última actividad. |
 | `/api/settings` | Configuración actual. `PUT` la guarda (solo `application/json`). |
 
@@ -88,7 +88,9 @@ Por defecto el límite de la ventana es una estimación. Para usar el valor real
 }
 ```
 
-Si el usuario ya tiene un `statusLine`, no lo reemplaces: pregúntale cómo combinarlos. El script guarda `context_window.context_window_size` de cada sesión en `context-windows.json` dentro de la carpeta de datos de ClaudeHub.
+Si el usuario ya tiene un `statusLine`, no lo reemplaces: pregúntale cómo combinarlos. El script guarda `context_window.context_window_size` de cada sesión en `context-windows.json` y los límites del plan (`rate_limits.five_hour` y `rate_limits.seven_day`) en `rate-limits.json`, ambos dentro de la carpeta de datos de ClaudeHub.
+
+Los límites del plan solo los envía Claude Code a suscriptores Pro y Max, y después de la primera respuesta de la sesión. El porcentaje incluye todo el uso del plan, no solo Claude Code.
 
 ## Configuración opcional
 
