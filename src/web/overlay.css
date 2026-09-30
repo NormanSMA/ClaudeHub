@@ -1,0 +1,78 @@
+html,
+body.overlay-body {
+  background: transparent;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+}
+.overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 6px;
+  width: 100vw;
+}
+.mascot-btn {
+  position: relative;
+  background: none;
+  border: 0;
+  padding: 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.mascot-btn:active {
+  cursor: grabbing;
+}
+.mascot-btn .mascot {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+}
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #1a1918;
+  font: 600 12px/20px Inter, sans-serif;
+  text-align: center;
+  padding: 0 5px;
+}
+.badge.bad {
+  background: var(--danger);
+  color: #fff;
+}
+.overlay-panel {
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  max-height: 440px;
+  overflow: auto;
+}
+.overlay-panel header,
+.overlay-panel footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.overlay-panel header span {
+  color: var(--muted);
+}
+.overlay-panel footer {
+  margin-top: 6px;
+}
+.overlay-panel .empty {
+  padding: 18px 0;
+}
+
+/* el panel nunca pasa del ancho de la ventana de Electron (360 px) */
+.overlay {
+  max-width: 360px;
+}
