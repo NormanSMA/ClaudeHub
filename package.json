@@ -1,6 +1,6 @@
 {
   "name": "claudehub",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Monitor local de tokens de Claude Code: dashboard, mascota flotante y alertas de contexto para Windows.",
   "author": "Norman Smith Martínez Acevedo",
   "license": "MIT",
@@ -29,19 +29,17 @@
   "scripts": {
     "dev": "concurrently -k \"tsx watch src/server/index.ts\" \"vite\"",
     "build": "vite build",
+    "build:server": "esbuild src/server/index.ts --bundle --platform=node --format=cjs --target=node22 --log-level=error --outfile=dist-server/server.cjs",
+    "build:app": "pnpm build && pnpm build:server",
     "start": "tsx src/server/index.ts",
-    "scan": "tsx src/core/cli.ts",
-    "test": "vitest run",
+    "demo": "cross-env CLAUDEHUB_DEMO=1 tsx src/server/index.ts",
     "tray": "electron .",
-    "demo": "cross-env CLAUDEHUB_DEMO=1 tsx src/server/index.ts"
-  },
-  "dependencies": {
-    "@hono/node-server": "^2.1.3",
-    "hono": "^4.13.11",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "dist": "pnpm build:app && electron-builder --win --x64",
+    "scan": "tsx src/core/cli.ts",
+    "test": "vitest run"
   },
   "devDependencies": {
+    "@hono/node-server": "^2.1.3",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -49,9 +47,55 @@
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
     "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "hono": "^4.13.11",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"
+  },
+  "build": {
+    "appId": "dev.normansma.claudehub",
+    "productName": "ClaudeHub",
+    "copyright": "Copyright (c) 2026 Norman Smith Martínez Acevedo",
+    "asar": false,
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "dist-server/**",
+      "src/tray/**",
+      "scripts/statusline.cjs",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "src/tray/main.cjs"
+    },
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ClaudeHub"
+    }
   }
 }

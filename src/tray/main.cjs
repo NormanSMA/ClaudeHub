@@ -1,6 +1,6 @@
 // ClaudeHub en Windows: bandeja, mascota flotante y alertas de contexto.
 // Arranca el servidor local si no esta activo.
-const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, shell, screen, ipcMain } = require('electron')
+const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, shell, screen, ipcMain, utilityProcess } = require('electron')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -71,11 +71,25 @@ async function serverUp() {
   }
 }
 
+// instalado: el ejecutable ya sabe donde esta la app; desde el codigo fuente hay que pasar la carpeta del proyecto
+const loginArgs = () => (app.isPackaged ? [] : [ROOT])
+
 let server = null
 async function ensureServer() {
   if (await serverUp()) return
-  server = spawn('node', ['--import', 'tsx', 'src/server/index.ts'], { cwd: ROOT, stdio: 'ignore', windowsHide: true })
-  for (let i = 0; i < 40 && !(await serverUp()); i++) await new Promise((r) => setTimeout(r, 250))
+  const bundled = path.join(ROOT, 'dist-server', 'server.cjs')
+  if (fs.existsSync(bundled)) {
+    // servidor empaquetado: corre en un proceso aparte con el Node de Electron, sin depender de Node ni pnpm
+    server = utilityProcess.fork(bundled, [], {
+      env: { ...process.env, CLAUDEHUB_DIST: path.join(ROOT, 'dist') },
+      stdio: 'ignore',
+      serviceName: 'ClaudeHub servidor',
+    })
+  } else {
+    // desarrollo sin compilar: usa tsx con el Node del sistema
+    server = spawn('node', ['--import', 'tsx', 'src/server/index.ts'], { cwd: ROOT, stdio: 'ignore', windowsHide: true })
+  }
+  for (let i = 0; i < 60 && !(await serverUp()); i++) await new Promise((r) => setTimeout(r, 250))
 }
 
 let tray = null
@@ -248,7 +262,7 @@ function refreshMenu() {
         label: 'Iniciar con Windows',
         type: 'checkbox',
         checked: app.getLoginItemSettings().openAtLogin,
-        click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: [ROOT] }),
+        click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: loginArgs() }),
       },
       { type: 'separator' },
       { label: 'Salir', click: () => app.quit() },
@@ -271,7 +285,7 @@ app.whenReady().then(async () => {
   fs.mkdirSync(DATA_DIR, { recursive: true })
   fs.writeFileSync(PID_FILE, String(process.pid))
   if (!fs.existsSync(SETUP_FILE)) {
-    app.setLoginItemSettings({ openAtLogin: true, args: [ROOT] })
+    app.setLoginItemSettings({ openAtLogin: true, args: loginArgs() })
     fs.writeFileSync(SETUP_FILE, JSON.stringify({ loginItem: true }))
   }
   await ensureServer()
