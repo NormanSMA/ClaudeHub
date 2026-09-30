@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      # la interfaz y el servidor no necesitan el binario de Electron para probarse
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Tipos
+        run: npx tsc --noEmit
+
+      - name: Pruebas
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Humo del modo demo
+        shell: bash
+        run: |
+          CLAUDEHUB_DEMO=1 PORT=4399 node --import tsx src/server/index.ts &
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:4399/api/config && break
+            sleep 1
+          done
+          curl -fsS "http://127.0.0.1:4399/api/summary?range=all" | head -c 200
+          echo
+          curl -fsS -o /dev/null -w "pagina: %{http_code}\n" http://127.0.0.1:4399/
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example.com' http://127.0.0.1:4399/api/active)" = "403"

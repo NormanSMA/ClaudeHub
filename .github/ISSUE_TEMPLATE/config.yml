@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Reportar una vulnerabilidad
+    url: https://github.com/NormanSMA/ClaudeHub/security/advisories/new
+    about: Usa el reporte privado de seguridad. No abras un issue público.

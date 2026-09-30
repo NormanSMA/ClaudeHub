@@ -1,0 +1,30 @@
+name: Proponer una mejora
+description: Una idea para hacer ClaudeHub más útil
+title: "[Idea] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema quieres resolver
+      description: Cuenta qué te cuesta hoy o qué te falta saber de tu uso de tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Cómo lo imaginas
+      description: Una pantalla, un botón, un dato nuevo. Un boceto o ejemplo ayuda.
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que consideraste
+  - type: checkboxes
+    id: privacidad
+    attributes:
+      label: Privacidad
+      options:
+        - label: Mi idea no requiere guardar ni mostrar el texto de las conversaciones.
+          required: true
