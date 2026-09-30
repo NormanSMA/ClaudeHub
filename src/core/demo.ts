@@ -56,6 +56,15 @@ const ACTIVE: Record<string, { ctx: number; agoMs: number; subagent?: boolean }>
   'pg-migration': { ctx: 310_000, agoMs: 40_000, subagent: true }, // verde, ventana de 1M
 }
 
+/** Limites del plan ficticios: 51% de la ventana de 5 h (se restablece en 3 h 54 min) y 33% de la semanal. */
+export function demoPlanRaw(now = Date.now()) {
+  return {
+    fiveHour: { pct: 51, resetsAt: now + (3 * 60 + 54) * 60_000 },
+    sevenDay: { pct: 33, resetsAt: now + (2 * 24 + 20) * 3_600_000 },
+    updatedAt: now - 30_000,
+  }
+}
+
 export function demoData(now = Date.now()): ScanResult {
   const rand = rng(20260930)
   const recs: Rec[] = []
@@ -151,5 +160,5 @@ export function demoData(now = Date.now()): ScanResult {
     }
   }
 
-  return { recs, sessions }
+  return { recs, sessions, limitHit: null }
 }

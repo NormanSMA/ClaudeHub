@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { scan } from '../core/scan'
-import { demoData } from '../core/demo'
+import { demoData, demoPlanRaw } from '../core/demo'
+import { planReport } from '../core/plan'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
 import { modelName } from '../core/models'
 import { summary, modelsReport, rolesReport, sessionsReport, projectsReport, live, activeReport } from '../core/aggregate'
@@ -115,6 +116,7 @@ app.get('/api/active', (c) =>
       alertAt: config().alertAt,
       todayTokens: live(records()).todayTokens,
       chats: activeReport(records(), data().sessions, Date.now(), undefined, DEMO ? {} : undefined),
+      plan: planReport(records(), Date.now(), DEMO ? demoPlanRaw(Date.now()) : undefined, data().limitHit),
     })),
   ),
 )

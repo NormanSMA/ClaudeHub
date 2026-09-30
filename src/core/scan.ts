@@ -4,11 +4,11 @@ import { join, dirname, basename, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { dataDir } from './paths'
 import { parseFile } from './parse'
-import type { Rec, SessionMeta } from './types'
+import type { LimitHit, Rec, SessionMeta } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
 const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
-const CACHE_VERSION = 4
+const CACHE_VERSION = 5
 const SAVE_EVERY_MS = 60_000
 
 interface CacheEntry {
@@ -26,6 +26,8 @@ interface Cache {
 export interface ScanResult {
   recs: Rec[]
   sessions: Map<string, SessionMeta>
+  /** el limite del plan alcanzado mas reciente en cualquier chat, si lo hay */
+  limitHit: LimitHit | null
 }
 
 function listJsonl(dir: string, out: string[] = []): string[] {
@@ -111,7 +113,12 @@ export function scan(root = PROJECTS_DIR, useCache = true): ScanResult {
     for (const r of next[f].recs) if (!seen.has(r.id)) seen.set(r.id, r)
     if (!f.split(sep).includes('subagents')) sessions.set(basename(f, '.jsonl'), next[f].meta)
   }
-  const result = { recs: [...seen.values()], sessions }
+  let limitHit: LimitHit | null = null
+  for (const f of files) {
+    const h = next[f].meta.limitHit
+    if (h && (!limitHit || h.resetsAt >= limitHit.resetsAt)) limitHit = h
+  }
+  const result: ScanResult = { recs: [...seen.values()], sessions, limitHit }
   if (useCache) memo = { key, result }
   return result
 }

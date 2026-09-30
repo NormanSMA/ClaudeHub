@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ActiveList } from './Active'
+import { ActiveList, PlanLimits } from './Active'
 import {
   useApi,
   type ActiveReport,
@@ -58,6 +58,7 @@ function ActivosView() {
   if (!data) return <Loading error={error} />
   return (
     <>
+      <PlanLimits plan={data.plan} alertAt={data.alertAt} hint />
       <ActiveList chats={data.chats} alertAt={data.alertAt} />
       <p className="foot">
         * Limite de contexto estimado: los logs no lo declaran. Fijalo en la pestana Ajustes o activa la linea de estado de ClaudeHub para usar el valor real.
@@ -411,7 +412,7 @@ export function App() {
   const [theme, cycleTheme] = useTheme()
   const { data: live } = useApi<Live>('/api/live', 5_000)
   const { data: act } = useApi<ActiveReport>('/api/active', 5_000)
-  const worst = Math.max(0, ...(act?.chats ?? []).map((c) => c.context.pct))
+  const worst = Math.max(0, ...(act?.chats ?? []).map((c) => c.context.pct), (act?.plan?.blocked ? 1 : (act?.plan?.fiveHour?.pct ?? 0) / 100))
   const mood: MascotState = !act?.chats.length ? 'sleeping' : worst >= act.alertAt ? 'alert' : live?.working ? 'working' : 'happy'
   const q = rangeQuery(range, from, to)
   return (

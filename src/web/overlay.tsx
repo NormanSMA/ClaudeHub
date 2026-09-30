@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ActiveList } from './Active'
+import { ActiveList, PlanLimits } from './Active'
 import { useApi, type ActiveReport } from './api'
 import { compact } from './format'
 import { Mascot, type MascotState } from './Mascot'
@@ -27,7 +27,7 @@ function Overlay() {
 
   const chats = data?.chats ?? []
   const alertAt = data?.alertAt ?? 0.85
-  const worst = chats.reduce((m, c) => Math.max(m, c.context.pct), 0)
+  const worst = Math.max(chats.reduce((m, c) => Math.max(m, c.context.pct), 0), (data?.plan?.blocked ? 1 : (data?.plan?.fiveHour?.pct ?? 0) / 100))
   const mood: MascotState = !chats.length
     ? 'sleeping'
     : worst >= alertAt
@@ -83,6 +83,7 @@ function Overlay() {
             <strong>Chats activos</strong>
             <span>Hoy {compact(data?.todayTokens ?? 0)}</span>
           </header>
+          <PlanLimits plan={data?.plan ?? null} alertAt={alertAt} dense />
           <ActiveList chats={chats} alertAt={alertAt} dense />
           <footer>
             <button className="link" onClick={() => hub?.openDashboard()}>

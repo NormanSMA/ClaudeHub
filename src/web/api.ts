@@ -113,8 +113,22 @@ export interface ConfigInfo {
   demo: boolean
 }
 
+export interface PlanWindow {
+  pct: number
+  resetsAt: number
+  tokens: number
+}
+
+export interface PlanReport {
+  fiveHour: PlanWindow | null
+  sevenDay: PlanWindow | null
+  blocked: { type: string; resetsAt: number } | null
+  updatedAt: number
+}
+
 export interface ActiveReport {
   alertAt: number
   todayTokens: number
   chats: ActiveChat[]
+  plan: PlanReport | null
 }

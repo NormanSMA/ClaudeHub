@@ -106,11 +106,20 @@ function consume(text: string, info: FileInfo, byId: Map<string, Rec>, meta: Ses
     const isUsage = line.includes('"usage"')
     const isTitle = line.includes('"custom-title"')
     const isPrompt = line.includes('"last-prompt"')
-    if (!isUsage && !isTitle && !isPrompt) continue
+    const isQuota = line.includes('"quotaLimits"')
+    if (!isUsage && !isTitle && !isPrompt && !isQuota) continue
     let o: any
     try {
       o = JSON.parse(line)
     } catch {
+      continue
+    }
+    // limite del plan alcanzado (error 429): se guarda el ultimo con su hora de reinicio
+    const q = o.quotaLimits
+    if (q && typeof q.resetsAt === 'number' && typeof q.rateLimitType === 'string') {
+      const ts = Date.parse(o.timestamp)
+      const hit = { ts: Number.isNaN(ts) ? 0 : ts, resetsAt: q.resetsAt * 1000, type: q.rateLimitType, status: String(q.status ?? '') }
+      if (!meta.limitHit || hit.resetsAt >= meta.limitHit.resetsAt) meta.limitHit = hit
       continue
     }
     if (o.type === 'custom-title' && typeof o.customTitle === 'string') {

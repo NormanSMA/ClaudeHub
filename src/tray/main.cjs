@@ -221,11 +221,52 @@ function tokensText(m) {
   return m >= 1e9 ? (m / 1e9).toFixed(2) + 'B' : m >= 1e6 ? (m / 1e6).toFixed(1) + 'M' : m >= 1e3 ? Math.round(m / 1e3) + 'k' : String(m)
 }
 
+// Una alerta por ventana del plan: la clave incluye la hora de reinicio, asi vuelve a avisar en la siguiente ventana.
+const alertedPlan = new Set()
+
+function untilText(resetsAt) {
+  const min = Math.max(0, Math.round((resetsAt - Date.now()) / 60000))
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60)
+  return h < 24 ? `${h} h ${min % 60} min` : `${Math.floor(h / 24)} d ${h % 24} h`
+}
+
+function alertPlan(plan, alertAt) {
+  if (!plan) return
+  if (plan.blocked) {
+    const id = `blocked-${plan.blocked.resetsAt}`
+    if (!alertedPlan.has(id)) {
+      alertedPlan.add(id)
+      const name = plan.blocked.type === 'five_hour' ? 'de 5 horas' : plan.blocked.type === 'seven_day' ? 'semanal' : 'del plan'
+      new Notification({ title: `Llegaste a tu limite ${name}`, body: `Se restablece en ${untilText(plan.blocked.resetsAt)}.`, silent: true }).show()
+    }
+  }
+  for (const [key, w, name] of [
+    ['5h', plan.fiveHour, 'limite de 5 horas'],
+    ['7d', plan.sevenDay, 'limite semanal'],
+  ]) {
+    if (!w) continue
+    const id = `${key}-${w.resetsAt}`
+    if (w.pct / 100 >= alertAt && !alertedPlan.has(id)) {
+      alertedPlan.add(id)
+      new Notification({
+        title: `Tu ${name} va al ${Math.round(w.pct)}%`,
+        body: `Se restablece en ${untilText(w.resetsAt)}.`,
+        silent: true,
+      }).show()
+    }
+  }
+  // evita que el conjunto crezca sin limite
+  if (alertedPlan.size > 50) alertedPlan.clear()
+}
+
 async function poll() {
   try {
-    const { chats, alertAt, todayTokens } = await getJson('/api/active')
+    const { chats, alertAt, todayTokens, plan } = await getJson('/api/active')
     const working = chats.some((c) => c.working)
-    tray.setToolTip(`ClaudeHub - hoy ${tokensText(todayTokens)} tokens, ${chats.length} chats activos${working ? ' (trabajando)' : ''}`)
+    const limit5 = plan && plan.fiveHour ? `, limite de 5 h al ${Math.round(plan.fiveHour.pct)}%` : ''
+    tray.setToolTip(`ClaudeHub - hoy ${tokensText(todayTokens)} tokens, ${chats.length} chats activos${limit5}${working ? ' (trabajando)' : ''}`)
+    alertPlan(plan, alertAt)
     const live = new Set(chats.map((c) => c.session))
     for (const s of [...alerted]) if (!live.has(s)) alerted.delete(s)
     for (const c of chats) {
