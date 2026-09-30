@@ -5,15 +5,22 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { scan } from '../core/scan'
 import { demoData } from '../core/demo'
-import { config } from '../core/config'
+import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
+import { modelName } from '../core/models'
 import { summary, modelsReport, rolesReport, sessionsReport, projectsReport, live, activeReport } from '../core/aggregate'
 import type { Range } from '../core/types'
 import type { ScanResult } from '../core/scan'
 
 const DEMO = process.env.CLAUDEHUB_DEMO === '1'
+if (DEMO) useDefaultsOnly() // el demo nunca lee ni muestra tu configuracion
 const PORT = Number(process.env.PORT ?? (DEMO ? 4318 : 4317))
 const HOST = '127.0.0.1'
-const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist')
+// Carpeta de la interfaz compilada. En el paquete de Electron la fija CLAUDEHUB_DIST;
+// con el servidor empaquetado (dist-server/server.cjs) esta al lado; desde el codigo fuente, dos niveles arriba.
+const DIST = resolve(
+  process.env.CLAUDEHUB_DIST ??
+    (typeof __dirname !== 'undefined' ? join(__dirname, '..', 'dist') : join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist')),
+)
 
 let cached: { at: number; data: ScanResult } | null = null
 function data(): ScanResult {
@@ -64,13 +71,50 @@ app.get('/api/roles', (c) => c.json(rolesReport(records(), rangeOf((k) => c.req.
 app.get('/api/sessions', (c) => c.json(sessionsReport(records(), data().sessions, rangeOf((k) => c.req.query(k)))))
 app.get('/api/projects', (c) => c.json(projectsReport(records(), rangeOf((k) => c.req.query(k)))))
 app.get('/api/config', (c) => c.json({ name: DEMO ? '' : config().name, demo: DEMO }))
+
+// Ajustes: lectura y escritura de config.json desde el dashboard.
+app.get('/api/settings', (c) =>
+  c.json({
+    config: config(),
+    path: DEMO ? '(modo demo: no se guarda)' : configPath(),
+    demo: DEMO,
+    models: [...new Set(records().map((r) => modelName(r.model)))].sort((a, b) => a.localeCompare(b, 'es')),
+  }),
+)
+app.put('/api/settings', async (c) => {
+  if (DEMO) return c.json({ error: 'El modo demo no guarda cambios.' }, 403)
+  // defensa contra CSRF: origen propio, JSON obligatorio (obliga a un preflight que no se concede) y cuerpo pequeno
+  const origin = c.req.header('origin')
+  if (origin) {
+    let ok = false
+    try {
+      ok = HOST_OK.test(new URL(origin).host)
+    } catch {
+      /* origen invalido */
+    }
+    if (!ok) return c.json({ error: 'Origen no permitido.' }, 403)
+  }
+  if (!(c.req.header('content-type') ?? '').toLowerCase().startsWith('application/json')) {
+    return c.json({ error: 'Se requiere application/json.' }, 415)
+  }
+  if (Number(c.req.header('content-length') ?? 0) > 20_000) return c.json({ error: 'Cuerpo demasiado grande.' }, 413)
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'JSON invalido.' }, 400)
+  }
+  const saved = saveConfig(body)
+  reports.clear()
+  return c.json({ config: saved })
+})
 app.get('/api/live', (c) => c.json(once('live', () => live(records()))))
 app.get('/api/active', (c) =>
   c.json(
     once('active', () => ({
       alertAt: config().alertAt,
       todayTokens: live(records()).todayTokens,
-      chats: activeReport(records(), data().sessions),
+      chats: activeReport(records(), data().sessions, Date.now(), undefined, DEMO ? {} : undefined),
     })),
   ),
 )

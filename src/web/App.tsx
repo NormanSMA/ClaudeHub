@@ -14,9 +14,10 @@ import {
 import { Heatmap, PALETTE, SplitBar, StackedBars, fillDays } from './charts'
 import { compact, dateLabel, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './Mascot'
+import { SettingsView } from './Settings'
 import { useSort } from './sort'
 
-type Tab = 'activos' | 'resumen' | 'modelos' | 'roles' | 'sesiones' | 'proyectos'
+type Tab = 'activos' | 'resumen' | 'modelos' | 'roles' | 'sesiones' | 'proyectos' | 'ajustes'
 type RangeId = 'all' | '30d' | '7d' | 'custom'
 
 const TABS: { id: Tab; label: string }[] = [
@@ -26,6 +27,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'roles', label: 'Orquestador vs Subagentes' },
   { id: 'sesiones', label: 'Sesiones' },
   { id: 'proyectos', label: 'Proyectos' },
+  { id: 'ajustes', label: 'Ajustes' },
 ]
 
 const RANGES: { id: RangeId; label: string }[] = [
@@ -37,7 +39,6 @@ const RANGES: { id: RangeId; label: string }[] = [
 
 // ~38.9k tokens, la longitud aproximada de "Rebelion en la granja"
 const BOOK_TOKENS = 38_918
-const CONFIG_PATH = '%APPDATA%\\ClaudeHub\\config.json'
 
 function Loading({ error }: { error: string | null }) {
   return <div className="empty">{error ? `No se pudo cargar (${error}). Esta corriendo el servidor?` : 'Leyendo tus logs...'}</div>
@@ -59,7 +60,7 @@ function ActivosView() {
     <>
       <ActiveList chats={data.chats} alertAt={data.alertAt} />
       <p className="foot">
-        * Limite de contexto estimado: los logs no lo declaran. Corrigelo en {CONFIG_PATH} con contextLimits.
+        * Limite de contexto estimado: los logs no lo declaran. Fijalo en la pestana Ajustes o activa la linea de estado de ClaudeHub para usar el valor real.
       </p>
     </>
   )
@@ -435,7 +436,7 @@ export function App() {
               </button>
             ))}
           </nav>
-          {tab !== 'activos' && (
+          {tab !== 'activos' && tab !== 'ajustes' && (
             <div className="tabs ranges" aria-label="Rango">
               {RANGES.map((r) => (
                 <button key={r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
@@ -445,7 +446,7 @@ export function App() {
             </div>
           )}
         </div>
-        {tab !== 'activos' && range === 'custom' && (
+        {tab !== 'activos' && tab !== 'ajustes' && range === 'custom' && (
           <div className="dates">
             <label htmlFor="d-from">Desde</label>
             <input id="d-from" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
@@ -470,6 +471,7 @@ export function App() {
         {tab === 'roles' && <RolesView q={q} />}
         {tab === 'sesiones' && <SesionesView q={q} />}
         {tab === 'proyectos' && <ProyectosView q={q} />}
+        {tab === 'ajustes' && <SettingsView />}
       </section>
     </main>
   )

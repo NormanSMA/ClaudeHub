@@ -2,11 +2,12 @@ import { readdirSync, statSync, readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, dirname, basename, sep } from 'node:path'
 import { homedir } from 'node:os'
+import { dataDir } from './paths'
 import { parseFile } from './parse'
 import type { Rec, SessionMeta } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
-const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(process.env.APPDATA ?? homedir(), 'ClaudeHub', 'cache.json')
+const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
 const CACHE_VERSION = 4
 const SAVE_EVERY_MS = 60_000
 

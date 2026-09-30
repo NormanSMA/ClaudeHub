@@ -1,5 +1,6 @@
 import { config } from './config'
 import { modelName } from './models'
+import { recordedWindows } from './windows'
 import { total, type Range, type Rec, type SessionMeta } from './types'
 
 export type Metas = Map<string, SessionMeta>
@@ -12,10 +13,14 @@ export function sessionTitle(meta: SessionMeta | undefined): string {
 }
 
 /** Ventana de contexto. Los logs no la declaran: config.json manda; si no, sobre 200k se asume 1M. */
-export function contextLimit(peak: number, model = ''): { limit: number; estimated: boolean } {
+export function contextLimit(peak: number, model = '', recorded?: number): { limit: number; estimated: boolean; source: string } {
+  // 1) tamano real registrado por la linea de estado de Claude Code
+  if (recorded) return { limit: recorded, estimated: false, source: 'statusline' }
+  // 2) limite fijado a mano en config.json
   const fixed = config().contextLimits[model]
-  if (fixed) return { limit: fixed, estimated: false }
-  return { limit: peak > 200_000 ? 1_000_000 : 200_000, estimated: true }
+  if (fixed) return { limit: fixed, estimated: false, source: 'config' }
+  // 3) estimacion por el mayor contexto visto en el chat
+  return { limit: peak > 200_000 ? 1_000_000 : 200_000, estimated: true, source: 'estimate' }
 }
 
 const DAY_MS = 86_400_000
@@ -205,7 +210,13 @@ const WORKING_MS = 60_000
 const SUBAGENT_LIVE_MS = 2 * 60_000
 
 /** Chats con actividad reciente, con su uso de ventana de contexto. */
-export function activeReport(all: Rec[], metas: Metas, now = Date.now(), windowMs = config().activeMinutes * 60_000) {
+export function activeReport(
+  all: Rec[],
+  metas: Metas,
+  now = Date.now(),
+  windowMs = config().activeMinutes * 60_000,
+  windows: Record<string, { size: number }> = recordedWindows(),
+) {
   const by = new Map<
     string,
     { last: Rec | null; peak: number; project: string; orch: number; sub: number; lastTs: number; subs: Map<string, number> }
@@ -230,7 +241,7 @@ export function activeReport(all: Rec[], metas: Metas, now = Date.now(), windowM
     if (now - s.lastTs > windowMs || !s.last) continue
     const used = s.last.input + s.last.cacheWrite + s.last.cacheRead
     const modelLabel = modelName(s.last.model)
-    const { limit, estimated } = contextLimit(s.peak, modelLabel)
+    const { limit, estimated, source } = contextLimit(s.peak, modelLabel, windows[session]?.size)
     const meta = metas.get(session)
     out.push({
       session,
@@ -240,7 +251,7 @@ export function activeReport(all: Rec[], metas: Metas, now = Date.now(), windowM
       model: modelLabel,
       lastTs: s.lastTs,
       working: now - s.lastTs < WORKING_MS,
-      context: { used, limit, estimated, pct: Math.min(1, used / limit) },
+      context: { used, limit, estimated, source, pct: Math.min(1, used / limit) },
       tokens: { orchestrator: s.orch, subagents: s.sub, total: s.orch + s.sub },
       activeSubagents: [...s.subs.values()].filter((t) => now - t < SUBAGENT_LIVE_MS).length,
     })

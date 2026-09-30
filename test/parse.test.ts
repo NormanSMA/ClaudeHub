@@ -80,7 +80,7 @@ describe('parser', () => {
 
   it('el modo demo arma tres chats activos con contexto verde, ambar y rojo', () => {
     const { recs, sessions } = demoData(Date.now())
-    const active = activeReport(recs, sessions)
+    const active = activeReport(recs, sessions, Date.now(), undefined, {})
     expect(active).toHaveLength(3)
     const pct = active.map((a) => Math.round(a.context.pct * 100)).sort((a, b) => a - b)
     expect(pct).toEqual([31, 66, 94])

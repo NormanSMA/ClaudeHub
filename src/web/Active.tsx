@@ -10,7 +10,9 @@ export function ContextBar({ chat, alertAt = 0.85 }: { chat: ActiveChat; alertAt
   return (
     <div
       className="ctx"
-      title={`Contexto en uso: ${c.used.toLocaleString('es-MX')} de ${c.limit.toLocaleString('es-MX')} tokens${c.estimated ? ' (limite estimado)' : ''}`}
+      title={`Contexto en uso: ${c.used.toLocaleString('es-MX')} de ${c.limit.toLocaleString('es-MX')} tokens (${
+        c.source === 'statusline' ? 'limite real, de la linea de estado' : c.source === 'config' ? 'limite fijado en Ajustes' : 'limite estimado'
+      })`}
     >
       <div className="ctx-track">
         <i style={{ width: `${Math.max(2, c.pct * 100)}%`, background: ctxColor(c.pct, alertAt) }} />

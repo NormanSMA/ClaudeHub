@@ -8,6 +8,7 @@ export function projectFromDir(dir: string): string {
     .replace(/--claude-worktrees-.*$/, '')
     .replace(/^.*AppData-Roaming-Claude-scratch.*$/, 'scratch')
     .replace(/^[A-Za-z]--(Users-[^-]+-)?/, '')
+    .replace(/^-(?:home|Users)-[^-]+-/, '') // macOS y Linux: "-home-ada-mi-app"
     .replace(/^(Proyectos|Projects|Documentos|Documents|dev|repos|src|code)-/i, '')
   return name || dir
 }

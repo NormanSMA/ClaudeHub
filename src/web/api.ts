@@ -96,9 +96,16 @@ export interface ActiveChat {
   model: string
   lastTs: number
   working: boolean
-  context: { used: number; limit: number; estimated: boolean; pct: number }
+  context: { used: number; limit: number; estimated: boolean; source: 'statusline' | 'config' | 'estimate'; pct: number }
   tokens: { orchestrator: number; subagents: number; total: number }
   activeSubagents: number
+}
+
+export interface SettingsInfo {
+  config: { name: string; alertAt: number; activeMinutes: number; contextLimits: Record<string, number> }
+  path: string
+  demo: boolean
+  models: string[]
 }
 
 export interface ConfigInfo {
