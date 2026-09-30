@@ -4,7 +4,7 @@ ClaudeHub es un monitor local de tokens de Claude Code. Este archivo explica có
 
 ## Instalar
 
-Requisitos: Windows 11, Node.js 26 o superior, pnpm 11.
+Requisitos: Node.js 24 o superior y pnpm 11. Funciona en Windows, macOS y Linux. La bandeja y la mascota flotante solo están probadas en Windows 11.
 
 ```bash
 git clone https://github.com/NormanSMA/ClaudeHub.git
@@ -15,6 +15,8 @@ pnpm build
 
 Verifica con `node -v` y `pnpm -v` antes de instalar. Usa pnpm, no npm ni yarn.
 
+En Windows también hay un instalador `.exe` en la página de Releases. No necesita Node ni pnpm.
+
 ## Ejecutar
 
 | Objetivo | Comando | Dirección |
@@ -23,7 +25,7 @@ Verifica con `node -v` y `pnpm -v` antes de instalar. Usa pnpm, no npm ni yarn.
 | Dashboard con datos reales | `pnpm start` | `http://127.0.0.1:4317` |
 | Bandeja y mascota flotante | `pnpm tray` | abre ventanas en el escritorio |
 
-Empieza siempre con `pnpm demo`. No lee ningún archivo del usuario.
+Empieza siempre con `pnpm demo`. No lee ningún archivo del usuario ni su configuración.
 
 ## Consultar los datos
 
@@ -43,12 +45,13 @@ curl "http://127.0.0.1:4317/api/active"
 | `/api/projects` | Qué proyectos gastaron más. |
 | `/api/active` | Qué chats están activos y cuánta ventana de contexto usan. |
 | `/api/live` | Tokens de hoy y última actividad. |
+| `/api/settings` | Configuración actual. `PUT` la guarda (solo `application/json`). |
 
 Filtra con `?range=all|30d|7d` o con `?from=AAAA-MM-DD&to=AAAA-MM-DD`.
 
 `total` de tokens = entrada + escritura de caché + lectura de caché + salida. La lectura de caché suele ser más de 90% del total.
 
-En `/api/active`, `context.estimated: true` indica que el límite de la ventana es una estimación.
+En `/api/active`, `context.source` indica el origen del límite de la ventana: `statusline` (real), `config` (fijado por el usuario) o `estimate` (estimado, con `estimated: true`).
 
 ## Abrir ClaudeHub al iniciar Claude Code
 
@@ -72,9 +75,24 @@ Agrega un hook `SessionStart` en `~/.claude/settings.json`. Conserva los hooks q
 
 Reemplaza `<ruta>` por la carpeta donde clonaste el proyecto. El lanzador no imprime nada y no duplica la bandeja.
 
+## Límite de contexto real
+
+Por defecto el límite de la ventana es una estimación. Para usar el valor real, pide confirmación y agrega la línea de estado en `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node \"<ruta>\\ClaudeHub\\scripts\\statusline.cjs\""
+  }
+}
+```
+
+Si el usuario ya tiene un `statusLine`, no lo reemplaces: pregúntale cómo combinarlos. El script guarda `context_window.context_window_size` de cada sesión en `context-windows.json` dentro de la carpeta de datos de ClaudeHub.
+
 ## Configuración opcional
 
-Archivo `%APPDATA%\ClaudeHub\config.json`:
+Archivo `config.json` en la carpeta de datos de ClaudeHub (Windows `%APPDATA%\ClaudeHub`, macOS `~/Library/Application Support/ClaudeHub`, Linux `~/.config/ClaudeHub`). También se edita en la pestaña **Ajustes** del dashboard.
 
 ```json
 { "name": "Ada", "contextLimits": { "Opus 5": 1000000 }, "activeMinutes": 20, "alertAt": 0.85 }
@@ -84,6 +102,9 @@ Archivo `%APPDATA%\ClaudeHub\config.json`:
 
 - Usa pnpm. Mantén `packageManager` en `package.json`.
 - No uses emojis en código ni comentarios.
-- Ejecuta `pnpm test` y `npx tsc --noEmit` antes de entregar cambios.
+- Ejecuta `pnpm test`, `npx tsc --noEmit` y `pnpm build` antes de entregar cambios.
 - No guardes ni muestres el texto de las respuestas de Claude. Solo campos de uso.
 - El servidor escucha solo en `127.0.0.1`. No cambies eso.
+- Las capturas de pantalla salen siempre de `pnpm demo`, nunca de datos reales.
+- Al escribir expresiones regulares con barras invertidas dentro de scripts de shell, verifica el resultado: es fácil perder una `\`.
+- Lee [CONTRIBUTING.md](CONTRIBUTING.md) y [SECURITY.md](SECURITY.md).
