@@ -1,13 +1,19 @@
-// ClaudeHub en Windows: bandeja, mascota flotante y alertas de contexto.
+// ClaudeHub (Windows, macOS y Linux): bandeja, mascota flotante y alertas de contexto.
 // Arranca el servidor local si no esta activo.
 const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, shell, screen, ipcMain, utilityProcess } = require('electron')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
+
+const IS_MAC = process.platform === 'darwin'
+const IS_LINUX = process.platform === 'linux'
+const SMOKE = process.env.CLAUDEHUB_SMOKE === '1'
 
 const ROOT = path.resolve(__dirname, '../..')
 const URL = 'http://127.0.0.1:4317'
-const DATA_DIR = path.join(process.env.APPDATA || app.getPath('appData'), 'ClaudeHub')
+// app.getPath('appData') es %APPDATA% en Windows, ~/Library/Application Support en macOS y ~/.config en Linux
+const DATA_DIR = process.env.CLAUDEHUB_DATA || path.join(app.getPath('appData'), 'ClaudeHub')
 const PID_FILE = path.join(DATA_DIR, 'tray.pid')
 const SETUP_FILE = path.join(DATA_DIR, 'setup.json')
 const POS_FILE = path.join(DATA_DIR, 'overlay-pos.json')
@@ -51,7 +57,8 @@ function trayIcon() {
         }
     }),
   )
-  return nativeImage.createFromBitmap(buf, { width: size, height: size })
+  // en macOS la barra de menu usa iconos de 16 puntos: 32 px a escala 2
+  return nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: IS_MAC ? 2 : 1 })
 }
 
 async function getJson(p) {
@@ -71,6 +78,43 @@ async function serverUp() {
 
 // instalado: el ejecutable ya sabe donde esta la app; desde el codigo fuente hay que pasar la carpeta del proyecto
 const loginArgs = () => (app.isPackaged ? [] : [ROOT])
+
+const AUTOSTART_FILE = path.join(os.homedir(), '.config', 'autostart', 'claudehub.desktop')
+
+/** Inicio automatico. Windows y macOS usan el del sistema; Linux no lo tiene y usa un .desktop de autostart. */
+function autostartEnabled() {
+  return IS_LINUX ? fs.existsSync(AUTOSTART_FILE) : app.getLoginItemSettings().openAtLogin
+}
+
+function setAutostart(on) {
+  if (!IS_LINUX) {
+    app.setLoginItemSettings({ openAtLogin: on, args: loginArgs() })
+    return
+  }
+  if (!on) {
+    try {
+      fs.unlinkSync(AUTOSTART_FILE)
+    } catch {
+      /* ya no existe */
+    }
+    return
+  }
+  const quote = (s) => `"${s.replace(/"/g, '\\"')}"`
+  const exe = process.env.APPIMAGE || process.execPath
+  fs.mkdirSync(path.dirname(AUTOSTART_FILE), { recursive: true })
+  fs.writeFileSync(
+    AUTOSTART_FILE,
+    [
+      '[Desktop Entry]',
+      'Type=Application',
+      'Name=ClaudeHub',
+      'Comment=Monitor local de tokens de Claude Code',
+      `Exec=${[exe, ...loginArgs(), '--background'].map(quote).join(' ')}`,
+      'X-GNOME-Autostart-enabled=true',
+      '',
+    ].join('\n'),
+  )
+}
 
 let server = null
 async function ensureServer() {
@@ -93,6 +137,8 @@ async function ensureServer() {
 let tray = null
 let win = null
 let overlay = null
+// true mientras la app se cierra: evita reabrir la mascota al cerrarse las ventanas (eso cancelaba la salida)
+let quitting = false
 
 /* ---------- ventana del dashboard ---------- */
 let overlayBeforeDashboard = false
@@ -117,7 +163,7 @@ function showDashboard() {
     win.on('closed', () => {
       win = null
       // la mascota vuelve solo si estaba visible antes de abrir el dashboard
-      if (overlayBeforeDashboard) showOverlay()
+      if (overlayBeforeDashboard && !quitting) showOverlay()
     })
     return
   }
@@ -307,10 +353,10 @@ function refreshMenu() {
       },
       { type: 'separator' },
       {
-        label: 'Iniciar con Windows',
+        label: 'Iniciar con el sistema',
         type: 'checkbox',
-        checked: app.getLoginItemSettings().openAtLogin,
-        click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: loginArgs() }),
+        checked: autostartEnabled(),
+        click: (item) => setAutostart(item.checked),
       },
       { type: 'separator' },
       { label: 'Salir', click: () => app.quit() },
@@ -329,11 +375,48 @@ app.on('second-instance', (e, argv) => {
 })
 app.on('window-all-closed', (e) => e.preventDefault())
 
+/** Prueba de humo (CI): arranca todo, abre el dashboard y comprueba que las ventanas se ven. Sale con 0 si todo esta bien. */
+async function runSmoke() {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  const result = { platform: process.platform, arch: process.arch, electron: process.versions.electron }
+  try {
+    result.server = await serverUp()
+    result.sessions = (await getJson('/api/summary?range=all')).sessions
+    await wait(2000)
+    result.trayCreated = !!tray && !tray.isDestroyed()
+    result.overlayVisible = !!overlay && overlay.isVisible()
+    showDashboard()
+    await wait(5000)
+    result.dashboardVisible = !!win && win.isVisible()
+    result.overlayHiddenAfter = !!overlay && !overlay.isVisible()
+  } catch (e) {
+    result.error = String(e && e.message ? e.message : e)
+  }
+  result.ok = !!(result.server && result.sessions >= 0 && result.trayCreated && result.overlayVisible && result.dashboardVisible && result.overlayHiddenAfter)
+  const out = process.env.CLAUDEHUB_SMOKE_OUT || path.join(DATA_DIR, 'smoke.json')
+  try {
+    fs.writeFileSync(out, JSON.stringify(result, null, 2))
+  } catch {
+    /* sin carpeta de salida */
+  }
+  console.log('SMOKE_RESULT ' + JSON.stringify(result))
+  if (!result.ok) {
+    quitting = true
+    app.exit(1)
+    return
+  }
+  // Cierre por la ruta real de "Salir", con el dashboard abierto. Si algo bloquea la salida, termina con codigo 99.
+  setTimeout(() => process.exit(99), 10000).unref()
+  app.quit()
+}
+
 app.whenReady().then(async () => {
+  // app de barra de menu: sin icono en el Dock de macOS
+  if (IS_MAC && app.dock) app.dock.hide()
   fs.mkdirSync(DATA_DIR, { recursive: true })
   fs.writeFileSync(PID_FILE, String(process.pid))
-  if (!fs.existsSync(SETUP_FILE)) {
-    app.setLoginItemSettings({ openAtLogin: true, args: loginArgs() })
+  if (!SMOKE && !fs.existsSync(SETUP_FILE)) {
+    setAutostart(true)
     fs.writeFileSync(SETUP_FILE, JSON.stringify({ loginItem: true }))
   }
   await ensureServer()
@@ -344,9 +427,11 @@ app.whenReady().then(async () => {
   if (!win) showOverlay()
   poll()
   setInterval(poll, 8_000)
+  if (SMOKE) runSmoke()
 })
 
 app.on('before-quit', () => {
+  quitting = true
   if (server) server.kill()
   try {
     fs.unlinkSync(PID_FILE)

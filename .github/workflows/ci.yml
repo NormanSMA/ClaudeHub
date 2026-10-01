@@ -52,3 +52,54 @@ jobs:
           echo
           curl -fsS -o /dev/null -w "pagina: %{http_code}\n" http://127.0.0.1:4399/
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example.com' http://127.0.0.1:4399/api/active)" = "403"
+
+  # Arranca la aplicacion de escritorio completa (bandeja, mascota y dashboard) con datos de la demo
+  # y comprueba que las ventanas se ven y que "Salir" cierra todo.
+  electron:
+    name: electron ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Dependencias de Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb dbus-x11
+          sudo apt-get install -y libgbm1 libnss3 libnotify4 libxss1 libxtst6 || true
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:app
+
+      - name: Prueba de humo de Electron
+        shell: bash
+        env:
+          CLAUDEHUB_SMOKE: '1'
+          CLAUDEHUB_DEMO: '1'
+          PORT: '4317'
+          CLAUDEHUB_DATA: ${{ runner.temp }}/chdata
+          CLAUDEHUB_SMOKE_OUT: ${{ runner.temp }}/smoke.json
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a -s "-screen 0 1280x800x24" pnpm exec electron . --no-sandbox
+          else
+            pnpm exec electron .
+          fi
+          code=$?
+          echo "codigo de salida: $code"
+          cat "$CLAUDEHUB_SMOKE_OUT"
+          node -e "const r=require(process.env.CLAUDEHUB_SMOKE_OUT); if(!r.ok){console.error('La prueba de humo fallo'); process.exit(1)}"
+          exit $code
