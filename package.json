@@ -1,7 +1,7 @@
 {
   "name": "claudehub",
   "version": "0.3.0",
-  "description": "Monitor local de tokens de Claude Code: dashboard, mascota flotante y alertas de contexto para Windows.",
+  "description": "Monitor local de tokens de Claude Code: dashboard, mascota flotante y alertas de contexto para Windows, macOS y Linux.",
   "author": "Norman Smith Martínez Acevedo",
   "license": "MIT",
   "repository": {
@@ -20,7 +20,10 @@
     "dashboard",
     "electron",
     "windows",
-    "context-window"
+    "context-window",
+    "macos",
+    "linux",
+    "cross-platform"
   ],
   "private": true,
   "type": "module",

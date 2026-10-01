@@ -5,7 +5,7 @@
 # ClaudeHub
 
 **See where your Claude Code tokens go.**
-A local monitor: web dashboard, floating mascot on desktop, and context alerts.
+A local monitor for Windows, macOS, and Linux: web dashboard, floating mascot on desktop, and context alerts.
 
 [Español](README.md) · **English** · [Português](README.pt-BR.md)
 
@@ -146,11 +146,15 @@ Touch it to open the active chats panel. If you open the dashboard from there, t
 
 ### Platforms
 
-| System | Dashboard, demo, and API | Tray and mascot |
+| System | Dashboard, demo, and API | Tray, mascot, and alerts |
 |---|---|---|
-| Windows 11 | Tested | Tested |
-| Linux | Tested (Debian, Node 24, in Docker and in CI) | Not tested |
-| macOS | Tested in CI | Not tested |
+| Windows 11 | Tested | Tested (daily use) |
+| macOS | Tested in CI | Tested in CI (startup, windows, and quit) |
+| Linux | Tested in CI and in Docker | Tested in CI and in Docker with a virtual display |
+
+The macOS and Linux tests are automatic: CI starts the full application, opens the dashboard, checks that the mascot and the dashboard are visible, and closes through **Quit**. They do not replace a manual test on your desktop. On Linux the tray icon depends on the desktop (GNOME needs the AppIndicator extension) and notifications need a notification service.
+
+The `.exe` installer is Windows only. On macOS and Linux, use it from the source code (`pnpm tray`).
 
 ### Option A: Windows installer
 
@@ -191,7 +195,7 @@ Repository: https://github.com/NormanSMA/ClaudeHub
 4. Run `pnpm test` and confirm they pass.
 5. Try demo mode with `pnpm demo` and open http://127.0.0.1:4318. It uses fictional data. When done, stop the process.
 6. Run `pnpm start` and check that http://127.0.0.1:4317/api/summary?range=7d returns JSON with my tokens.
-7. If I'm on Windows, run `pnpm tray` to open the tray and floating mascot.
+7. Run `pnpm tray` to open the tray and floating mascot.
 8. Ask me before editing ~/.claude/settings.json. If I agree, add the SessionStart hook and the status line from the "Open on Claude Code startup" and "Real context limit" sections of the README, with the real project paths, without removing my current settings.
 9. When done, tell me my tokens from the last 7 days and what chats are active, using /api/summary and /api/active.
 
@@ -239,6 +243,8 @@ From source:
   }
 }
 ```
+
+On macOS and Linux the path uses regular slashes, for example `node "/home/ada/ClaudeHub/scripts/launch.cjs"`.
 
 With the Windows installer, point to the executable:
 
@@ -502,12 +508,12 @@ CI runs those three checks on Linux, Windows, and macOS.
 - Chrome extension that reads the local server.
 - Public online demo with fictional data.
 - Docker image with `~/.claude` mounted read-only.
-- Test the tray and mascot on macOS and Linux.
+- Installers for macOS (`.dmg`) and Linux (`.AppImage` and `.deb`).
 - Code sign the Windows installer.
 
 ## Known limitations
 
-- Tray and mascot are only tested on Windows 11.
+- Tray and mascot are tested automatically on macOS and Linux, but only used daily on Windows 11. On Linux the tray icon depends on the desktop.
 - Without the status line, the context limit is an estimate.
 - The installer is not signed.
 - Daylight saving time can shift the start of 7 and 30-day ranges by one hour in zones that use it.

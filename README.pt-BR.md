@@ -5,7 +5,7 @@
 # ClaudeHub
 
 **Veja para onde seus tokens do Claude Code vão.**
-Um monitor local: dashboard web, mascote flutuante na área de trabalho e alertas de contexto.
+Um monitor local para Windows, macOS e Linux: dashboard web, mascote flutuante na área de trabalho e alertas de contexto.
 
 [Español](README.md) · [English](README.en.md) · **Português**
 
@@ -146,11 +146,15 @@ Toque nele para abrir o painel de chats ativos. Se abrir o dashboard a partir da
 
 ### Plataformas
 
-| Sistema | Dashboard, demo e API | Bandeja e mascote |
+| Sistema | Dashboard, demo e API | Bandeja, mascote e alertas |
 |---|---|---|
-| Windows 11 | Testado | Testado |
-| Linux | Testado (Debian, Node 24, em Docker e em CI) | Não testado |
-| macOS | Testado em CI | Não testado |
+| Windows 11 | Testado | Testado (uso diário) |
+| macOS | Testado em CI | Testado em CI (inicialização, janelas e saída) |
+| Linux | Testado em CI e em Docker | Testado em CI e em Docker com tela virtual |
+
+Os testes de macOS e Linux são automáticos: o CI inicia o aplicativo completo, abre o dashboard, verifica que o mascote e o dashboard estão visíveis e fecha por **Sair**. Eles não substituem um teste manual na sua área de trabalho. No Linux o ícone da bandeja depende do ambiente de desktop (o GNOME precisa da extensão AppIndicator) e as notificações precisam de um serviço de notificações.
+
+O instalador `.exe` é só para Windows. No macOS e no Linux, use-o a partir do código (`pnpm tray`).
 
 ### Opção A: instalador do Windows
 
@@ -191,7 +195,7 @@ Repositório: https://github.com/NormanSMA/ClaudeHub
 4. Execute `pnpm test` e confirme que passam.
 5. Experimente o modo demo com `pnpm demo` e abra http://127.0.0.1:4318. Usa dados fictícios. Quando terminar, pare o processo.
 6. Execute `pnpm start` e verifique se http://127.0.0.1:4317/api/summary?range=7d retorna JSON com meus tokens.
-7. Se estou no Windows, execute `pnpm tray` para abrir a bandeja e o mascote flutuante.
+7. Execute `pnpm tray` para abrir a bandeja e o mascote flutuante.
 8. Pergunte-me antes de editar ~/.claude/settings.json. Se eu concordar, adicione o hook SessionStart e a linha de status das seções "Abrir ao iniciar Claude Code" e "Limite real de contexto" do README, com os caminhos reais do projeto, sem remover minhas configurações atuais.
 9. Quando terminar, diga-me meus tokens dos últimos 7 dias e quais chats estão ativos, usando /api/summary e /api/active.
 
@@ -239,6 +243,8 @@ A partir do código:
   }
 }
 ```
+
+No macOS e no Linux o caminho usa barras normais, por exemplo `node "/home/ada/ClaudeHub/scripts/launch.cjs"`.
 
 Com o instalador do Windows, aponte para o executável:
 
@@ -502,12 +508,12 @@ CI executa essas três verificações em Linux, Windows e macOS.
 - Extensão do Chrome que lê o servidor local.
 - Demo pública online com dados fictícios.
 - Imagem do Docker com `~/.claude` montada em leitura apenas.
-- Testar a bandeja e o mascote em macOS e Linux.
+- Instaladores para macOS (`.dmg`) e Linux (`.AppImage` e `.deb`).
 - Assinação de código do instalador do Windows.
 
 ## Limitações conhecidas
 
-- Bandeja e mascote são testadas apenas no Windows 11.
+- Bandeja e mascote são testados automaticamente no macOS e no Linux, mas só usados no dia a dia no Windows 11. No Linux o ícone da bandeja depende do ambiente de desktop.
 - Sem a linha de status, o limite de contexto é uma estimativa.
 - O instalador não está assinado.
 - A mudança de horário de verão pode deslocar o início dos intervalos de 7 e 30 dias por uma hora em zonas que a usam.

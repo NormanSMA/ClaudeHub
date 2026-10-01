@@ -4,7 +4,7 @@ ClaudeHub es un monitor local de tokens de Claude Code. Este archivo explica có
 
 ## Instalar
 
-Requisitos: Node.js 24 o superior y pnpm 11. Funciona en Windows, macOS y Linux. La bandeja y la mascota flotante solo están probadas en Windows 11.
+Requisitos: Node.js 24 o superior y pnpm 11. Funciona en Windows, macOS y Linux, incluida la bandeja con la mascota flotante: el CI arranca la app completa en los tres sistemas. El instalador `.exe` es solo para Windows; en macOS y Linux usa `pnpm tray` desde el código. En Linux el icono de la bandeja depende del escritorio.
 
 ```bash
 git clone https://github.com/NormanSMA/ClaudeHub.git
