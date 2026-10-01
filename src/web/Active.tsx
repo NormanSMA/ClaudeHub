@@ -101,7 +101,7 @@ export function PlanLimits({ plan, alertAt = 0.85, dense = false, hint = false }
   if (!plan) {
     return hint ? (
       <p className="plan-hint">
-        Limites del plan: activa la linea de estado de ClaudeHub para ver aqui tu limite de 5 horas y el semanal (solo planes Pro y Max).
+        Limites del plan: solo se leen cuando usas claude en una terminal con la linea de estado de ClaudeHub activa y la sesion iniciada (planes Pro y Max). La app de escritorio de Claude no la ejecuta. Si llegas a un limite, ClaudeHub te avisa igual.
       </p>
     ) : null
   }

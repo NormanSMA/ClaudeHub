@@ -92,6 +92,8 @@ Si el usuario ya tiene un `statusLine`, no lo reemplaces: pregúntale cómo comb
 
 Los límites del plan solo los envía Claude Code a suscriptores Pro y Max, y después de la primera respuesta de la sesión. El porcentaje incluye todo el uso del plan, no solo Claude Code.
 
+La app de escritorio de Claude no ejecuta `statusLine` (es una función de la terminal). Para obtener los porcentajes hay que usar `claude` en una terminal con la sesión iniciada (`/login`). Aun sin eso, `/api/active` devuelve `plan.blocked` cuando el usuario alcanzó un límite, leído de los registros.
+
 ## Configuración opcional
 
 Archivo `config.json` en la carpeta de datos de ClaudeHub (Windows `%APPDATA%\ClaudeHub`, macOS `~/Library/Application Support/ClaudeHub`, Linux `~/.config/ClaudeHub`). También se edita en la pestaña **Ajustes** del dashboard.

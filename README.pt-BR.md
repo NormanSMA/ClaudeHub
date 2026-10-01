@@ -319,7 +319,7 @@ Coisas que você deve saber:
 - Anthropic calcula o percentual e inclui todo o seu uso do plano, também web e apps. Os tokens do ClaudeHub contam apenas Claude Code nesta máquina, então os totais não correspondem.
 - Os dados são atualizados cada vez que Claude Code executa a linha de status, por exemplo ao enviar uma mensagem. Se passarem mais de 15 minutos sem atividade, ClaudeHub notifica você. Uma janela expirada se oculta.
 - Sem a linha de status, ClaudeHub não pode ler esses limites: eles não aparecem nos registros.
-- **O app de desktop do Claude não executa a linha de status**: é um recurso do terminal. Se você usa o Claude Code só pelo app de desktop, não verá os percentuais; o ClaudeHub não consegue lê-los em outro lugar. Funciona com `claude` em um terminal.
+- **O app de desktop do Claude não executa a linha de status**: é um recurso do terminal. Se você usa o Claude Code só pelo app de desktop, não verá os percentuais; o ClaudeHub não consegue lê-los em outro lugar. Para vê-los, use `claude` em um terminal com sua conta logada (`/login`). O percentual é de toda a sua conta, então uma mensagem no terminal atualiza o dado, que fica parado até a próxima mensagem no terminal.
 
 ### Aviso de limite atingido
 
