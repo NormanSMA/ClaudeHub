@@ -36,6 +36,15 @@ function Overlay() {
         ? 'working'
         : 'happy'
 
+  // al ocultarse la ventana (por ejemplo al abrir el dashboard) el panel se cierra: reaparece colapsada
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) setOpen(false)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   useEffect(() => {
     const el = root.current
     if (!el) return

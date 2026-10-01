@@ -13,8 +13,6 @@ const SETUP_FILE = path.join(DATA_DIR, 'setup.json')
 const POS_FILE = path.join(DATA_DIR, 'overlay-pos.json')
 
 app.setPath('userData', path.join(DATA_DIR, 'electron'))
-// un proceso menos: la interfaz es liviana y no necesita un proceso de GPU aparte
-app.commandLine.appendSwitch('in-process-gpu')
 
 // Misma cuadricula del personaje (14 x 12). o cuerpo, l mejilla, s chispa, e ojo.
 const GRID = [
@@ -101,8 +99,8 @@ let overlayBeforeDashboard = false
 
 function showDashboard() {
   if (!win) overlayBeforeDashboard = !!overlay && overlay.isVisible()
-  if (overlay) overlay.hide()
-  refreshMenu()
+  // La mascota NO se oculta aqui. Si se oculta primero, siendo la ventana activa por el clic,
+  // Windows deja sin mostrar el dashboard (queda con WS_VISIBLE apagado). Se oculta en placeDashboard, despues de mostrarlo.
   if (!win) {
     win = new BrowserWindow({
       width: 780,
@@ -133,6 +131,15 @@ function placeDashboard() {
   win.setPosition(workArea.x + Math.round((workArea.width - w) / 2), workArea.y + Math.round((workArea.height - h) / 2))
   win.show()
   win.focus()
+  // Si el proceso nacio con la orden "ocultar ventana" (un hook o lanzador con windowsHide), Windows ignora
+  // el primer show() de una ventana normal. Un segundo show() si la muestra.
+  if (!win.isVisible()) {
+    win.show()
+    win.focus()
+  }
+  // ahora si: con el dashboard ya visible y activo, la mascota se oculta sin quitarle el foco a nadie
+  if (overlay) overlay.hide()
+  refreshMenu()
 }
 
 /* ---------- mascota flotante ---------- */
