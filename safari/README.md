@@ -5,6 +5,10 @@ Extension de Safari que muestra los limites de tu plan y los chats activos de Cl
 - **Insignia** del boton: porcentaje del limite de 5 horas, en verde, ambar o rojo. Se actualiza cada minuto.
 - **Popup**: limites de 5 horas y semanal, y cada chat activo con su barra de contexto.
 
+<p align="center"><img src="../docs/screenshots/safari-popup.png" alt="ClaudeHub en Safari: popup con los limites y los chats activos" width="420" /></p>
+
+Captura del modo demo (datos ficticios), probada en Safari con macOS 27 en Apple Silicon.
+
 ## Requisitos
 
 - macOS con Safari 17 o superior y Xcode.
