@@ -149,8 +149,12 @@ Al tocarla se abre el panel de chats activos. Si abres el dashboard desde ahí, 
 | Sistema | Dashboard, demo y API | Bandeja, mascota y alertas |
 |---|---|---|
 | Windows 11 | Probado | Probado (uso diario) |
-| macOS | Probado en CI | Probado en CI (arranque, ventanas y salida) |
+| macOS | Probado en CI y a mano | Probado en CI y a mano (macOS 27, Apple Silicon) |
 | Linux | Probado en CI y en Docker | Probado en CI y en Docker con pantalla virtual |
+
+Probado a mano en macOS 27 (Apple Silicon, Node 26, Electron 44): bandeja, mascota con su panel y dashboard abren y funcionan. Capturas del modo demo:
+
+<p align="center"><img src="docs/screenshots/macos-mascota.png" alt="ClaudeHub en macOS: panel de la mascota" width="420" /> <img src="docs/screenshots/macos-dashboard.png" alt="ClaudeHub en macOS: dashboard" width="420" /></p>
 
 Las pruebas de macOS y Linux son automáticas: el CI arranca la aplicación completa, abre el dashboard, comprueba que la mascota y el dashboard se ven y cierra por **Salir**. No sustituyen una prueba a mano en tu escritorio. En Linux el icono de la bandeja depende del escritorio (GNOME necesita la extensión AppIndicator) y las notificaciones necesitan un servicio de notificaciones.
 

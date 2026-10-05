@@ -149,8 +149,12 @@ Toque nele para abrir o painel de chats ativos. Se abrir o dashboard a partir da
 | Sistema | Dashboard, demo e API | Bandeja, mascote e alertas |
 |---|---|---|
 | Windows 11 | Testado | Testado (uso diário) |
-| macOS | Testado em CI | Testado em CI (inicialização, janelas e saída) |
+| macOS | Testado em CI e à mão | Testado em CI e à mão (macOS 27, Apple Silicon) |
 | Linux | Testado em CI e em Docker | Testado em CI e em Docker com tela virtual |
+
+Testado à mão no macOS 27 (Apple Silicon, Node 26, Electron 44): bandeja, mascote com seu painel e dashboard abrem e funcionam. Capturas do modo demo:
+
+<p align="center"><img src="docs/screenshots/macos-mascota.png" alt="ClaudeHub no macOS: painel do mascote" width="420" /> <img src="docs/screenshots/macos-dashboard.png" alt="ClaudeHub no macOS: dashboard" width="420" /></p>
 
 Os testes de macOS e Linux são automáticos: o CI inicia o aplicativo completo, abre o dashboard, verifica que o mascote e o dashboard estão visíveis e fecha por **Sair**. Eles não substituem um teste manual na sua área de trabalho. No Linux o ícone da bandeja depende do ambiente de desktop (o GNOME precisa da extensão AppIndicator) e as notificações precisam de um serviço de notificações.
 

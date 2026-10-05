@@ -149,8 +149,12 @@ Touch it to open the active chats panel. If you open the dashboard from there, t
 | System | Dashboard, demo, and API | Tray, mascot, and alerts |
 |---|---|---|
 | Windows 11 | Tested | Tested (daily use) |
-| macOS | Tested in CI | Tested in CI (startup, windows, and quit) |
+| macOS | Tested in CI and by hand | Tested in CI and by hand (macOS 27, Apple Silicon) |
 | Linux | Tested in CI and in Docker | Tested in CI and in Docker with a virtual display |
+
+Tested by hand on macOS 27 (Apple Silicon, Node 26, Electron 44): tray, mascot with its panel, and dashboard open and work. Screenshots from demo mode:
+
+<p align="center"><img src="docs/screenshots/macos-mascota.png" alt="ClaudeHub on macOS: mascot panel" width="420" /> <img src="docs/screenshots/macos-dashboard.png" alt="ClaudeHub on macOS: dashboard" width="420" /></p>
 
 The macOS and Linux tests are automatic: CI starts the full application, opens the dashboard, checks that the mascot and the dashboard are visible, and closes through **Quit**. They do not replace a manual test on your desktop. On Linux the tray icon depends on the desktop (GNOME needs the AppIndicator extension) and notifications need a notification service.
 
