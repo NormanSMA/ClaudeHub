@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { scan } from '../core/scan'
+import { extensionOrigin } from './cors'
 import { demoData, demoPlanRaw } from '../core/demo'
 import { planReport } from '../core/plan'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
@@ -65,6 +66,14 @@ const HOST_OK = /^(127\.0\.0\.1|localhost)(:\d+)?$/
 app.use('*', async (c, next) => {
   if (!HOST_OK.test(c.req.header('host') ?? '')) return c.text('forbidden', 403)
   await next()
+})
+app.use('/api/*', async (c, next) => {
+  await next()
+  const origin = extensionOrigin(c.req.header('origin'))
+  if (origin && c.req.method === 'GET') {
+    c.res.headers.set('Access-Control-Allow-Origin', origin)
+    c.res.headers.append('Vary', 'Origin')
+  }
 })
 app.get('/api/summary', (c) => c.json(summary(records(), rangeOf((k) => c.req.query(k)))))
 app.get('/api/models', (c) => c.json(modelsReport(records(), rangeOf((k) => c.req.query(k)))))

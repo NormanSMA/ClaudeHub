@@ -7,3 +7,5 @@ release/
 .env.*
 .DS_Store
 Thumbs.db
+xcuserdata/
+*.xcuserstate
