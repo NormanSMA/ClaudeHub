@@ -41,6 +41,9 @@ Un monitor local para Windows, macOS y Linux: dashboard web, mascota flotante en
 - [Uso](#uso)
 - [Límite de contexto real](#límite-de-contexto-real)
 - [Límites de tu plan](#límites-de-tu-plan-5-horas-y-semanal)
+- [Otras fuentes: Codex, Gemini y OmniRoute](#otras-fuentes-codex-gemini-y-omniroute)
+- [Estados por hooks](#estados-por-hooks)
+- [Actualización en vivo](#actualización-en-vivo)
 - [Cómo funciona](#cómo-funciona)
 - [Configuración](#configuración)
 - [API local](#api-local)
@@ -58,6 +61,8 @@ ClaudeHub lee los registros que Claude Code guarda en tu PC y los convierte en r
 - Qué chats consumen más, con su título.
 - Cuánto usa el **orquestador** y cuánto usan los **subagentes**.
 - Qué tan llena está la **ventana de contexto** de cada chat activo.
+- Cuánto gastan también **Codex**, **Gemini CLI** y **OmniRoute**, con un filtro por fuente.
+- Qué agentes trabajan ahora, cuáles esperan un permiso y si dos pisan la misma carpeta.
 
 Todo corre en tu máquina. Ningún dato sale de ella.
 
@@ -77,15 +82,18 @@ Abre `http://127.0.0.1:4318`.
 
 | | |
 |---|---|
-| **Chats activos** | Lista los chats con actividad reciente. Muestra título, proyecto, modelo, subagentes activos y una barra de contexto que pasa de verde a ámbar y a rojo. |
-| **Resumen** | Sesiones, mensajes, tokens totales, días activos, hora pico, modelo favorito, mapa de calor por día y porcentaje de aciertos de caché. |
+| **Agentes** | Pestaña inicial. Lista los chats de Claude con actividad reciente (título, proyecto, modelo, subagentes activos y una barra de contexto que pasa de verde a ámbar y a rojo), los límites de Claude y de Codex, y los agentes en vivo con su estado, los atascos y los choques. |
+| **Resumen** | Sesiones, mensajes, tokens totales, días activos, hora pico, modelo favorito, mapa de calor por día y porcentaje de aciertos de caché. Incluye **Orquestador vs Subagentes**: reparto de tokens entre ambos roles, evolución diaria y ranking de tipos de subagente. |
 | **Modelos** | Barras apiladas por día, con entrada y salida por modelo. Se ordena por tokens, entrada, salida o nombre. |
-| **Orquestador vs Subagentes** | Reparto de tokens entre ambos roles, evolución diaria y ranking de tipos de subagente. |
 | **Sesiones y Proyectos** | Tablas ordenables por cualquier columna, con búsqueda por título y filtro por proyecto. |
+| **Fuentes** | Selector Todas, Claude, Codex, Gemini u OmniRoute para Resumen, Modelos, Sesiones y Proyectos. Cada fuente muestra si se pudo leer. |
+| **En vivo** | El dashboard se refresca solo cuando cambian los archivos, sin esperar al sondeo. |
 | **Ajustes** | Edita tu nombre, el umbral de alerta, los minutos de actividad y la ventana de contexto de cada modelo, sin tocar archivos. |
 | **Filtros de fecha** | Todo, 30 días, 7 días o un rango Desde y Hasta. |
 | **Mascota flotante** | Un personaje pixel siempre visible. Se arrastra, recuerda su posición y al tocarla abre el panel de chats activos. |
-| **Límites del plan** | Tu límite de 5 horas y el semanal como porcentaje, con cuánto falta para que se restablezcan, junto a los chats activos (planes Pro y Max). |
+| **Límites del plan** | Tu límite de 5 horas y el semanal como porcentaje, con cuánto falta para que se restablezcan, para Claude (planes Pro y Max) y para Codex. |
+| **Estados por hooks** | Un hook opcional anota si cada agente piensa, usa una herramienta, espera un permiso o falló. Alimenta la pestaña **Agentes** y la mascota. |
+| **Comando `/uso`** | Guarda los límites de Claude desde la app de escritorio, donde la línea de estado no corre. |
 | **Alertas** | Notificación del sistema cuando un chat o tu límite de 5 horas pasan del umbral (85% por defecto). |
 | **Bandeja del sistema** | Icono con los tokens de hoy en el tooltip y menú para abrir el dashboard. |
 | **Línea de estado** | Script opcional que muestra `ctx 43% | 5h 51%` en Claude Code y le da a ClaudeHub el tamaño real de la ventana y los límites de tu plan. |
@@ -124,16 +132,27 @@ Abre `http://127.0.0.1:4318`.
 
 **Chispa** es un personaje original, dibujado en una cuadrícula de 14 x 12 píxeles. Cambia de estado según lo que pasa en tus chats.
 
+Con el [hook de estados](#estados-por-hooks) instalado, Chispa tiene 7 estados. Si hay varios, gana el primero de esta tabla:
+
 <table>
   <tr>
     <td valign="top">
 
 | Estado | Cuándo aparece |
 |---|---|
-| Durmiendo | No hay chats activos. |
-| Despierta | Hay chats abiertos, pero ninguno escribe ahora. |
-| Trabajando | Un chat escribió en el último minuto. |
-| Alerta | Algún chat, o tu límite de 5 horas, superó el umbral. |
+| Esperando | Un agente espera que apruebes un permiso. |
+| Error | Una herramienta o la respuesta de un agente falló. |
+| Alerta | Dos agentes activos en la misma carpeta, un agente atascado o un límite sobre el umbral. |
+| Herramienta | Un agente ejecuta una herramienta. |
+| Pensando | Un agente piensa o arranca una sesión. |
+| Contenta | Un agente terminó hace menos de 10 segundos. |
+| Durmiendo | No hay nada que mostrar. |
+
+Un agente se considera atascado tras 5 minutos pensando o 15 minutos en una herramienta. Dos agentes chocan si trabajan 10 segundos o más en la misma carpeta.
+
+Sin el hook rige la regla simple: durmiendo (sin chats activos), despierta (hay chats, ninguno escribe), trabajando (un chat escribió en el último minuto) y alerta (un chat o tu límite de 5 horas superó el umbral).
+
+Si un agente de Codex trabaja (según el hook), Chispa muestra una insignia de Codex. No es una segunda mascota.
 
 Al tocarla se abre el panel de chats activos. Si abres el dashboard desde ahí, la mascota se oculta y vuelve cuando lo cierras.
 
@@ -321,15 +340,110 @@ Con la línea de estado activada, ClaudeHub muestra tus límites de uso, los mis
 - **Semanal:** lo mismo para la ventana de 7 días.
 - **Tokens en la ventana:** cuántos tokens de Claude Code de este equipo caben dentro de cada ventana.
 
-Aparecen arriba de la pestaña **Activos** y en el panel de la mascota. Si tu límite de 5 horas pasa del umbral de alerta, la mascota se alerta y el sistema te avisa, una vez por ventana.
+Aparecen en la pestaña **Agentes** y en el panel de la mascota. Si tu límite de 5 horas pasa del umbral de alerta, la mascota se alerta y el sistema te avisa, una vez por ventana.
 
 Cosas que debes saber:
 
 - Claude Code solo envía estos datos a suscriptores **Pro y Max**, y solo después de la primera respuesta de la sesión.
 - El porcentaje lo calcula Anthropic e incluye todo tu uso del plan, también el de la web y las apps. Los tokens de ClaudeHub solo cuentan Claude Code en este equipo, así que no suman el mismo total.
 - El dato se actualiza cada vez que Claude Code ejecuta la línea de estado, por ejemplo al enviar un mensaje. Si pasan más de 15 minutos sin actividad, ClaudeHub lo avisa. Una ventana vencida se oculta.
-- Sin la línea de estado, ClaudeHub no puede leer estos límites: no salen en los registros.
-- **La app de escritorio de Claude no ejecuta la línea de estado**: es una función de la terminal. Si usas Claude Code solo desde la app de escritorio, no verás los porcentajes; ClaudeHub no puede leerlos en otro sitio. Para verlos, usa `claude` en una terminal con tu sesión iniciada (`/login`). El porcentaje es de toda tu cuenta, así que un mensaje desde la terminal actualiza el dato, que queda fijo hasta el siguiente mensaje de terminal.
+- Sin la línea de estado ni el comando `/uso`, ClaudeHub no puede leer estos límites: no salen en los registros.
+- **La app de escritorio de Claude no ejecuta la línea de estado**: es una función de la terminal. Si usas Claude Code solo desde la app de escritorio, usa el comando `/uso` (siguiente sección). También puedes usar `claude` en una terminal con tu sesión iniciada (`/login`). El porcentaje es de toda tu cuenta, así que un mensaje desde la terminal actualiza el dato, que queda fijo hasta el siguiente mensaje de terminal.
+
+### Límites desde la app de escritorio: comando `/uso`
+
+El comando `/uso` llama a la herramienta `get_usage` de Claude Code y guarda las dos ventanas en `rate-limits.json` con `scripts/write-limits.cjs`. El script valida los porcentajes (0 a 100) y las fechas de reinicio antes de escribir.
+
+Instálalo una vez:
+
+1. Copia `scripts/commands/uso.md` a `~/.claude/commands/uso.md`.
+2. Reemplaza `<ruta-de-ClaudeHub>` por la carpeta donde clonaste el proyecto.
+
+Ejecuta `/uso` en una sesión de Claude Code. Muestra el porcentaje y la hora de reinicio de cada ventana. Si `get_usage` no devuelve una ventana, el comando la omite y conserva la guardada mientras no haya vencido.
+
+Los datos se actualizan solo cuando ejecutas `/uso`. Ningún hook puede llamar a `get_usage`.
+
+## Otras fuentes: Codex, Gemini y OmniRoute
+
+Además de Claude Code, ClaudeHub lee el uso de tres fuentes. La ruta `/api/sources` indica si cada una se pudo leer.
+
+| Fuente | De dónde lee | Qué lee |
+|---|---|---|
+| Codex | `~/.codex/sessions/AAAA/MM/DD/rollout-*.jsonl` | Tokens por sesión (se toma el aumento del acumulado), modelo, carpeta de trabajo y límites del plan (`rate_limits`). |
+| Gemini CLI | `~/.gemini/tmp/<proyecto>/chats/session-*.jsonl` | Tokens por mensaje de Gemini (sin repetidos, por `id`) y modelo. El proyecto sale del nombre de la carpeta. |
+| OmniRoute | La tabla `usage_history` de su base `storage.sqlite` | Proveedor, modelo y tokens (entrada, salida, caché, razonamiento) por llamada. |
+
+Solo se leen campos de uso. Nunca se leen ni se guardan los textos de las conversaciones, de los pensamientos ni de las instrucciones.
+
+### Codex y Gemini
+
+Están activas por defecto. Si no tienes la carpeta, la fuente queda vacía sin error. Puedes apagarlas con `sources.codex` y `sources.gemini` en `config.json`.
+
+Los límites de Codex salen del `rate_limits` más reciente de sus 5 rollouts modificados último. Valen mientras no venza la ventana: una ventana con el reinicio ya pasado se oculta. Solo se actualizan al usar Codex.
+
+### OmniRoute
+
+OmniRoute corre en un contenedor Docker y su API de uso pide sesión del panel, así que ClaudeHub lee su base en solo lectura:
+
+1. Cada 60 segundos ejecuta `docker cp` (sin shell) para copiar `storage.sqlite`, y `-wal` y `-shm` si existen, desde el contenedor a `omniroute/` dentro de la carpeta de datos.
+2. Abre la copia con `node:sqlite` en solo lectura, la valida con `PRAGMA quick_check` y lee solo la tabla `usage_history`.
+3. Si la copia sale dañada, reintenta. Si falla, conserva la lectura anterior y marca la fuente como desactualizada.
+
+Está apagada por defecto. Actívala con `sources.omniroute: true`. Sin Docker o sin el contenedor, la fuente queda con error y el resto sigue funcionando.
+
+Si montas la base en tu disco, fija `omniroute.dbPath` con la ruta de `storage.sqlite` y ClaudeHub la abre directo, sin `docker cp`.
+
+## Estados por hooks
+
+El script `scripts/hook.cjs` anota cada evento de un agente en `events.jsonl` (carpeta de datos). Es opcional. Sin él, la pestaña **Agentes** y la mascota usan la regla simple.
+
+Cada línea tiene este formato y pesa 512 bytes como máximo:
+
+```json
+{"v":1,"ts":1760000000000,"source":"claude","session":"<id>","event":"PreToolUse","state":"tool","tool":"Edit","cwd":"<carpeta>"}
+```
+
+| Evento | Estado |
+|---|---|
+| `SessionStart` | starting |
+| `UserPromptSubmit`, `PostToolUse`, `PermissionDenied` | thinking |
+| `PreToolUse` | tool |
+| `PermissionRequest` | waiting |
+| `PostToolUseFailure`, `StopFailure` | error |
+| `Stop` | done |
+| `SessionEnd` | idle |
+
+Garantías del script:
+
+- Sale siempre con código 0 y no escribe nada en la salida estándar ni en la de error. Una salida o el código 2 podrían bloquear al agente.
+- Termina en menos de 1 segundo, aunque la entrada llegue vacía o rota.
+- No guarda el prompt, `tool_input` ni la salida de las herramientas. Solo el evento, el nombre de la herramienta y la carpeta.
+- Rota `events.jsonl` a `events.1.jsonl` al pasar de 256 KB.
+
+### Instalar el hook
+
+Pide confirmación antes de editar `~/.claude/settings.json`. Conserva los hooks que ya existan, incluido el `SessionStart` del lanzador: agrega un bloque nuevo a cada lista.
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "node \"C:\\ruta\\a\\ClaudeHub\\scripts\\hook.cjs\" claude" } ] }
+    ],
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "node \"C:\\ruta\\a\\ClaudeHub\\scripts\\hook.cjs\" claude" } ] }
+    ]
+  }
+}
+```
+
+Repite el mismo bloque con los demás eventos de la tabla. Para Codex usa el argumento `codex` en lugar de `claude`, en los eventos que tu versión de Codex admita en su configuración de hooks.
+
+## Actualización en vivo
+
+El servidor vigila `~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/tmp` y la carpeta de datos. Agrupa los cambios en ráfagas de 500 ms y avisa al dashboard y a la mascota por `/api/events`. Solo cuentan los archivos `.jsonl`, `.json` y `.sqlite`. Las carpetas que no existen se reintentan cada 60 segundos.
+
+La interfaz mantiene un sondeo de respaldo. Con el aviso en vivo abierto, el sondeo pasa a un ciclo de 60 segundos como mínimo. Si el aviso falla, vuelve al ciclo normal.
 
 ### Aviso de límite alcanzado
 
@@ -340,6 +454,8 @@ Esto no necesita la línea de estado. Cuando llegas a un límite, Claude Code lo
 ```
 ~/.claude/projects/<proyecto>/<sesion>.jsonl                     orquestador
 ~/.claude/projects/<proyecto>/<sesion>/subagents/agent-*.jsonl   subagentes
+~/.codex/sessions, ~/.gemini/tmp, OmniRoute (opcional)            otras fuentes
+<datos>/events.jsonl                                              hook de estados
                      |
                      v
             src/core  (parser + agregación)
@@ -355,6 +471,8 @@ Esto no necesita la línea de estado. Cuando llegas a un límite, Claude Code lo
 ### Qué se lee de cada log
 
 Solo campos de uso: modelo, tokens (entrada, escritura y lectura de caché, salida), fecha, carpeta de trabajo, sesión, título del chat y último prompt para nombrarlo si no tiene título. No se guardan ni se muestran las respuestas.
+
+De Codex, Gemini y OmniRoute se leen solo campos de uso (ver [Otras fuentes](#otras-fuentes-codex-gemini-y-omniroute)). Del hook se guarda el evento, el estado, la herramienta y la carpeta, nunca el texto del usuario.
 
 ### Reglas de conteo
 
@@ -387,7 +505,9 @@ Lo más fácil es la pestaña **Ajustes** del dashboard. También puedes editar 
   "name": "Ada",
   "contextLimits": { "Opus 5": 1000000, "Sonnet 5.5": 200000 },
   "activeMinutes": 20,
-  "alertAt": 0.85
+  "alertAt": 0.85,
+  "sources": { "codex": true, "gemini": true, "omniroute": false },
+  "omniroute": { "container": "omniroute", "dbPath": "" }
 }
 ```
 
@@ -397,6 +517,11 @@ Lo más fácil es la pestaña **Ajustes** del dashboard. También puedes editar 
 | `contextLimits` | `{}` | Límite de contexto por nombre de modelo. Reemplaza la estimación. |
 | `activeMinutes` | `20` | Minutos sin actividad antes de dejar de mostrar un chat como activo. |
 | `alertAt` | `0.85` | Fracción de contexto que dispara la alerta (entre 0.5 y 0.99). |
+| `sources.codex` | `true` | Lee el uso y los límites de Codex. |
+| `sources.gemini` | `true` | Lee el uso de Gemini CLI. |
+| `sources.omniroute` | `false` | Lee el uso de OmniRoute. |
+| `omniroute.container` | `omniroute` | Nombre del contenedor Docker. Solo letras, números, punto, guion y guion bajo (hasta 64). |
+| `omniroute.dbPath` | vacío | Ruta de `storage.sqlite`. Con valor, se abre directo y no se usa `docker cp`. |
 
 ### Dónde se guarda
 
@@ -414,6 +539,8 @@ Lo más fácil es la pestaña **Ajustes** del dashboard. También puedes editar 
 | `CLAUDEHUB_DEMO` | Con valor `1`, usa datos ficticios. `pnpm demo` ya lo activa. |
 | `CLAUDEHUB_DATA` | Reemplaza la carpeta de datos. |
 | `CLAUDE_PROJECTS_DIR` | Carpeta de logs. Por defecto `~/.claude/projects`. |
+| `CODEX_SESSIONS_DIR` | Carpeta de sesiones de Codex. Por defecto `~/.codex/sessions`. |
+| `GEMINI_TMP_DIR` | Carpeta de chats de Gemini CLI. Por defecto `~/.gemini/tmp`. |
 | `CLAUDEHUB_CACHE` | Ruta del caché en disco. |
 | `CLAUDEHUB_CONFIG` | Ruta del archivo de configuración. |
 | `CLAUDEHUB_WINDOWS` | Ruta del archivo de ventanas reales de contexto. |
@@ -426,7 +553,9 @@ Lo más fácil es la pestaña **Ajustes** del dashboard. También puedes editar 
 | `cache.json` | Caché de lectura, solo con datos de uso. Se regenera si lo borras. |
 | `config.json` | Tu configuración. Se crea al guardar en Ajustes. |
 | `context-windows.json` | Ventanas de contexto reales, si activas la línea de estado. |
-| `rate-limits.json` | Límites del plan (5 horas y semanal), si activas la línea de estado. |
+| `rate-limits.json` | Límites del plan de Claude (5 horas y semanal), si activas la línea de estado o ejecutas `/uso`. |
+| `events.jsonl` y `events.1.jsonl` | Eventos del hook de estados. Rota al pasar de 256 KB. |
+| `omniroute/` | Copia temporal de la base de OmniRoute, si activas esa fuente. |
 | `overlay-pos.json` | Última posición de la mascota. |
 | `setup.json` | Marca de que ya se configuró el inicio automático. |
 | `tray.pid` | Identificador de la bandeja en ejecución. |
@@ -440,27 +569,50 @@ Solo responde en `127.0.0.1`. Rechaza con `403` cualquier petición cuyo `Host` 
 |---|---|
 | `GET /api/summary` | Totales, días activos, hora pico, modelo favorito y mapa de calor. |
 | `GET /api/models` | Serie diaria por modelo y tabla de modelos. |
-| `GET /api/roles` | Orquestador contra subagentes y tipos de agente. |
+| `GET /api/roles` | Orquestador contra subagentes y tipos de agente. Solo Claude. |
 | `GET /api/sessions` | Chats con título, proyecto, fechas y tokens. |
 | `GET /api/projects` | Tokens por proyecto. |
+| `GET /api/sources` | Por fuente: si está activa, cuántos archivos y registros leyó y si se pudo leer. |
 | `GET /api/live` | Última actividad y tokens de hoy. |
-| `GET /api/active` | Chats activos con su uso de contexto y el origen del límite, y los límites del plan (`plan`). |
+| `GET /api/active` | Chats activos de Claude con su uso de contexto y el origen del límite. Además: `plan` (límites de Claude), `plans` (`claude` y `codex`), `agents`, `collisions` y `mascot`. |
+| `GET /api/events` | Avisos en vivo por SSE. No lleva datos de uso. |
 | `GET /api/config` | Nombre del saludo y si está el modo demo. |
 | `GET /api/settings` | Configuración actual, su ruta y los modelos vistos. |
 | `PUT /api/settings` | Valida y guarda la configuración. Exige `application/json`. |
 
 Las rutas con rango aceptan `?range=all|30d|7d` o `?from=AAAA-MM-DD&to=AAAA-MM-DD`. Las fechas son locales y ambos extremos se incluyen.
 
+`summary`, `models`, `sessions` y `projects` aceptan además `?source=all|claude|codex|gemini|omniroute`. Un valor desconocido equivale a `all`.
+
 ```bash
 curl "http://127.0.0.1:4317/api/summary?from=2026-09-20&to=2026-09-30"
+curl "http://127.0.0.1:4317/api/models?range=7d&source=codex"
 ```
+
+### Campos nuevos de `/api/active`
+
+| Campo | Contenido |
+|---|---|
+| `plans` | `{ claude, codex }`. Cada uno tiene la forma de `plan`, o `null` sin datos vigentes. |
+| `agents` | Una entrada por sesión con hook: `source`, `session` (8 caracteres), `project` (solo el nombre de la carpeta), `state`, `since`, `tool` y `stuck`. |
+| `collisions` | Carpetas con dos agentes activos a la vez: `project`, `sessions` y `since`. |
+| `mascot` | Estado de Chispa: `waiting`, `error`, `alert`, `tool`, `thinking`, `happy` o `sleeping`. |
+
+`plan` se mantiene igual para quien ya lo consume.
+
+### `/api/events`
+
+Flujo SSE sin datos de uso. Envía `hello` al conectar, `changed` cuando cambian los archivos vigilados y un latido cada 25 segundos. Admite 8 clientes a la vez: el noveno recibe `429`. No agrega cabeceras CORS y pasa por el mismo filtro de `Host`.
 
 ## Privacidad y seguridad
 
 - El servidor escucha solo en `127.0.0.1`.
 - No hay telemetría ni llamadas a servicios externos. La única petición de red es la carga de las fuentes de Google Fonts en la interfaz.
-- Se leen solo campos de uso y títulos de chats. No se guardan respuestas.
+- Se leen solo campos de uso y títulos de chats. No se guardan respuestas ni textos de Codex, Gemini u OmniRoute.
 - El caché contiene únicamente datos agregados por mensaje.
+- El hook de estados no guarda prompts ni argumentos de herramientas, y sale siempre con código 0 y sin salida.
+- `/api/events` no envía datos de uso, admite 8 clientes y no concede CORS.
+- OmniRoute se lee con `docker cp` sin shell, con el nombre del contenedor validado, y la copia se abre en solo lectura.
 - La escritura de ajustes exige JSON, un origen propio y un cuerpo pequeño, y valida y acota cada valor.
 - La ventana de la mascota usa `contextIsolation` y `sandbox`, y solo expone cuatro acciones al proceso de la interfaz.
 - El modo demo nunca toca tus registros ni tu configuración.
@@ -474,12 +626,18 @@ ClaudeHub/
 ├─ .github/               CI, plantillas de issues y de pull requests
 ├─ build/icon.png         icono de la aplicación
 ├─ scripts/
+│  ├─ commands/uso.md     comando /uso para los límites del plan
+│  ├─ hook.cjs            hook de estados (escribe events.jsonl)
 │  ├─ launch.cjs          lanzador para el hook SessionStart
-│  └─ statusline.cjs      línea de estado y registro de la ventana real
+│  ├─ statusline.cjs      línea de estado y registro de la ventana real
+│  └─ write-limits.cjs    guarda los límites del plan que usa /uso
 ├─ src/
 │  ├─ core/               parser, caché, agregación y configuración
 │  │  ├─ parse.ts         lectura incremental y deduplicación
 │  │  ├─ scan.ts          recorrido de logs y caché
+│  │  ├─ sources/         Codex, Gemini y OmniRoute
+│  │  ├─ agents.ts        estados de agentes, atascos, choques y mascota
+│  │  ├─ overview.ts      campos extra de /api/active
 │  │  ├─ aggregate.ts     reportes, rangos y contexto
 │  │  ├─ demo.ts          datos ficticios para el modo demo
 │  │  ├─ config.ts        configuración validada
@@ -488,7 +646,9 @@ ClaudeHub/
 │  │  ├─ plan.ts          límites del plan (5 horas y semanal)
 │  │  ├─ models.ts        "claude-opus-5-5" -> "Opus 5.5"
 │  │  └─ cli.ts           resumen por terminal
-│  ├─ server/index.ts     API local y archivos estáticos
+│  ├─ server/             API local, archivos estáticos y avisos en vivo
+│  │  ├─ index.ts         rutas
+│  │  └─ watch.ts         vigilancia de carpetas y SSE
 │  ├─ tray/               Electron: bandeja, mascota, alertas
 │  └─ web/                React: dashboard, ajustes y mascota
 ├─ docs/                  logo y capturas del modo demo
@@ -519,6 +679,10 @@ El CI corre esas tres comprobaciones en Linux, Windows y macOS.
 
 - La bandeja y la mascota se prueban de forma automática en macOS y Linux, pero solo se usan a diario en Windows 11. En Linux el icono de la bandeja depende del escritorio.
 - Sin la línea de estado, el límite de contexto es una estimación.
+- El comando `/uso` actualiza los límites de Claude solo al ejecutarlo. Ningún hook puede llamar a `get_usage`.
+- Los límites de Codex se leen de sus rollouts y valen mientras no venza la ventana. Solo se actualizan al usar Codex.
+- OmniRoute necesita Docker (o `omniroute.dbPath`) y Node con `node:sqlite`. La copia se renueva cada 60 segundos.
+- Los estados por hooks necesitan instalar el hook. Sin él, la mascota usa la regla simple de 4 estados.
 - El instalador no está firmado.
 - El cambio de horario de verano puede desplazar una hora el inicio de los rangos de 7 y 30 días en zonas que lo usan.
 - Depende del formato de los registros de Claude Code, que puede cambiar entre versiones.
