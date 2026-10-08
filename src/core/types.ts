@@ -3,6 +3,15 @@ export type Role = 'orchestrator' | 'subagent'
 /** Herramienta de origen del registro */
 export type Source = 'claude' | 'codex' | 'gemini' | 'omniroute'
 
+/** Estado de lectura de una fuente */
+export interface SourceStat {
+  enabled: boolean
+  files: number
+  records: number
+  ok: boolean
+  reason?: string
+}
+
 export interface Rec {
   id: string
   ts: number

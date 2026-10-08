@@ -160,5 +160,73 @@ export function demoData(now = Date.now()): ScanResult {
     }
   }
 
-  return { recs, sessions, limitHit: null }
+  const other = demoOtherSources(now)
+  recs.push(...other.recs)
+  const sources = {
+    claude: { enabled: true, files: SPECS.length, records: recs.length - other.recs.length, ok: true },
+    codex: { enabled: true, files: other.codexFiles, records: other.codex, ok: true },
+    gemini: { enabled: true, files: other.geminiFiles, records: other.gemini, ok: true },
+    omniroute: { enabled: false, files: 0, records: 0, ok: false, reason: 'sin configurar' },
+  }
+  return { recs, sessions, limitHit: null, sources }
+}
+
+interface OtherSpec {
+  id: string
+  project: string
+  from: number
+  to: number
+  model: string
+}
+
+const CODEX_SPECS: OtherSpec[] = [
+  { id: 'codex-api', project: 'inventario-api', from: 26, to: 12, model: 'gpt-6.1-sol' },
+  { id: 'codex-bot', project: 'torneos-bot', from: 10, to: 1, model: 'gpt-6-luna' },
+  { id: 'codex-web', project: 'cafe-web', from: 5, to: 0, model: 'gpt-6.1-sol' },
+]
+
+const GEMINI_SPECS: OtherSpec[] = [
+  { id: 'gemini-docs', project: 'portafolio', from: 20, to: 8, model: 'gemini-3-flash-preview' },
+  { id: 'gemini-dash', project: 'ventas-dashboard', from: 7, to: 0, model: 'gemini-3-flash-preview' },
+]
+
+/** Registros ficticios de Codex y Gemini. Usa su propio generador: los datos de Claude no cambian. */
+function demoOtherSources(now: number) {
+  const rand = rng(20261007)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const recs: Rec[] = []
+  let codex = 0
+  let gemini = 0
+  const make = (specs: OtherSpec[], source: 'codex' | 'gemini') => {
+    for (const s of specs) {
+      const session = `demo-${s.id}`
+      for (let d = s.from; d >= s.to; d--) {
+        if (rand() > 0.7 && d !== s.to) continue
+        const dayStart = today.getTime() - d * DAY_MS
+        const count = Math.round(6 + rand() * 24)
+        for (let i = 0; i < count; i++) {
+          const hour = Math.min(23, Math.max(8, 15 + (rand() + rand() + rand() - 1.5) * 5))
+          recs.push({
+            id: `demo-${source}-${recs.length}`,
+            ts: Math.min(now - 10 * 60_000, dayStart + hour * 3_600_000),
+            model: s.model,
+            input: 300 + Math.round(rand() * 5_000),
+            cacheWrite: 0,
+            cacheRead: 2_000 + Math.round(rand() * 40_000),
+            output: 100 + Math.round(rand() * 1_800),
+            session,
+            project: s.project,
+            role: 'orchestrator',
+            source,
+          })
+          if (source === 'codex') codex++
+          else gemini++
+        }
+      }
+    }
+  }
+  make(CODEX_SPECS, 'codex')
+  make(GEMINI_SPECS, 'gemini')
+  return { recs, codex, gemini, codexFiles: CODEX_SPECS.length, geminiFiles: GEMINI_SPECS.length }
 }
