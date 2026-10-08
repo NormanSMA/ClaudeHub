@@ -1,6 +1,13 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+/** Sesiones de Codex. CODEX_SESSIONS_DIR reemplaza la ruta. */
+export const codexSessionsDir = (): string =>
+  process.env.CODEX_SESSIONS_DIR ?? join(homedir(), '.codex', 'sessions')
+
+/** Chats de Gemini CLI. GEMINI_TMP_DIR reemplaza la ruta. */
+export const geminiTmpDir = (): string => process.env.GEMINI_TMP_DIR ?? join(homedir(), '.gemini', 'tmp')
+
 /**
  * Carpeta donde ClaudeHub guarda su cache y su configuracion.
  * Windows: %APPDATA%\ClaudeHub. macOS: ~/Library/Application Support/ClaudeHub. Linux: ~/.config/ClaudeHub.
