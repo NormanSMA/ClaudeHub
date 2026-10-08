@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { scan, PROJECTS_DIR } from '../core/scan'
-import { demoData, demoPlanRaw } from '../core/demo'
+import { demoData, demoPlanRaw, demoEvents, demoCodexLimits } from '../core/demo'
 import { planReport } from '../core/plan'
+import { activeExtras } from '../core/overview'
+import { readEvents } from '../core/agents'
+import { latestCodexLimits } from '../core/sources/codex-limits'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
 import { dataDir, codexSessionsDir, geminiTmpDir } from '../core/paths'
 import { createEventHub, createWatcher } from './watch'
@@ -178,11 +181,21 @@ app.get('/api/active', (c) =>
   c.json(
     once('active', () => {
       const claude = claudeRecords()
+      const now = Date.now()
+      const plan = planReport(claude, now, DEMO ? demoPlanRaw(now) : undefined, data().limitHit)
+      const codexLimits = DEMO ? demoCodexLimits(now) : config().sources.codex ? latestCodexLimits() : null
       return {
         alertAt: config().alertAt,
         todayTokens: live(claude).todayTokens,
-        chats: activeReport(claude, data().sessions, Date.now(), undefined, DEMO ? {} : undefined),
-        plan: planReport(claude, Date.now(), DEMO ? demoPlanRaw(Date.now()) : undefined, data().limitHit),
+        chats: activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined),
+        plan,
+        ...activeExtras({
+          claudePlan: plan,
+          recs: records(),
+          codexLimits,
+          events: DEMO ? demoEvents(now) : readEvents(),
+          now,
+        }),
       }
     }),
   ),

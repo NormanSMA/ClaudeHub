@@ -1,5 +1,7 @@
 import type { ScanResult } from './scan'
 import type { Rec, SessionMeta } from './types'
+import type { HookEvent } from './agents'
+import type { CodexRateLimits } from './sources/codex'
 
 // Datos ficticios para probar ClaudeHub sin leer tus logs: pnpm demo
 // Son deterministas: mismos numeros en cada arranque. Los chats activos se calculan respecto a "ahora".
@@ -62,6 +64,25 @@ export function demoPlanRaw(now = Date.now()) {
     fiveHour: { pct: 51, resetsAt: now + (3 * 60 + 54) * 60_000 },
     sevenDay: { pct: 33, resetsAt: now + (2 * 24 + 20) * 3_600_000 },
     updatedAt: now - 30_000,
+  }
+}
+
+/** Eventos de hooks ficticios: una sesion de Claude usando una herramienta y una de Codex pensando. */
+export function demoEvents(now = Date.now()): HookEvent[] {
+  return [
+    { v: 1, ts: now - 40_000, source: 'claude', session: 'demo0001-pay-refactor', event: 'UserPromptSubmit', state: 'thinking', tool: '', cwd: 'C:\\dev\\inventario-api' },
+    { v: 1, ts: now - 6_000, source: 'claude', session: 'demo0001-pay-refactor', event: 'PreToolUse', state: 'tool', tool: 'Edit', cwd: 'C:\\dev\\inventario-api' },
+    { v: 1, ts: now - 25_000, source: 'codex', session: 'demo0002-codex-web', event: 'UserPromptSubmit', state: 'thinking', tool: '', cwd: 'C:\\dev\\cafe-web' },
+  ]
+}
+
+/** Limites ficticios de Codex: 30% de la ventana de 5 h y 12% de la semanal. resetsAt en segundos. */
+export function demoCodexLimits(now = Date.now()): CodexRateLimits {
+  return {
+    ts: now - 20_000,
+    planType: 'plus',
+    primary: { usedPercent: 30, windowMinutes: 300, resetsAt: Math.floor((now + (2 * 60 + 10) * 60_000) / 1000) },
+    secondary: { usedPercent: 12, windowMinutes: 10080, resetsAt: Math.floor((now + 5 * 86_400_000) / 1000) },
   }
 }
 
