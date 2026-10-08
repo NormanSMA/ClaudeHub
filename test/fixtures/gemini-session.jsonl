@@ -1,0 +1,10 @@
+{"sessionId":"gsess-demo-0001","projectHash":"hash-demo-0001","startTime":"2026-03-02T09:00:00.000Z","kind":"main"}
+{"$set":{"lastUpdated":"2026-03-02T09:00:01.000Z"}}
+{"id":"u-0001","timestamp":"2026-03-02T09:00:02.000Z","type":"user","content":[{"text":"TEXTO-SECRETO-USUARIO pregunta inventada"}]}
+{"id":"g-0001","timestamp":"2026-03-02T09:00:05.000Z","type":"gemini","content":"TEXTO-SECRETO-RESPUESTA uno","thoughts":[{"subject":"TEXTO-SECRETO-PENSAMIENTO","description":"razonamiento inventado"}],"tokens":{"input":1000,"output":200,"cached":600,"thoughts":50,"tool":10,"total":1260},"model":"gemini-test-flash"}
+{"id":"g-0002","timestamp":"2026-03-02T09:00:20.000Z","type":"gemini","content":"TEXTO-SECRETO-RESPUESTA dos","tokens":{"input":2000,"output":300,"cached":0,"thoughts":0,"tool":0,"total":2300},"model":"gemini-test-pro"}
+{"$set":{"lastUpdated":"2026-03-02T09:00:21.000Z"}}
+{"id":"g-0001","timestamp":"2026-03-02T09:00:05.000Z","type":"gemini","content":"TEXTO-SECRETO-RESPUESTA uno","thoughts":[{"subject":"TEXTO-SECRETO-PENSAMIENTO","description":"razonamiento inventado"}],"tokens":{"input":1000,"output":200,"cached":600,"thoughts":50,"tool":10,"total":1260},"model":"gemini-test-flash"}
+{"id":"g-0003","timestamp":"2026-03-02T09:00:30.000Z","type":"gemini","content":"TEXTO-SECRETO-RESPUESTA sin tokens","model":"gemini-test-flash"}
+{"id":"g-0004","timestamp":"2026-03-02T09:00:40.000Z","type":"gemini","content":"TEXTO-SECRETO-RESPUESTA cuatro","tokens":{"input":500,"output":100,"cached":500,"thoughts":20,"tool":5,"total":625},"model":"gemini-test-flash"}
+{"id":"g-0002","timestamp":"2026-03-02T09:00:20.000Z","type":"gemini","content":"TEXTO-SECRETO-RESPUESTA dos","tokens":{"input":2000,"output":300,"cached":0,"thoughts":0,"tool":0,"total":2300},"model":"gemini-test-pro"}
