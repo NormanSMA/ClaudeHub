@@ -1,5 +1,6 @@
+import { pickMascotState } from './mascotState'
 import { useEffect, useMemo, useState } from 'react'
-import { ActiveList, PlanLimits } from './Active'
+import { AgentesView } from './Agentes'
 import {
   useApi,
   useLiveStatus,
@@ -20,14 +21,13 @@ import { Mascot, type MascotState } from './Mascot'
 import { SettingsView } from './Settings'
 import { useSort } from './sort'
 
-type Tab = 'activos' | 'resumen' | 'modelos' | 'roles' | 'sesiones' | 'proyectos' | 'ajustes'
+type Tab = 'agentes' | 'resumen' | 'modelos' | 'sesiones' | 'proyectos' | 'ajustes'
 type RangeId = 'all' | '30d' | '7d' | 'custom'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'activos', label: 'Activos' },
+  { id: 'agentes', label: 'Agentes' },
   { id: 'resumen', label: 'Resumen' },
   { id: 'modelos', label: 'Modelos' },
-  { id: 'roles', label: 'Orquestador vs Subagentes' },
   { id: 'sesiones', label: 'Sesiones' },
   { id: 'proyectos', label: 'Proyectos' },
   { id: 'ajustes', label: 'Ajustes' },
@@ -127,21 +127,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   )
 }
 
-function ActivosView() {
-  const { data, error } = useApi<ActiveReport>('/api/active', 4_000)
-  if (!data) return <Loading error={error} />
-  return (
-    <>
-      <PlanLimits plan={data.plan} alertAt={data.alertAt} hint />
-      <ActiveList chats={data.chats} alertAt={data.alertAt} />
-      <p className="foot">
-        * Limite de contexto estimado: los logs no lo declaran. Fijalo en la pestana Ajustes o activa la linea de estado de ClaudeHub para usar el valor real.
-      </p>
-    </>
-  )
-}
-
-function ResumenView({ q }: { q: string }) {
+function ResumenView({ q, qClaude }: { q: string; qClaude: string }) {
   const { data, error } = useApi<Summary>(`/api/summary?${q}`)
   if (!data) return <Loading error={error} />
   const t = data.tokens
@@ -168,6 +154,8 @@ function ResumenView({ q }: { q: string }) {
           hint="Parte de la entrada que se leyo desde cache"
         />
       </div>
+      <h3 className="section-title">Orquestador vs subagentes (solo Claude)</h3>
+      <RolesView q={qClaude} />
     </>
   )
 }
@@ -475,7 +463,9 @@ function withSource(q: string, source: SourceFilter): string {
 /** La pestana vive en el hash (#/modelos) para poder compartir o enlazar una vista. */
 function tabFromHash(): Tab {
   const id = location.hash.replace(/^#\/?/, '')
-  return TABS.find((t) => t.id === id)?.id ?? 'activos'
+  if (id === 'roles') return 'resumen'
+  if (id === 'activos') return 'agentes'
+  return TABS.find((t) => t.id === id)?.id ?? 'agentes'
 }
 
 export function App() {
@@ -498,11 +488,10 @@ export function App() {
   const liveStatus = useLiveStatus()
   const { data: live } = useApi<Live>('/api/live', 5_000)
   const { data: act } = useApi<ActiveReport>('/api/active', 5_000)
-  const worst = Math.max(0, ...(act?.chats ?? []).map((c) => c.context.pct), (act?.plan?.blocked ? 1 : (act?.plan?.fiveHour?.pct ?? 0) / 100))
-  const mood: MascotState = !act?.chats.length ? 'sleeping' : worst >= act.alertAt ? 'alert' : live?.working ? 'working' : 'happy'
+  const mood: MascotState = pickMascotState(act)
   const q = rangeQuery(range, from, to)
   const qs = withSource(q, source)
-  const claudeOnly = tab === 'activos' || tab === 'roles'
+  const claudeOnly = tab === 'agentes'
   return (
     <main>
       <header className="greeting">
@@ -536,7 +525,7 @@ export function App() {
               </button>
             ))}
           </nav>
-          {tab !== 'activos' && tab !== 'ajustes' && (
+          {tab !== 'agentes' && tab !== 'ajustes' && (
             <div className="tabs ranges" aria-label="Rango">
               {RANGES.map((r) => (
                 <button key={r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
@@ -547,12 +536,10 @@ export function App() {
           )}
         </div>
         {tab !== 'ajustes' &&
-          (claudeOnly ? (
-            <p className="source-note">Solo Claude</p>
-          ) : (
+          (claudeOnly ? null : (
             <SourceChips source={source} onChange={setSource} report={sources} />
           ))}
-        {tab !== 'activos' && tab !== 'ajustes' && range === 'custom' && (
+        {tab !== 'agentes' && tab !== 'ajustes' && range === 'custom' && (
           <div className="dates">
             <label htmlFor="d-from">Desde</label>
             <input id="d-from" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
@@ -571,10 +558,9 @@ export function App() {
             )}
           </div>
         )}
-        {tab === 'activos' && <ActivosView />}
-        {tab === 'resumen' && <ResumenView q={qs} />}
+        {tab === 'agentes' && <AgentesView />}
+        {tab === 'resumen' && <ResumenView q={qs} qClaude={q} />}
         {tab === 'modelos' && <ModelosView q={qs} />}
-        {tab === 'roles' && <RolesView q={q} />}
         {tab === 'sesiones' && <SesionesView q={qs} />}
         {tab === 'proyectos' && <ProyectosView q={qs} />}
         {tab === 'ajustes' && <SettingsView />}

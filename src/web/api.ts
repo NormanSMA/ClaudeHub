@@ -168,6 +168,25 @@ export interface PlanReport {
   sevenDay: PlanWindow | null
   blocked: { type: string; resetsAt: number } | null
   updatedAt: number
+  planType?: string
+}
+
+export type AgentState = 'starting' | 'thinking' | 'tool' | 'waiting' | 'done' | 'error'
+
+export interface AgentLive {
+  source: 'claude' | 'codex'
+  session: string
+  project: string
+  state: AgentState
+  since: number
+  tool: string | null
+  stuck: boolean
+}
+
+export interface Collision {
+  project: string
+  sessions: { source: 'claude' | 'codex'; session: string }[]
+  since: number
 }
 
 export interface ActiveReport {
@@ -175,4 +194,7 @@ export interface ActiveReport {
   todayTokens: number
   chats: ActiveChat[]
   plan: PlanReport | null
+  plans?: { claude: PlanReport | null; codex: PlanReport | null }
+  agents?: AgentLive[]
+  collisions?: Collision[]
 }
