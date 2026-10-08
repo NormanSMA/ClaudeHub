@@ -1,5 +1,8 @@
 export type Role = 'orchestrator' | 'subagent'
 
+/** Herramienta de origen del registro */
+export type Source = 'claude' | 'codex' | 'gemini' | 'omniroute'
+
 export interface Rec {
   id: string
   ts: number
@@ -14,7 +17,11 @@ export interface Rec {
   agent?: string
   /** archivo del subagente, para contar subagentes distintos */
   agentFile?: string
+  /** origen del registro. Si falta, es claude */
+  source?: Source
 }
+
+export const sourceOf = (r: Rec): Source => r.source ?? 'claude'
 
 /** Limite del plan alcanzado: Claude Code lo registra como error 429 con `quotaLimits` */
 export interface LimitHit {

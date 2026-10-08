@@ -11,9 +11,20 @@ export interface HubConfig {
   alertAt: number
   /** Nombre para el saludo de la interfaz. Vacio: saludo sin nombre */
   name: string
+  /** Fuentes adicionales a Claude que se leen */
+  sources: { codex: boolean; gemini: boolean; omniroute: boolean }
+  /** Acceso a la base de OmniRoute: nombre del contenedor Docker y ruta opcional de storage.sqlite */
+  omniroute: { container: string; dbPath: string }
 }
 
-export const DEFAULTS: HubConfig = { contextLimits: {}, activeMinutes: 20, alertAt: 0.85, name: '' }
+export const DEFAULTS: HubConfig = {
+  contextLimits: {},
+  activeMinutes: 20,
+  alertAt: 0.85,
+  name: '',
+  sources: { codex: true, gemini: true, omniroute: false },
+  omniroute: { container: 'omniroute', dbPath: '' },
+}
 const FILE = process.env.CLAUDEHUB_CONFIG ?? join(dataDir(), 'config.json')
 
 export const configPath = () => FILE
@@ -32,12 +43,28 @@ export function sanitize(raw: unknown): HubConfig {
       }
     }
   }
+  const src = (r.sources && typeof r.sources === 'object' ? r.sources : {}) as Record<string, unknown>
+  const omni = (r.omniroute && typeof r.omniroute === 'object' ? r.omniroute : {}) as Record<string, unknown>
+  const flag = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback)
   return {
     contextLimits: limits,
     activeMinutes: Math.round(clamp(r.activeMinutes, 1, 240, DEFAULTS.activeMinutes)),
     alertAt: Math.round(clamp(r.alertAt, 0.5, 0.99, DEFAULTS.alertAt) * 100) / 100,
     // eslint-disable-next-line no-control-regex
     name: typeof r.name === 'string' ? r.name.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40) : '',
+    sources: {
+      codex: flag(src.codex, DEFAULTS.sources.codex),
+      gemini: flag(src.gemini, DEFAULTS.sources.gemini),
+      omniroute: flag(src.omniroute, DEFAULTS.sources.omniroute),
+    },
+    omniroute: {
+      container:
+        typeof omni.container === 'string' && /^[\w.-]{1,64}$/.test(omni.container)
+          ? omni.container
+          : DEFAULTS.omniroute.container,
+      // eslint-disable-next-line no-control-regex
+      dbPath: typeof omni.dbPath === 'string' ? omni.dbPath.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 260) : '',
+    },
   }
 }
 
