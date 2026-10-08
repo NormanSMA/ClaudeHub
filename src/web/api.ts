@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { onStatus, subscribeChanges, throttle, type LiveStatus } from './live'
 
 export type Range = 'all' | '30d' | '7d'
 
@@ -53,6 +54,18 @@ export interface ProjectRow {
   sessions: number
 }
 
+export type SourceId = 'claude' | 'codex' | 'gemini' | 'omniroute'
+
+export interface SourceInfo {
+  enabled: boolean
+  files: number
+  records: number
+  ok: boolean
+  reason?: string
+}
+
+export type SourcesReport = Record<SourceId, SourceInfo>
+
 export interface Live {
   lastTs: number | null
   working: boolean
@@ -60,7 +73,17 @@ export interface Live {
   todayMessages: number
 }
 
-/** Carga un endpoint y lo refresca cada `every` ms. */
+const THROTTLE_MS = 1_500
+const LIVE_POLL_MS = 60_000
+
+/** Estado de la conexion en vivo: 'live' (aviso del servidor) o 'poll' (sondeo). */
+export function useLiveStatus(): LiveStatus {
+  const [status, setStatus] = useState<LiveStatus>('poll')
+  useEffect(() => onStatus(setStatus), [])
+  return status
+}
+
+/** Carga un endpoint, lo recarga al llegar un aviso del servidor y lo sondea como respaldo. */
 export function useApi<T>(path: string, every = 30_000): { data: T | null; error: string | null } {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -76,12 +99,33 @@ export function useApi<T>(path: string, every = 30_000): { data: T | null; error
         .catch((e) => alive && setError(String(e.message ?? e)))
     }
     const onVisible = () => load()
+    const reload = throttle(load, THROTTLE_MS)
+    let timer: ReturnType<typeof setInterval> | null = null
+    let status: LiveStatus = 'poll'
+    let hadLive = false
+    const schedule = () => {
+      if (timer) clearInterval(timer)
+      timer = setInterval(load, status === 'live' ? Math.max(every, LIVE_POLL_MS) : every)
+    }
     load()
-    const t = setInterval(load, every)
+    schedule()
+    const offChanges = subscribeChanges(reload)
+    const offStatus = onStatus((next) => {
+      if (next === status) return
+      const recovered = next === 'live' && hadLive
+      status = next
+      hadLive ||= next === 'live'
+      schedule()
+      // tras una caida del canal pudieron perderse avisos: se recarga una vez
+      if (recovered) reload()
+    })
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       alive = false
-      clearInterval(t)
+      if (timer) clearInterval(timer)
+      reload.cancel()
+      offChanges()
+      offStatus()
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [path, every])

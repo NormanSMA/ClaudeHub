@@ -7,6 +7,7 @@
   --line: #3a3936;
   --accent: #d97757;
   --blue: #5b8def;
+  --violet: #a58bd6;
   --mascot-body: #d97757;
   --mascot-cheek: #f0a488;
   --mascot-spark: #f3c3a8;
@@ -29,6 +30,7 @@
     --text: #1f1e1d;
     --muted: #6f6c64;
     --line: #e3e0d6;
+    --violet: #7d5fb8;
     --heat0: #ebe8de;
     --heat1: #f3c3a8;
     --heat2: #ea9c7a;
@@ -44,6 +46,7 @@
   --text: #1f1e1d;
   --muted: #6f6c64;
   --line: #e3e0d6;
+  --violet: #7d5fb8;
   --heat0: #ebe8de;
   --heat1: #f3c3a8;
   --heat2: #ea9c7a;
@@ -84,6 +87,25 @@ h3 {
 .today {
   color: var(--muted);
   font-size: 13px;
+}
+.live-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.live-state.live {
+  color: var(--ok);
+}
+.live-state.live .live-dot {
+  background: var(--ok);
 }
 .card {
   background: var(--card);
@@ -452,6 +474,62 @@ td.title {
 }
 @keyframes shake {
   50% { transform: translateX(0.3px); }
+}
+
+/* selector de fuente */
+.sources {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: -4px 0 14px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip:hover {
+  color: var(--text);
+}
+.chip.on {
+  background: var(--stat);
+  color: var(--text);
+  font-weight: 600;
+  border-color: var(--muted);
+}
+.chip.dim {
+  opacity: 0.55;
+}
+.chip.dim.on {
+  opacity: 0.8;
+}
+.chip-count {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.source-note {
+  margin: -4px 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 560px) {
+  .sources {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
 }
 
 /* filtros y orden */
