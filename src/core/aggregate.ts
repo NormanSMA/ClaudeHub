@@ -1,9 +1,20 @@
 import { config } from './config'
 import { modelName } from './models'
 import { recordedWindows } from './windows'
-import { total, type Range, type Rec, type SessionMeta } from './types'
+import { sourceOf, total, type Range, type Rec, type SessionMeta, type Source } from './types'
 
 export type Metas = Map<string, SessionMeta>
+
+const SOURCES: readonly Source[] = ['claude', 'codex', 'gemini', 'omniroute']
+
+/** Valida ?source= contra una lista blanca. Cualquier otro valor equivale a 'all'. */
+export function parseSource(v: string | undefined): Source | 'all' {
+  return SOURCES.find((s) => s === v) ?? 'all'
+}
+
+export function filterSource(recs: Rec[], source: Source | 'all'): Rec[] {
+  return source === 'all' ? recs : recs.filter((r) => sourceOf(r) === source)
+}
 
 export function sessionTitle(meta: SessionMeta | undefined): string {
   if (meta?.title) return meta.title

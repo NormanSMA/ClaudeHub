@@ -7,9 +7,21 @@ import { scan } from '../core/scan'
 import { demoData, demoPlanRaw } from '../core/demo'
 import { planReport } from '../core/plan'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
+import { dataDir } from '../core/paths'
 import { modelName } from '../core/models'
-import { summary, modelsReport, rolesReport, sessionsReport, projectsReport, live, activeReport } from '../core/aggregate'
-import type { Range } from '../core/types'
+import { readOmniroute, type OmnirouteStatus } from '../core/sources/omniroute'
+import {
+  summary,
+  modelsReport,
+  rolesReport,
+  sessionsReport,
+  projectsReport,
+  live,
+  activeReport,
+  filterSource,
+  parseSource,
+} from '../core/aggregate'
+import type { Range, Rec, SourceStat } from '../core/types'
 import type { ScanResult } from '../core/scan'
 
 const DEMO = process.env.CLAUDEHUB_DEMO === '1'
@@ -23,12 +35,60 @@ const DIST = resolve(
     (typeof __dirname !== 'undefined' ? join(__dirname, '..', 'dist') : join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist')),
 )
 
+// OmniRoute se lee en segundo plano (docker cp o SQLite) y nunca bloquea data().
+const OMNI_EVERY_MS = 60_000
+let omni: { recs: Rec[]; status: OmnirouteStatus } | null = null
+let omniAt = 0
+let omniBusy = false
+
+function refreshOmniroute(): void {
+  if (DEMO || omniBusy || !config().sources.omniroute) return
+  if (Date.now() - omniAt < OMNI_EVERY_MS) return
+  omniBusy = true
+  omniAt = Date.now()
+  const { container, dbPath } = config().omniroute
+  readOmniroute({ container, dbPath, workDir: dataDir() })
+    .then((r) => {
+      omni = r
+      cached = null // datos nuevos: el siguiente data() reconstruye y invalida los reportes
+    })
+    .catch(() => {
+      /* readOmniroute no lanza; por seguridad se conserva el ultimo resultado */
+    })
+    .finally(() => {
+      omniBusy = false
+    })
+}
+
+function withOmniroute(base: ScanResult): ScanResult {
+  if (DEMO || !config().sources.omniroute) return base
+  const extra = omni?.recs ?? []
+  const ids = new Set(base.recs.map((r) => r.id))
+  const recs = [...base.recs, ...extra.filter((r) => !ids.has(r.id))]
+  const status = omni?.status
+  const stat: SourceStat & { stale?: boolean } = {
+    enabled: true,
+    files: 1,
+    records: extra.length,
+    ok: status?.ok ?? false,
+    ...(status ? (status.reason ? { reason: status.reason } : {}) : { reason: 'leyendo' }),
+    ...(status?.stale ? { stale: true } : {}),
+  }
+  return { ...base, recs, sources: { ...base.sources, omniroute: stat } }
+}
+
 let cached: { at: number; data: ScanResult } | null = null
 function data(): ScanResult {
-  if (!cached || Date.now() - cached.at > 4_000) cached = { at: Date.now(), data: DEMO ? demoData() : scan() }
+  refreshOmniroute()
+  if (!cached || Date.now() - cached.at > 4_000) {
+    cached = { at: Date.now(), data: DEMO ? demoData() : withOmniroute(scan()) }
+  }
   return cached.data
 }
 const records = () => data().recs
+/** Solo registros de Claude: el plan, los chats activos y los roles no deben mezclarse con otras fuentes. */
+const claudeRecords = () => filterSource(records(), 'claude')
+const sourceOfQuery = (c: { req: { query: (k: string) => string | undefined } }) => parseSource(c.req.query('source'))
 
 // Los reportes que varias pantallas piden a la vez se calculan una vez por ciclo de escaneo.
 const reports = new Map<string, { at: number; value: unknown }>()
@@ -66,11 +126,14 @@ app.use('*', async (c, next) => {
   if (!HOST_OK.test(c.req.header('host') ?? '')) return c.text('forbidden', 403)
   await next()
 })
-app.get('/api/summary', (c) => c.json(summary(records(), rangeOf((k) => c.req.query(k)))))
-app.get('/api/models', (c) => c.json(modelsReport(records(), rangeOf((k) => c.req.query(k)))))
-app.get('/api/roles', (c) => c.json(rolesReport(records(), rangeOf((k) => c.req.query(k)))))
-app.get('/api/sessions', (c) => c.json(sessionsReport(records(), data().sessions, rangeOf((k) => c.req.query(k)))))
-app.get('/api/projects', (c) => c.json(projectsReport(records(), rangeOf((k) => c.req.query(k)))))
+app.get('/api/summary', (c) => c.json(summary(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
+app.get('/api/models', (c) => c.json(modelsReport(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
+app.get('/api/roles', (c) => c.json(rolesReport(claudeRecords(), rangeOf((k) => c.req.query(k)))))
+app.get('/api/sessions', (c) =>
+  c.json(sessionsReport(filterSource(records(), sourceOfQuery(c)), data().sessions, rangeOf((k) => c.req.query(k)))),
+)
+app.get('/api/projects', (c) => c.json(projectsReport(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
+app.get('/api/sources', (c) => c.json(data().sources))
 app.get('/api/config', (c) => c.json({ name: DEMO ? '' : config().name, demo: DEMO }))
 
 // Ajustes: lectura y escritura de config.json desde el dashboard.
@@ -112,12 +175,15 @@ app.put('/api/settings', async (c) => {
 app.get('/api/live', (c) => c.json(once('live', () => live(records()))))
 app.get('/api/active', (c) =>
   c.json(
-    once('active', () => ({
-      alertAt: config().alertAt,
-      todayTokens: live(records()).todayTokens,
-      chats: activeReport(records(), data().sessions, Date.now(), undefined, DEMO ? {} : undefined),
-      plan: planReport(records(), Date.now(), DEMO ? demoPlanRaw(Date.now()) : undefined, data().limitHit),
-    })),
+    once('active', () => {
+      const claude = claudeRecords()
+      return {
+        alertAt: config().alertAt,
+        todayTokens: live(claude).todayTokens,
+        chats: activeReport(claude, data().sessions, Date.now(), undefined, DEMO ? {} : undefined),
+        plan: planReport(claude, Date.now(), DEMO ? demoPlanRaw(Date.now()) : undefined, data().limitHit),
+      }
+    }),
   ),
 )
 

@@ -161,12 +161,13 @@ export function demoData(now = Date.now()): ScanResult {
   }
 
   const other = demoOtherSources(now)
-  recs.push(...other.recs)
+  const omni = demoOmniroute(now)
+  recs.push(...other.recs, ...omni)
   const sources = {
-    claude: { enabled: true, files: SPECS.length, records: recs.length - other.recs.length, ok: true },
+    claude: { enabled: true, files: SPECS.length, records: recs.length - other.recs.length - omni.length, ok: true },
     codex: { enabled: true, files: other.codexFiles, records: other.codex, ok: true },
     gemini: { enabled: true, files: other.geminiFiles, records: other.gemini, ok: true },
-    omniroute: { enabled: false, files: 0, records: 0, ok: false, reason: 'sin configurar' },
+    omniroute: { enabled: true, files: 1, records: omni.length, ok: true },
   }
   return { recs, sessions, limitHit: null, sources }
 }
@@ -189,6 +190,43 @@ const GEMINI_SPECS: OtherSpec[] = [
   { id: 'gemini-docs', project: 'portafolio', from: 20, to: 8, model: 'gemini-3-flash-preview' },
   { id: 'gemini-dash', project: 'ventas-dashboard', from: 7, to: 0, model: 'gemini-3-flash-preview' },
 ]
+
+const OMNI_PROVIDERS = [
+  { provider: 'antigravity', model: 'gemini-3-pro-preview', from: 14, to: 0 },
+  { provider: 'groq', model: 'llama-4-70b', from: 9, to: 0 },
+]
+
+/** Registros ficticios de OmniRoute (proveedores antigravity y groq). Generador propio. */
+function demoOmniroute(now: number): Rec[] {
+  const rand = rng(20261008)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const recs: Rec[] = []
+  for (const p of OMNI_PROVIDERS) {
+    for (let d = p.from; d >= p.to; d--) {
+      if (rand() > 0.7 && d !== p.to) continue
+      const dayStart = today.getTime() - d * DAY_MS
+      const count = Math.round(4 + rand() * 16)
+      for (let i = 0; i < count; i++) {
+        const hour = Math.min(23, Math.max(8, 14 + (rand() + rand() + rand() - 1.5) * 5))
+        recs.push({
+          id: `omniroute:demo-${recs.length}`,
+          ts: Math.min(now - 10 * 60_000, dayStart + hour * 3_600_000),
+          model: `${p.provider}/${p.model}`,
+          input: 200 + Math.round(rand() * 3_000),
+          cacheWrite: 0,
+          cacheRead: Math.round(rand() * 8_000),
+          output: 80 + Math.round(rand() * 1_200),
+          session: `omniroute:${p.provider}`,
+          project: p.provider,
+          role: 'orchestrator',
+          source: 'omniroute',
+        })
+      }
+    }
+  }
+  return recs
+}
 
 /** Registros ficticios de Codex y Gemini. Usa su propio generador: los datos de Claude no cambian. */
 function demoOtherSources(now: number) {
