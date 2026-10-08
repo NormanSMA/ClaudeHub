@@ -111,20 +111,20 @@ Abra `http://127.0.0.1:4318`.
     <td align="center"><sub>Tokens por modelo e por dia</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/roles.png" alt="Orquestrador contra subagentes" /></td>
+    <td><img src="docs/screenshots/roles.png" alt="Resumo: orquestrador contra subagentes (só Claude)" /></td>
     <td><img src="docs/screenshots/sesiones.png" alt="Sessões ordenáveis com filtros" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>Orquestrador vs Subagentes</sub></td>
+    <td align="center"><sub>Resumo com Orquestrador vs Subagentes</sub></td>
     <td align="center"><sub>Sessões com título, ordem e filtros</sub></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/ajustes.png" alt="Aba de ajustes" /></td>
-    <td><img src="docs/screenshots/activos.png" alt="Chats ativos com barra de contexto" /></td>
+    <td><img src="docs/screenshots/agentes.png" alt="Agentes: limites por fonte e agentes ao vivo" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Ajustes dentro do dashboard</sub></td>
-    <td align="center"><sub>Chats ativos e seu contexto</sub></td>
+    <td align="center"><sub>Agentes, limites por fonte e chats ativos</sub></td>
   </tr>
 </table>
 
