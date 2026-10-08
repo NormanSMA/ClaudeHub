@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { ActiveList, PlanLimits } from './Active'
 import { useApi, type ActiveReport } from './api'
 import { compact } from './format'
-import { Mascot, type MascotState } from './Mascot'
+import { CodexBadge, Mascot } from './Mascot'
+import { codexBusy, pickMascotState, type MascotState } from './mascotState'
 import './style.css'
 import './overlay.css'
 
@@ -27,14 +28,8 @@ function Overlay() {
 
   const chats = data?.chats ?? []
   const alertAt = data?.alertAt ?? 0.85
-  const worst = Math.max(chats.reduce((m, c) => Math.max(m, c.context.pct), 0), (data?.plan?.blocked ? 1 : (data?.plan?.fiveHour?.pct ?? 0) / 100))
-  const mood: MascotState = !chats.length
-    ? 'sleeping'
-    : worst >= alertAt
-      ? 'alert'
-      : chats.some((c) => c.working)
-        ? 'working'
-        : 'happy'
+  const mood: MascotState = pickMascotState(data)
+  const codex = codexBusy(data)
 
   // al ocultarse la ventana (por ejemplo al abrir el dashboard) el panel se cierra: reaparece colapsada
   useEffect(() => {
@@ -115,6 +110,7 @@ function Overlay() {
         aria-expanded={open}
       >
         <Mascot state={mood} size={44} />
+        {codex && <CodexBadge />}
         {chats.length > 0 && <span className={`badge ${mood === 'alert' ? 'bad' : ''}`}>{chats.length}</span>}
       </button>
     </div>

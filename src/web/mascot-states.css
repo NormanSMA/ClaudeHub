@@ -1,0 +1,73 @@
+/* estados nuevos de Chispa: tool, thinking, waiting, error, y la insignia de Codex */
+.mascot {
+  --mascot-wait: #f2c14e;
+}
+.mascot-error {
+  --mascot-body: #ff6f61;
+  --mascot-cheek: #ff9f94;
+  --mascot-spark: #ffc7c0;
+}
+.mascot-error .m-body {
+  animation-duration: 3.2s;
+}
+
+/* tool: manos que alternan rapido */
+.m-hand {
+  transform-box: fill-box;
+}
+.m-hand-a {
+  animation: hand 0.3s steps(1, end) infinite;
+}
+.m-hand-b {
+  animation: hand 0.3s steps(1, end) 0.15s infinite;
+}
+@keyframes hand {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+/* thinking: tres puntos que se encienden en secuencia */
+.m-dot {
+  animation: dot 1.2s steps(1, end) infinite;
+}
+.m-dot-2 {
+  animation-delay: 0.4s;
+}
+.m-dot-3 {
+  animation-delay: 0.8s;
+}
+@keyframes dot {
+  0% { opacity: 0.2; }
+  33%, 100% { opacity: 1; }
+}
+
+/* waiting: signo de admiracion parpadeando */
+.m-wait {
+  animation: wait-blink 0.9s steps(1, end) infinite;
+}
+@keyframes wait-blink {
+  50% { opacity: 0.15; }
+}
+
+/* insignia de Codex en la esquina inferior derecha */
+.codex-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 18px;
+  height: 18px;
+  line-height: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+  animation: codex-pulse 1.6s steps(2, end) infinite;
+}
+.codex-badge svg {
+  display: block;
+}
+@keyframes codex-pulse {
+  50% { opacity: 0.7; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-hand, .m-dot, .m-wait, .codex-badge { animation: none; }
+}
