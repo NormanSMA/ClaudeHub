@@ -111,20 +111,20 @@ Open `http://127.0.0.1:4318`.
     <td align="center"><sub>Tokens per model and per day</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/roles.png" alt="Orchestrator vs subagents" /></td>
+    <td><img src="docs/screenshots/roles.png" alt="Summary: orchestrator vs subagents (Claude only)" /></td>
     <td><img src="docs/screenshots/sesiones.png" alt="Sortable sessions with filters" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>Orchestrator vs Subagents</sub></td>
+    <td align="center"><sub>Summary with Orchestrator vs Subagents</sub></td>
     <td align="center"><sub>Sessions with title, sorting, and filters</sub></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/ajustes.png" alt="Settings tab" /></td>
-    <td><img src="docs/screenshots/activos.png" alt="Active chats with context bar" /></td>
+    <td><img src="docs/screenshots/agentes.png" alt="Agents: limits per source and live agents" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Settings inside the dashboard</sub></td>
-    <td align="center"><sub>Active chats and their context</sub></td>
+    <td align="center"><sub>Agents, limits per source and active chats</sub></td>
   </tr>
 </table>
 
