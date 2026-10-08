@@ -233,6 +233,8 @@ export function activeReport(
     { last: Rec | null; peak: number; project: string; orch: number; sub: number; lastTs: number; subs: Map<string, number> }
   >()
   for (const r of all) {
+    // los chats activos y su ventana de contexto son de Claude; otras fuentes se ven en Agentes
+    if (sourceOf(r) !== 'claude') continue
     const s = by.get(r.session) ?? { last: null, peak: 0, project: r.project, orch: 0, sub: 0, lastTs: 0, subs: new Map() }
     s.lastTs = Math.max(s.lastTs, r.ts)
     if (r.role === 'orchestrator') {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterSource, parseSource, rolesReport, summary } from '../src/core/aggregate'
+import { activeReport, filterSource, parseSource, rolesReport, summary } from '../src/core/aggregate'
 import { planReport } from '../src/core/plan'
 import type { Rec, Source } from '../src/core/types'
 
@@ -73,5 +73,27 @@ describe('filtro por fuente', () => {
     expect(r.orchestrator.total).toBe(1000)
     expect(r.subagent.total).toBe(500)
     expect(r.orchestrator.messages + r.subagent.messages).toBe(2)
+  })
+})
+
+describe('activeReport con varias fuentes', () => {
+  it('ignora registros recientes de Codex, Gemini y OmniRoute', () => {
+    const now = Date.now()
+    const mk = (source: Source, session: string): Rec => ({
+      id: `${source}:${session}`,
+      ts: now - 1000,
+      model: 'x',
+      input: 10,
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 5,
+      session,
+      project: 'p',
+      role: 'orchestrator',
+      source,
+    })
+    const recs = [mk('claude', 'c1'), mk('codex', 'x1'), mk('gemini', 'g1'), mk('omniroute', 'o1')]
+    const chats = activeReport(recs, new Map(), now, undefined, {})
+    expect(chats).toHaveLength(1)
   })
 })
