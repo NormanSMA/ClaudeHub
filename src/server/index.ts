@@ -1,13 +1,14 @@
 import { readFileSync, existsSync } from 'node:fs'
-import { join, extname, resolve, dirname, sep } from 'node:path'
+import { join, extname, resolve, dirname, sep, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { scan } from '../core/scan'
+import { scan, PROJECTS_DIR } from '../core/scan'
 import { demoData, demoPlanRaw } from '../core/demo'
 import { planReport } from '../core/plan'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
-import { dataDir } from '../core/paths'
+import { dataDir, codexSessionsDir, geminiTmpDir } from '../core/paths'
+import { createEventHub, createWatcher } from './watch'
 import { modelName } from '../core/models'
 import { readOmniroute, type OmnirouteStatus } from '../core/sources/omniroute'
 import {
@@ -187,6 +188,44 @@ app.get('/api/active', (c) =>
   ),
 )
 
+// Avisos en vivo (SSE). Sin datos de uso: solo "hello", "changed" y latidos.
+const hub = createEventHub({ max: 8 })
+app.get('/api/events', (c) => {
+  const enc = new TextEncoder()
+  let ctrl!: ReadableStreamDefaultController<Uint8Array>
+  let unsubscribe: (() => void) | null = null
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      ctrl = controller // start corre de forma sincrona en el constructor
+    },
+    cancel() {
+      unsubscribe?.()
+    },
+  })
+  unsubscribe = hub.subscribe((chunk) => ctrl.enqueue(enc.encode(chunk)))
+  if (!unsubscribe) {
+    void stream.cancel()
+    return c.json({ error: 'Demasiados clientes conectados.' }, 429)
+  }
+  ctrl.enqueue(enc.encode('event: hello\ndata: {}\n\n'))
+  c.req.raw.signal.addEventListener('abort', () => {
+    unsubscribe?.()
+    try {
+      ctrl.close()
+    } catch {
+      /* el flujo ya estaba cerrado */
+    }
+  })
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  })
+})
+
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
@@ -204,6 +243,29 @@ app.get('*', (c) => {
   if (!existsSync(file)) return c.text('Falta el build. Ejecuta: pnpm build', 404)
   return c.body(readFileSync(file), 200, { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' })
 })
+
+// Vigilancia de carpetas: avisa a los clientes SSE cuando cambian los datos.
+// Se ignoran los archivos que escribe el propio servidor para no crear un ciclo.
+if (!DEMO) {
+  const omniDir = resolve(dataDir(), 'omniroute')
+  const ignore = (file: string): boolean => {
+    const full = resolve(file)
+    return basename(full) === 'cache.json' || full.endsWith('.tmp') || full === omniDir || full.startsWith(omniDir + sep)
+  }
+  const watcher = createWatcher(
+    [PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir()],
+    () => {
+      cached = null
+      reports.clear()
+      hub.broadcast('changed')
+    },
+    { ignore },
+  )
+  process.on('exit', () => {
+    watcher.close()
+    hub.close()
+  })
+}
 
 serve({ fetch: app.fetch, hostname: HOST, port: PORT }, () => {
   console.log(`ClaudeHub${DEMO ? ' (demo, datos ficticios)' : ''} en http://${HOST}:${PORT}`)

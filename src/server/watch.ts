@@ -7,6 +7,8 @@ export interface WatcherOptions {
   debounceMs?: number
   retryMs?: number
   onError?: (e: unknown) => void
+  /** Recibe la ruta completa. Si devuelve true, el archivo no dispara aviso. */
+  ignore?: (file: string) => boolean
 }
 
 export interface Watcher {
@@ -32,6 +34,14 @@ export function createWatcher(dirs: string[], onChange: (file: string) => void, 
       opts.onError?.(e)
     } catch {
       // Un onError defectuoso no debe tumbar el proceso.
+    }
+  }
+
+  const isIgnored = (file: string): boolean => {
+    try {
+      return opts.ignore?.(file) === true
+    } catch {
+      return false
     }
   }
 
@@ -61,7 +71,9 @@ export function createWatcher(dirs: string[], onChange: (file: string) => void, 
       const w = watch(dir, { recursive: true }, (_event, name) => {
         if (closed || name == null) return
         const file = String(name)
-        if (EXTENSIONS.some((ext) => file.endsWith(ext))) schedule(join(dir, file))
+        if (!EXTENSIONS.some((ext) => file.endsWith(ext))) return
+        const full = join(dir, file)
+        if (!isIgnored(full)) schedule(full)
       })
       w.on('error', (e) => {
         report(e)
