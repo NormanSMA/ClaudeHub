@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActiveList, PlanLimits } from './Active'
 import {
   useApi,
+  useLiveStatus,
   type ActiveReport,
   type ConfigInfo,
   type Live,
@@ -9,6 +10,8 @@ import {
   type ProjectRow,
   type RolesReport,
   type SessionRow,
+  type SourceId,
+  type SourcesReport,
   type Summary,
 } from './api'
 import { Heatmap, PALETTE, SplitBar, StackedBars, fillDays } from './charts'
@@ -36,6 +39,77 @@ const RANGES: { id: RangeId; label: string }[] = [
   { id: '7d', label: '7d' },
   { id: 'custom', label: 'Fechas' },
 ]
+
+type SourceFilter = 'all' | SourceId
+
+const SOURCES: { id: SourceFilter; label: string; color: string }[] = [
+  { id: 'all', label: 'Todas', color: 'var(--muted)' },
+  { id: 'claude', label: 'Claude', color: 'var(--accent)' },
+  { id: 'codex', label: 'Codex', color: 'var(--blue)' },
+  { id: 'gemini', label: 'Gemini', color: 'var(--violet)' },
+  { id: 'omniroute', label: 'OmniRoute', color: 'var(--ok)' },
+]
+
+const SOURCE_KEY = 'source'
+
+function loadSource(): SourceFilter {
+  try {
+    const v = localStorage.getItem(SOURCE_KEY)
+    return SOURCES.find((s) => s.id === v)?.id ?? 'all'
+  } catch {
+    return 'all'
+  }
+}
+
+function saveSource(id: SourceFilter) {
+  try {
+    localStorage.setItem(SOURCE_KEY, id)
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
+/** Texto del atributo title de un chip de fuente; vacio si la fuente esta sana. */
+function sourceHint(info: SourcesReport[SourceId] | undefined): string | undefined {
+  if (!info) return undefined
+  if (info.reason) return info.reason
+  if (!info.enabled) return 'Fuente desactivada'
+  if (!info.ok) return 'La fuente no se pudo leer'
+  return undefined
+}
+
+function SourceChips({
+  source,
+  onChange,
+  report,
+}: {
+  source: SourceFilter
+  onChange: (id: SourceFilter) => void
+  report: SourcesReport | null
+}) {
+  return (
+    <div className="sources" role="group" aria-label="Fuente">
+      {SOURCES.map((s) => {
+        const info = s.id === 'all' ? undefined : report?.[s.id]
+        const dim = info ? !info.enabled || !info.ok : false
+        return (
+          <button
+            key={s.id}
+            type="button"
+            className={`chip${source === s.id ? ' on' : ''}${dim ? ' dim' : ''}`}
+            aria-pressed={source === s.id}
+            title={sourceHint(info)}
+            onClick={() => onChange(s.id)}
+          >
+            <i className="dot" style={{ background: s.color }} />
+            {s.label}
+            {info && <span className="chip-count">{int(info.records)}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // ~38.9k tokens, la longitud aproximada de "Rebelion en la granja"
 const BOOK_TOKENS = 38_918
@@ -393,6 +467,11 @@ function rangeQuery(range: RangeId, from: string, to: string): string {
   return p.toString() || 'range=all'
 }
 
+/** Agrega `source=<valor>` a la query; con 'all' se omite. */
+function withSource(q: string, source: SourceFilter): string {
+  return source === 'all' ? q : `${q}&source=${source}`
+}
+
 /** La pestana vive en el hash (#/modelos) para poder compartir o enlazar una vista. */
 function tabFromHash(): Tab {
   const id = location.hash.replace(/^#\/?/, '')
@@ -409,12 +488,21 @@ export function App() {
   const [range, setRange] = useState<RangeId>('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [source, setSourceState] = useState<SourceFilter>(loadSource)
+  const setSource = (id: SourceFilter) => {
+    setSourceState(id)
+    saveSource(id)
+  }
+  const { data: sources } = useApi<SourcesReport>('/api/sources')
   const [theme, cycleTheme] = useTheme()
+  const liveStatus = useLiveStatus()
   const { data: live } = useApi<Live>('/api/live', 5_000)
   const { data: act } = useApi<ActiveReport>('/api/active', 5_000)
   const worst = Math.max(0, ...(act?.chats ?? []).map((c) => c.context.pct), (act?.plan?.blocked ? 1 : (act?.plan?.fiveHour?.pct ?? 0) / 100))
   const mood: MascotState = !act?.chats.length ? 'sleeping' : worst >= act.alertAt ? 'alert' : live?.working ? 'working' : 'happy'
   const q = rangeQuery(range, from, to)
+  const qs = withSource(q, source)
+  const claudeOnly = tab === 'activos' || tab === 'roles'
   return (
     <main>
       <header className="greeting">
@@ -422,6 +510,17 @@ export function App() {
         <h1>Que sigue{cfg?.name ? `, ${cfg.name}` : ''}?</h1>
         <span className="today" title="Tokens de hoy">
           {live ? `Hoy ${compact(live.todayTokens)}` : ''}
+        </span>
+        <span
+          className={`live-state ${liveStatus}`}
+          title={
+            liveStatus === 'live'
+              ? 'En vivo: el servidor avisa al instante cuando hay datos nuevos.'
+              : 'Sondeo: la pantalla consulta los datos cada pocos segundos.'
+          }
+        >
+          <span className="live-dot" aria-hidden="true" />
+          {liveStatus === 'live' ? 'En vivo' : 'Sondeo'}
         </span>
         <button className="link" onClick={cycleTheme} title="Cambiar tema">
           Tema: {theme === 'auto' ? 'auto' : theme === 'light' ? 'claro' : 'oscuro'}
@@ -447,6 +546,12 @@ export function App() {
             </div>
           )}
         </div>
+        {tab !== 'ajustes' &&
+          (claudeOnly ? (
+            <p className="source-note">Solo Claude</p>
+          ) : (
+            <SourceChips source={source} onChange={setSource} report={sources} />
+          ))}
         {tab !== 'activos' && tab !== 'ajustes' && range === 'custom' && (
           <div className="dates">
             <label htmlFor="d-from">Desde</label>
@@ -467,11 +572,11 @@ export function App() {
           </div>
         )}
         {tab === 'activos' && <ActivosView />}
-        {tab === 'resumen' && <ResumenView q={q} />}
-        {tab === 'modelos' && <ModelosView q={q} />}
+        {tab === 'resumen' && <ResumenView q={qs} />}
+        {tab === 'modelos' && <ModelosView q={qs} />}
         {tab === 'roles' && <RolesView q={q} />}
-        {tab === 'sesiones' && <SesionesView q={q} />}
-        {tab === 'proyectos' && <ProyectosView q={q} />}
+        {tab === 'sesiones' && <SesionesView q={qs} />}
+        {tab === 'proyectos' && <ProyectosView q={qs} />}
         {tab === 'ajustes' && <SettingsView />}
       </section>
     </main>
