@@ -40,6 +40,19 @@ describe('createWatcher', () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('un archivo ignorado no avisa y otro si', async () => {
+    const dir = mkdtempSync(join(root, 'ign-'))
+    const calls: string[] = []
+    open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 100, ignore: (f) => f.endsWith('cache.json') }))
+    writeFileSync(join(dir, 'cache.json'), '{}')
+    await sleep(500)
+    expect(calls).toHaveLength(0)
+    writeFileSync(join(dir, 'otro.json'), '{}')
+    await until(() => calls.length > 0)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].endsWith('otro.json')).toBe(true)
+  })
+
   it('detecta cambios en subcarpetas', async () => {
     const dir = mkdtempSync(join(root, 'rec-'))
     mkdirSync(join(dir, 'sub'))
