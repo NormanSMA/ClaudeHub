@@ -4,7 +4,7 @@ import { ActiveList, PlanLimits } from './Active'
 import { useApi, type ActiveReport } from './api'
 import { compact } from './format'
 import { CodexBadge, LevelBadge, Mascot } from './Mascot'
-import { codexBusy, exhaustText, levelClass, levelFrom, levelText, pickMascotState, type MascotState } from './mascotState'
+import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type MascotState } from './mascotState'
 import { balloonText, useUpdateNotice } from './update'
 import './style.css'
 import './overlay.css'
@@ -19,7 +19,7 @@ interface HubBridge {
 const hub = (window as unknown as { hub?: HubBridge }).hub
 
 const COLLAPSED_W = 68
-const PILL_W = 220
+const BALLOON_W = 220
 const EXPANDED_W = 360
 
 function Overlay() {
@@ -35,9 +35,8 @@ function Overlay() {
   const codex = codexBusy(data)
   const level = levelFrom(data)
   const exhaust = exhaustText(level)
-  const hasLevel = Boolean(level)
-  const hasExhaust = exhaust !== null
-  const pill = hasLevel && !open
+  // cerrada solo se ve la mascota con sus insignias; el detalle del nivel va en la ayuda al pasar el mouse
+  const levelHint = level ? [levelText(level), level.label, exhaust].filter(Boolean).join(' · ') : null
   const { info: update, dismiss } = useUpdateNotice()
   const notice = update !== null && !open
 
@@ -53,13 +52,13 @@ function Overlay() {
   useEffect(() => {
     const el = root.current
     if (!el) return
-    const width = open ? EXPANDED_W : hasLevel || notice ? PILL_W : COLLAPSED_W
+    const width = open ? EXPANDED_W : notice ? BALLOON_W : COLLAPSED_W
     const send = () => hub?.resize(width, Math.ceil(el.getBoundingClientRect().height))
     send()
     const ro = new ResizeObserver(send)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [open, hasLevel, hasExhaust, notice])
+  }, [open, notice])
 
   const down = (e: PointerEvent) => {
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -137,25 +136,18 @@ function Overlay() {
         </section>
       )}
       <button
-        className={`mascot-btn${pill ? ` mascot-pill ${levelClass(level)}` : ''}`}
+        className="mascot-btn"
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={end}
         onClick={toggle}
-        aria-label={level ? `Mascota de ClaudeHub, nivel ${levelText(level)}${exhaust ? `, ${exhaust}` : ''}` : 'Mascota de ClaudeHub'}
+        title={levelHint ?? undefined}
+        aria-label={levelHint ? `Mascota de ClaudeHub. ${levelHint}` : 'Mascota de ClaudeHub'}
         aria-expanded={open}
       >
         <Mascot state={mood} size={44} level={level?.level} announce={notice} />
-        {pill && level ? (
-          <span className="pill-text">
-            <strong>{levelText(level)}</strong>
-            {level.label && <span className="pill-label">{level.label}</span>}
-            {exhaust && <span className="pill-exhaust">{exhaust}</span>}
-          </span>
-        ) : (
-          level && <LevelBadge level={level.level} />
-        )}
+        {level && <LevelBadge level={level.level} />}
         {codex && <CodexBadge />}
         {chats.length > 0 && <span className={`badge ${mood === 'alert' ? 'bad' : ''}`}>{chats.length}</span>}
       </button>

@@ -68,7 +68,7 @@
   50% { opacity: 0.7; }
 }
 
-/* nivel de tokens: --lv colorea la insignia, el anillo y la mini-pill */
+/* nivel de tokens: --lv colorea la insignia y el anillo */
 .mascot-lv1 { --lv: var(--ok); }
 .mascot-lv2 { --lv: var(--blue); }
 .mascot-lv3 { --lv: var(--warn); }
