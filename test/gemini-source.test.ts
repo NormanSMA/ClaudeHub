@@ -24,6 +24,11 @@ describe('parseGemini', () => {
     expect(c).toMatchObject({ input: 0, cacheRead: 500, cacheWrite: 0, output: 125 })
   })
 
+  it('reasoning toma thoughts y output no cambia', () => {
+    const recs = parseGemini(text, 'demo-app')
+    expect(recs.map((r) => r.reasoning)).toEqual([50, 0, 20])
+  })
+
   it('modelo, sesion, proyecto, rol, fuente y fecha', () => {
     const recs = parseGemini(text, 'demo-app')
     expect(recs.map((r) => r.model)).toEqual(['gemini-test-flash', 'gemini-test-pro', 'gemini-test-flash'])

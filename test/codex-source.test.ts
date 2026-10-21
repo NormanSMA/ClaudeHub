@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseCodex, codexRateLimits } from '../src/core/sources/codex'
 import { total } from '../src/core/types'
+import { summary } from '../src/core/aggregate'
 
 const text = readFileSync(join(__dirname, 'fixtures', 'codex-rollout.jsonl'), 'utf8')
 
@@ -27,6 +28,20 @@ describe('parseCodex', () => {
     expect(b.id).toBe('codex:sess-demo-0001:3000')
     expect(a).toMatchObject({ input: 400, cacheRead: 600, cacheWrite: 0, output: 200 })
     expect(b).toMatchObject({ input: 300, cacheRead: 1200, output: 300 })
+  })
+
+  it('reasoning es el incremento y queda dentro de output', () => {
+    const recs = parseCodex(text)
+    expect(recs.map((r) => r.reasoning)).toEqual([50, 50, 50])
+    for (const r of recs) expect(r.reasoning!).toBeLessThanOrEqual(r.output)
+  })
+
+  it('summary suma reasoning sin cambiar el total', () => {
+    const recs = parseCodex(text)
+    const t = summary(recs, 'all').tokens
+    expect(t.reasoning).toBe(150)
+    expect(t.output).toBe(800)
+    expect(t.total).toBe(4800)
   })
 
   it('lineas repetidas no duplican', () => {

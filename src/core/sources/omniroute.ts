@@ -76,6 +76,7 @@ function mapRow(row: any): Rec | null {
     cacheRead,
     cacheWrite,
     output,
+    reasoning: num(row.tokens_reasoning),
     session: `omniroute:${provider}`,
     project: provider,
     role: 'orchestrator',

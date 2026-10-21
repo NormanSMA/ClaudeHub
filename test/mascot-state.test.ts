@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { codexBusy, pickMascotState, type MascotInput } from '../src/web/mascotState'
+import { codexBusy, exhaustText, levelClass, levelFrom, levelText, pickMascotState, type MascotInput } from '../src/web/mascotState'
 
 const chat = (pct: number, working = false) => ({ working, context: { pct } })
 const claude = { source: 'claude', state: 'tool' }
@@ -38,6 +38,38 @@ describe('pickMascotState', () => {
     expect(pickMascotState({ ...base, mascot: 'thinking' })).toBe('thinking')
     expect(pickMascotState({ ...base, mascot: 'happy' })).toBe('happy')
     expect(pickMascotState({ chats: [], mascot: 'tool', agents: [{ source: 'codex', state: 'tool' }] })).toBe('tool')
+  })
+})
+
+describe('nivel de la mascota', () => {
+  const lv = { level: 3, label: 'Ritmo Alto', pct: 51.2, minutesLeft: 12.4, exhaustsBeforeReset: true }
+
+  it('levelFrom acepta niveles de 1 a 5 y descarta el resto', () => {
+    expect(levelFrom({ level: lv })).toBe(lv)
+    for (const bad of [null, undefined, { ...lv, level: 0 }, { ...lv, level: 6 }, { ...lv, level: 2.5 }, { ...lv, pct: NaN }]) {
+      expect(levelFrom({ level: bad })).toBeNull()
+    }
+    expect(levelFrom({})).toBeNull()
+    expect(levelFrom(null)).toBeNull()
+  })
+
+  it('levelClass da una clase por nivel o nada', () => {
+    for (const n of [1, 2, 3, 4, 5]) expect(levelClass({ ...lv, level: n })).toBe(`mascot-lv${n}`)
+    expect(levelClass(null)).toBe('')
+  })
+
+  it('levelText redondea el porcentaje', () => {
+    expect(levelText(lv)).toBe('N3 · 51%')
+    expect(levelText({ ...lv, level: 5, pct: 100 })).toBe('N5 · 100%')
+  })
+
+  it('exhaustText solo aparece si se agota antes del reinicio', () => {
+    expect(exhaustText(lv)).toBe('Se agota en ~12 min')
+    expect(exhaustText({ ...lv, minutesLeft: 0.2 })).toBe('Se agota en ~1 min')
+    expect(exhaustText({ ...lv, exhaustsBeforeReset: false })).toBeNull()
+    expect(exhaustText({ ...lv, exhaustsBeforeReset: null })).toBeNull()
+    expect(exhaustText({ ...lv, minutesLeft: null })).toBeNull()
+    expect(exhaustText(null)).toBeNull()
   })
 })
 

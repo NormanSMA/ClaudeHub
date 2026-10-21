@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { planReport } from '../src/core/plan'
+import { levelOf, planReport, tokenLevel, type PlanReport } from '../src/core/plan'
 import { demoPlanRaw } from '../src/core/demo'
 import type { Rec } from '../src/core/types'
 
@@ -93,6 +93,64 @@ describe('limites del plan', () => {
     expect(plan.fiveHour?.pct).toBe(51)
     expect(plan.sevenDay?.pct).toBe(33)
     expect(Math.round((plan.fiveHour!.resetsAt - now) / 60_000)).toBe(234)
+  })
+})
+
+describe('niveles de consumo', () => {
+  it('levelOf respeta los umbrales', () => {
+    const cases: [number, number][] = [[0, 1], [20, 1], [20.01, 2], [50, 2], [50.01, 3], [75, 3], [76, 4], [90, 4], [91, 5], [100, 5]]
+    for (const [pct, level] of cases) expect(levelOf(pct), `pct ${pct}`).toBe(level)
+  })
+
+  const extra = { burnPerMin: 1000, cacheEfficiency: 90, delegationShare: 0.25, now }
+  const plan = (pct: number, tokens: number, resetsInH = 2): PlanReport => ({
+    fiveHour: { pct, tokens, resetsAt: now + resetsInH * H },
+    sevenDay: null,
+    blocked: null,
+    updatedAt: now,
+  })
+
+  it('usa el plan de 5 h como base', () => {
+    const r = tokenLevel({ claude: plan(51, 51_000), contextPct: 0.9, ...extra })!
+    expect(r).toMatchObject({ level: 3, label: 'Ritmo Alto', pct: 51, basis: 'plan5h', burnPerMin: 1000, cacheEfficiency: 90, delegationShare: 0.25 })
+  })
+
+  it('un limite alcanzado da nivel 5 y pct 100', () => {
+    const claude: PlanReport = { fiveHour: null, sevenDay: null, blocked: { type: 'five_hour', resetsAt: now + H }, updatedAt: now }
+    const r = tokenLevel({ claude, contextPct: null, ...extra })!
+    expect(r).toMatchObject({ level: 5, label: 'Límite', pct: 100, basis: 'plan5h', minutesLeft: null, exhaustsBeforeReset: null })
+  })
+
+  it('sin plan usa el contexto del chat con mas uso', () => {
+    const r = tokenLevel({ claude: null, contextPct: 0.6, ...extra })!
+    expect(r).toMatchObject({ level: 3, basis: 'context', minutesLeft: null, exhaustsBeforeReset: null })
+    expect(r.pct).toBeCloseTo(60)
+  })
+
+  it('devuelve null sin plan ni chats', () => {
+    expect(tokenLevel({ claude: null, contextPct: null, ...extra })).toBeNull()
+  })
+
+  it('proyecta los minutos hasta el limite y si llega antes del reinicio', () => {
+    // 50% con 50000 tokens: faltan 50000 tokens; a 1000 por minuto son 50 minutos
+    const soon = tokenLevel({ claude: plan(50, 50_000, 2), contextPct: null, ...extra })!
+    expect(soon.minutesLeft).toBeCloseTo(50)
+    expect(soon.exhaustsBeforeReset).toBe(true)
+    // el reinicio llega en 0.5 h: no se agota antes
+    const late = tokenLevel({ claude: plan(50, 50_000, 0.5), contextPct: null, ...extra })!
+    expect(late.exhaustsBeforeReset).toBe(false)
+  })
+
+  it('no proyecta con pct < 5, sin tokens locales o sin ritmo', () => {
+    for (const c of [
+      { claude: plan(4.9, 1000), burnPerMin: 1000 },
+      { claude: plan(40, 0), burnPerMin: 1000 },
+      { claude: plan(40, 5000), burnPerMin: 0 },
+    ]) {
+      const r = tokenLevel({ contextPct: null, ...extra, ...c })!
+      expect(r.minutesLeft).toBeNull()
+      expect(r.exhaustsBeforeReset).toBeNull()
+    }
   })
 })
 

@@ -47,6 +47,7 @@ export function parseGemini(text: string, project: string): Rec[] {
       cacheRead: cached,
       cacheWrite: 0,
       output: num(t.output) + num(t.thoughts) + num(t.tool),
+      reasoning: num(t.thoughts),
       session,
       project,
       role: 'orchestrator',

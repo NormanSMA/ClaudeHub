@@ -1,3 +1,4 @@
+import type { Breakdown } from './api'
 import { compact, dayLabel, niceMax } from './format'
 
 export const PALETTE = ['#D97757', '#5b8def', '#e3c99b', '#8fb4f2', '#a8553a', '#b8b0a4', '#6fa58a', '#c98bb9']
@@ -93,6 +94,53 @@ export function Heatmap({ days }: { days: { day: string; tokens: number }[] }) {
           title={`${dayLabel(d.day)}: ${compact(d.tokens)} tokens`}
         />
       ))}
+    </div>
+  )
+}
+
+export interface Segment {
+  key: 'input' | 'cacheWrite' | 'cacheRead' | 'output' | 'reasoning'
+  label: string
+  value: number
+  color: string
+}
+
+/**
+ * Segmentos del desglose. `reasoning` es parte de `output`: la salida visible lo descuenta
+ * para que la suma de segmentos iguale `total` sin doble conteo.
+ */
+export function categorySegments(t: Breakdown): Segment[] {
+  const output = Math.max(0, t.output)
+  const thinking = Math.min(Math.max(0, t.reasoning ?? 0), output)
+  return [
+    { key: 'input', label: 'Entrada', value: t.input, color: 'var(--blue)' },
+    { key: 'cacheWrite', label: 'Escritura de cache', value: t.cacheWrite, color: 'var(--warn)' },
+    { key: 'cacheRead', label: 'Lectura de cache', value: t.cacheRead, color: 'var(--ok)' },
+    { key: 'output', label: 'Salida', value: Math.max(0, output - thinking), color: 'var(--accent)' },
+    { key: 'reasoning', label: 'Pensamiento', value: thinking, color: 'var(--violet)' },
+  ]
+}
+
+export function CategoryBar({ tokens }: { tokens: Breakdown }) {
+  const segs = categorySegments(tokens)
+  const sum = segs.reduce((a, s) => a + s.value, 0) || 1
+  return (
+    <div className="catbar">
+      <div className="catbar-track" role="img" aria-label="Desglose de tokens por categoria">
+        {segs.map((s) => (
+          <i key={s.key} title={`${s.label}: ${compact(s.value)}`} style={{ width: `${(s.value / sum) * 100}%`, background: s.color }} />
+        ))}
+      </div>
+      <ul className="catbar-legend">
+        {segs.map((s) => (
+          <li key={s.key}>
+            <i style={{ background: s.color }} />
+            <span className="name">{s.label}</span>
+            <span className="val">{compact(s.value)}</span>
+          </li>
+        ))}
+      </ul>
+      {!tokens.reasoning && <p className="active-meta">Claude no separa el pensamiento: va incluido en salida.</p>}
     </div>
   )
 }

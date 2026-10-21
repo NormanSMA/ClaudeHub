@@ -134,6 +134,22 @@ async function ensureServer() {
   for (let i = 0; i < 60 && !(await serverUp()); i++) await new Promise((r) => setTimeout(r, 250))
 }
 
+const RELEASES_PREFIX = 'https://github.com/NormanSMA/ClaudeHub/releases/'
+
+/** Solo abre paginas de releases de ClaudeHub. Compara la URL ya normalizada (sin "..", sin otro host). */
+function openRelease(url) {
+  if (typeof url !== 'string' || url.length > 300) return false
+  let parsed
+  try {
+    parsed = new globalThis.URL(url)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:' || !parsed.href.startsWith(RELEASES_PREFIX)) return false
+  shell.openExternal(parsed.href)
+  return true
+}
+
 let tray = null
 let win = null
 let overlay = null
@@ -156,6 +172,11 @@ function showDashboard() {
       title: 'ClaudeHub',
       backgroundColor: '#1a1918',
       icon: trayIcon(),
+    })
+    // los enlaces con target=_blank salen por la misma validacion; nunca se abre otra ventana
+    win.webContents.setWindowOpenHandler(({ url }) => {
+      openRelease(url)
+      return { action: 'deny' }
     })
     win.loadURL(URL)
     // se muestra al terminar el primer pintado: show() antes deja la ventana invisible
@@ -238,6 +259,10 @@ function showOverlay() {
     backgroundColor: '#00000000',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true },
   })
+  overlay.webContents.setWindowOpenHandler(({ url }) => {
+    openRelease(url)
+    return { action: 'deny' }
+  })
   overlay.setAlwaysOnTop(true, 'screen-saver')
   overlay.loadURL(`${URL}/overlay.html`)
   overlay.on('closed', () => {
@@ -262,6 +287,7 @@ ipcMain.on('hub:resize', (e, width, height) => {
   overlay.setBounds(clampToScreen({ x: b.x + b.width - w, y: b.y + b.height - h, width: w, height: h }))
 })
 ipcMain.on('hub:dashboard', showDashboard)
+ipcMain.on('hub:openExternal', (e, url) => openRelease(url))
 ipcMain.on('hub:hide', () => {
   if (overlay) overlay.hide()
   refreshMenu()

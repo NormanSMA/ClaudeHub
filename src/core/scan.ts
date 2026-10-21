@@ -1,5 +1,5 @@
 import { readdirSync, statSync, readFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile, rename } from 'node:fs/promises'
 import { join, dirname, basename, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { dataDir, codexSessionsDir, geminiTmpDir } from './paths'
@@ -11,7 +11,7 @@ import type { LimitHit, Rec, SessionMeta, Source, SourceStat } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
 const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
-const CACHE_VERSION = 5
+const CACHE_VERSION = 6
 const SAVE_EVERY_MS = 60_000
 
 interface CacheEntry {
@@ -181,8 +181,10 @@ export function scan(root = PROJECTS_DIR, useCache = true, extra = root === PROJ
       lastSave = Date.now()
       // se serializa ahora (estado consistente) y se escribe sin bloquear el servidor
       const json = JSON.stringify(mem)
+      const tmp = CACHE_FILE + '.' + process.pid + '.tmp'
       mkdir(dirname(CACHE_FILE), { recursive: true })
-        .then(() => writeFile(CACHE_FILE, json))
+        .then(() => writeFile(tmp, json))
+        .then(() => rename(tmp, CACHE_FILE))
         .catch(() => {
           /* cache opcional */
         })

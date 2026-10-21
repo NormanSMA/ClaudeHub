@@ -14,6 +14,7 @@ interface Form {
   alertAt: number
   activeMinutes: number
   limits: Record<string, number>
+  checkUpdates: boolean
 }
 
 function presetOf(limit: number | undefined): string {
@@ -30,8 +31,14 @@ export function SettingsView() {
 
   useEffect(() => {
     if (!data || form) return
-    const c = data.config
-    setForm({ name: c.name, alertAt: Math.round(c.alertAt * 100), activeMinutes: c.activeMinutes, limits: { ...c.contextLimits } })
+    const c = data.config as typeof data.config & { checkUpdates?: boolean }
+    setForm({
+      name: c.name,
+      alertAt: Math.round(c.alertAt * 100),
+      activeMinutes: c.activeMinutes,
+      limits: { ...c.contextLimits },
+      checkUpdates: c.checkUpdates !== false,
+    })
     setCustom(Object.fromEntries(Object.entries(c.contextLimits).map(([m, v]) => [m, presetOf(v) === 'custom'])))
   }, [data, form])
 
@@ -62,6 +69,7 @@ export function SettingsView() {
           alertAt: form.alertAt / 100,
           activeMinutes: form.activeMinutes,
           contextLimits: form.limits,
+          checkUpdates: form.checkUpdates,
         }),
       })
       const body = await res.json()
@@ -94,6 +102,13 @@ export function SettingsView() {
       <div className="field">
         <label htmlFor="s-active">Minutos para considerar activo un chat</label>
         <input id="s-active" type="number" min={1} max={240} value={form.activeMinutes} onChange={(e) => setForm({ ...form, activeMinutes: Number(e.target.value) })} />
+      </div>
+
+      <div className="field">
+        <label htmlFor="s-updates">
+          <input id="s-updates" type="checkbox" checked={form.checkUpdates} onChange={(e) => setForm({ ...form, checkUpdates: e.target.checked })} /> Buscar versiones nuevas
+        </label>
+        <small>Consulta la última versión publicada en GitHub al iniciar y cada 6 horas. Apagado, no hay llamadas a la red.</small>
       </div>
 
       <fieldset className="field">

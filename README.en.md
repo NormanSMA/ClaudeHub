@@ -607,7 +607,7 @@ SSE stream with no usage data. It sends `hello` on connect, `changed` when the w
 ## Privacy and security
 
 - The server listens only on `127.0.0.1`.
-- No telemetry or calls to external services. The only network request is loading Google Fonts in the interface.
+- No telemetry. There are two network requests: Google Fonts in the interface and the new-version check. The check is a GET to the public GitHub Releases API at startup and every 6 hours. It sends no usage data. Turn it off in **Settings** or with `"checkUpdates": false` in `config.json`.
 - Only usage fields and chat titles are read. Responses are not saved, nor are texts from Codex, Gemini, or OmniRoute.
 - The cache contains only data aggregated per message.
 - The state hook does not save prompts or tool arguments, and always exits with code 0 and no output.

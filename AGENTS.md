@@ -48,6 +48,7 @@ curl "http://127.0.0.1:4317/api/active"
 | `/api/events` | Avisos en vivo por SSE. No lleva datos de uso. |
 | `/api/live` | Tokens de hoy y última actividad. |
 | `/api/settings` | Configuración actual. `PUT` la guarda (solo `application/json`). |
+| `/api/update` | Si hay una versión nueva: `enabled`, `current`, `latest`, `available`, `url`, `name`, `notes` (hasta 3) y `checkedAt`. |
 
 Filtra con `?range=all|30d|7d` o con `?from=AAAA-MM-DD&to=AAAA-MM-DD`.
 
@@ -62,10 +63,25 @@ Filtra con `?range=all|30d|7d` o con `?from=AAAA-MM-DD&to=AAAA-MM-DD`.
 | `agents` | Una entrada por sesión con hook: `source`, `session`, `project`, `state`, `since`, `tool`, `stuck`. |
 | `collisions` | Carpetas con dos agentes activos a la vez. |
 | `mascot` | `waiting`, `error`, `alert`, `tool`, `thinking`, `happy` o `sleeping`. |
+| `level` | Nivel de consumo o `null`. Campos abajo. |
+| `chats[].subagents` | Los 10 subagentes más recientes del chat: `agent`, `file`, `tokens`, `lastTs`, `working`. |
+
+### Campos de `level`
+
+| Campo | Contenido |
+|---|---|
+| `level` y `label` | 1 Eco (hasta 20%), 2 Flujo (hasta 50%), 3 Ritmo Alto (hasta 75%), 4 Crítico (hasta 90%), 5 Límite (más de 90%). |
+| `pct` y `basis` | Porcentaje usado. `plan5h` sale del límite de 5 horas. Sin ese dato, `context` sale del chat activo con más contexto. |
+| `burnPerMin` | Tokens de Claude por minuto en los últimos 15 minutos. |
+| `minutesLeft` y `exhaustsBeforeReset` | Proyección hasta el límite de 5 horas, o `null`. Requiere `basis: plan5h`, 5% usado como mínimo, tokens locales y ritmo. |
+| `cacheEfficiency` | Porcentaje (0 a 100) de la entrada leída de caché, últimas 5 horas. |
+| `delegationShare` | Parte (0 a 1) de los tokens que gastaron los subagentes, últimas 5 horas. |
 
 `/api/events` envía `hello`, `changed` y un latido cada 25 segundos. Admite 8 clientes: el noveno recibe `429`. No concede CORS.
 
 `total` de tokens = entrada + escritura de caché + lectura de caché + salida. La lectura de caché suele ser más de 90% del total.
+
+`reasoning` (pensamiento) es parte de la salida y no se suma otra vez al total. Lo traen Codex, Gemini y OmniRoute. Claude no lo separa: va dentro de la salida.
 
 En `/api/active`, `context.source` indica el origen del límite de la ventana: `statusline` (real), `config` (fijado por el usuario) o `estimate` (estimado, con `estimated: true`).
 
@@ -165,8 +181,22 @@ Archivo `config.json` en la carpeta de datos de ClaudeHub (Windows `%APPDATA%\Cl
 ```json
 { "name": "Ada", "contextLimits": { "Opus 5": 1000000 }, "activeMinutes": 20, "alertAt": 0.85,
   "sources": { "codex": true, "gemini": true, "omniroute": false },
-  "omniroute": { "container": "omniroute", "dbPath": "" } }
+  "omniroute": { "container": "omniroute", "dbPath": "" }, "checkUpdates": true }
 ```
+
+`checkUpdates` (por defecto `true`) revisa GitHub Releases al iniciar y cada 6 horas. Es un GET sin datos de uso. Con `false` no hay ninguna petición. El modo demo nunca usa la red.
+
+## Subagentes del proyecto
+
+`.claude/agents/` trae tres subagentes de Claude Code para trabajar en este repositorio:
+
+| Agente | Modelo | Uso |
+|---|---|---|
+| `explorer-qa-haiku` | Haiku | Explora el código y ejecuta pruebas. Solo lectura y comandos. |
+| `core-engineer-sonnet` | Sonnet | Programa en `src/core/`, `src/server/` y `scripts/`. |
+| `ui-ux-specialist-sonnet` | Sonnet | Programa en `src/web/`: dashboard, mascota y overlay. |
+
+Claude Code los carga al iniciar una sesión en esta carpeta. El orquestador revisa el diff y la salida de las pruebas antes de aceptar un cambio.
 
 ## Reglas para modificar el código
 

@@ -33,6 +33,12 @@ describe('configuracion', () => {
     expect('otro' in c).toBe(false)
   })
 
+  it('checkUpdates es true por defecto y solo acepta booleanos', () => {
+    expect(sanitize({}).checkUpdates).toBe(true)
+    expect(sanitize({ checkUpdates: false }).checkUpdates).toBe(false)
+    expect(sanitize({ checkUpdates: 'no' }).checkUpdates).toBe(true)
+  })
+
   it('devuelve los valores por defecto con entradas invalidas', () => {
     expect(sanitize(null)).toEqual(DEFAULTS)
     expect(sanitize('texto')).toEqual(DEFAULTS)
@@ -69,10 +75,15 @@ describe('rutas y nombres de proyecto', () => {
   })
 
   it('usa una carpeta de datos propia de cada sistema', () => {
-    const d = dataDir()
-    expect(d.endsWith('ClaudeHub')).toBe(true)
-    process.env.CLAUDEHUB_DATA = '/tmp/ch'
-    expect(dataDir()).toBe('/tmp/ch')
+    // test/setup.ts fija CLAUDEHUB_DATA: se quita para ver la ruta por defecto y se restaura
+    const prev = process.env.CLAUDEHUB_DATA
     delete process.env.CLAUDEHUB_DATA
+    try {
+      expect(dataDir().endsWith('ClaudeHub')).toBe(true)
+      process.env.CLAUDEHUB_DATA = '/tmp/ch'
+      expect(dataDir()).toBe('/tmp/ch')
+    } finally {
+      process.env.CLAUDEHUB_DATA = prev
+    }
   })
 })

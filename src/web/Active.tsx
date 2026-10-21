@@ -35,6 +35,37 @@ function ago(ts: number): string {
   return `hace ${Math.round(s / 3600)} h`
 }
 
+/** Arbol del chat: orquestador y subagentes. Sin subagentes no se dibuja. */
+export function SubagentTree({ chat }: { chat: ActiveChat }) {
+  const subs = chat.subagents
+  if (!subs?.length) return null
+  const total = chat.tokens.total || 1
+  const row = (key: string, name: string, tokens: number, color: string, working?: boolean) => (
+    <li key={key}>
+      <i className={`live-dot ${working ? 'on' : ''}`} aria-hidden="true" />
+      <span className="tree-name" title={name}>
+        {name}
+      </span>
+      <span className="tree-bar">
+        <i style={{ width: `${Math.min(100, (tokens / total) * 100)}%`, background: color }} />
+      </span>
+      <span className="tree-val">{compact(tokens)}</span>
+    </li>
+  )
+  return (
+    <details className="tree">
+      <summary>
+        {subs.length} subagente{subs.length > 1 ? 's' : ''} · {compact(chat.tokens.subagents)} tokens
+      </summary>
+      <p className="active-meta">Tokens delegados (fuera del contexto del orquestador)</p>
+      <ul>
+        {row('orchestrator', 'Orquestador', chat.tokens.orchestrator, 'var(--accent)')}
+        {subs.map((s) => row(s.file, s.agent ?? 'subagente', s.tokens, 'var(--blue)', s.working))}
+      </ul>
+    </details>
+  )
+}
+
 export function ActiveList({ chats, alertAt = 0.85, dense = false }: { chats: ActiveChat[]; alertAt?: number; dense?: boolean }) {
   if (!chats.length) return <div className="empty">Sin chats activos en los ultimos minutos</div>
   return (
@@ -57,6 +88,7 @@ export function ActiveList({ chats, alertAt = 0.85, dense = false }: { chats: Ac
               Sesion: {compact(c.tokens.total)} tokens (orquestador {compact(c.tokens.orchestrator)}, subagentes {compact(c.tokens.subagents)})
             </div>
           )}
+          {!dense && <SubagentTree chat={c} />}
         </li>
       ))}
     </ul>

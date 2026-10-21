@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { scan, PROJECTS_DIR } from '../core/scan'
-import { demoData, demoPlanRaw, demoEvents, demoCodexLimits } from '../core/demo'
+import { demoData, demoPlanRaw, demoEvents, demoCodexLimits, demoUpdate } from '../core/demo'
+import { getUpdate, startUpdateChecks } from '../core/update'
 import { planReport } from '../core/plan'
 import { activeExtras } from '../core/overview'
 import { readEvents } from '../core/agents'
@@ -176,6 +177,7 @@ app.put('/api/settings', async (c) => {
   reports.clear()
   return c.json({ config: saved })
 })
+app.get('/api/update', (c) => c.json(DEMO ? demoUpdate() : getUpdate()))
 app.get('/api/live', (c) => c.json(once('live', () => live(records()))))
 app.get('/api/active', (c) =>
   c.json(
@@ -184,13 +186,15 @@ app.get('/api/active', (c) =>
       const now = Date.now()
       const plan = planReport(claude, now, DEMO ? demoPlanRaw(now) : undefined, data().limitHit)
       const codexLimits = DEMO ? demoCodexLimits(now) : config().sources.codex ? latestCodexLimits() : null
+      const chats = activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined)
       return {
         alertAt: config().alertAt,
         todayTokens: live(claude).todayTokens,
-        chats: activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined),
+        chats,
         plan,
         ...activeExtras({
           claudePlan: plan,
+          contextPct: chats.length ? Math.max(...chats.map((c) => c.context.pct)) : null,
           recs: records(),
           codexLimits,
           events: DEMO ? demoEvents(now) : readEvents(),
@@ -263,7 +267,7 @@ if (!DEMO) {
   const omniDir = resolve(dataDir(), 'omniroute')
   const ignore = (file: string): boolean => {
     const full = resolve(file)
-    return basename(full) === 'cache.json' || full.endsWith('.tmp') || full === omniDir || full.startsWith(omniDir + sep)
+    return basename(full) === 'cache.json' || basename(full) === 'update.json' || full.endsWith('.tmp') || full === omniDir || full.startsWith(omniDir + sep)
   }
   const watcher = createWatcher(
     [PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir()],
@@ -278,6 +282,7 @@ if (!DEMO) {
     watcher.close()
     hub.close()
   })
+  startUpdateChecks()
 }
 
 serve({ fetch: app.fetch, hostname: HOST, port: PORT }, () => {

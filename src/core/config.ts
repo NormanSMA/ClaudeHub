@@ -15,6 +15,8 @@ export interface HubConfig {
   sources: { codex: boolean; gemini: boolean; omniroute: boolean }
   /** Acceso a la base de OmniRoute: nombre del contenedor Docker y ruta opcional de storage.sqlite */
   omniroute: { container: string; dbPath: string }
+  /** Consulta GitHub Releases para avisar de versiones nuevas. Con false no hay peticiones de red */
+  checkUpdates: boolean
 }
 
 export const DEFAULTS: HubConfig = {
@@ -24,6 +26,7 @@ export const DEFAULTS: HubConfig = {
   name: '',
   sources: { codex: true, gemini: true, omniroute: false },
   omniroute: { container: 'omniroute', dbPath: '' },
+  checkUpdates: true,
 }
 const FILE = process.env.CLAUDEHUB_CONFIG ?? join(dataDir(), 'config.json')
 
@@ -65,6 +68,7 @@ export function sanitize(raw: unknown): HubConfig {
       // eslint-disable-next-line no-control-regex
       dbPath: typeof omni.dbPath === 'string' ? omni.dbPath.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 260) : '',
     },
+    checkUpdates: flag(r.checkUpdates, DEFAULTS.checkUpdates),
   }
 }
 

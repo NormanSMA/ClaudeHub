@@ -19,10 +19,11 @@ interface Usage {
   cached: number
   cacheWrite: number
   output: number
+  reasoning: number
   total: number
 }
 
-const ZERO: Usage = { input: 0, cached: 0, cacheWrite: 0, output: 0, total: 0 }
+const ZERO: Usage = { input: 0, cached: 0, cacheWrite: 0, output: 0, reasoning: 0, total: 0 }
 
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
@@ -33,6 +34,7 @@ function readUsage(u: any): Usage | null {
     cached: num(u.cached_input_tokens),
     cacheWrite: num(u.cache_write_input_tokens),
     output: num(u.output_tokens),
+    reasoning: num(u.reasoning_output_tokens),
     total: u.total_tokens,
   }
 }
@@ -89,6 +91,8 @@ export function parseCodex(text: string): Rec[] {
     const dCache = Math.max(0, cur.cached - prev.cached)
     const dWrite = Math.max(0, cur.cacheWrite - prev.cacheWrite)
     const dOutput = Math.max(0, cur.output - prev.output)
+    // reasoning_output_tokens ya esta dentro de output_tokens
+    const dReasoning = Math.max(0, cur.reasoning - prev.reasoning)
     // Sesiones antiguas traen los campos por tipo en 0 y solo `total_tokens` con gasto.
     // El resto del incremento se cuenta como entrada para que el total cuadre.
     const residual = Math.max(0, cur.total - prev.total - (dInput + dCache + dWrite + dOutput))
@@ -100,6 +104,7 @@ export function parseCodex(text: string): Rec[] {
       cacheRead: dCache,
       cacheWrite: dWrite,
       output: dOutput,
+      reasoning: dReasoning,
       session,
       project,
       role: 'orchestrator',

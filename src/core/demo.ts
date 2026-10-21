@@ -2,6 +2,7 @@ import type { ScanResult } from './scan'
 import type { Rec, SessionMeta } from './types'
 import type { HookEvent } from './agents'
 import type { CodexRateLimits } from './sources/codex'
+import { VERSION, RELEASES_PREFIX, type UpdateInfo } from './update'
 
 // Datos ficticios para probar ClaudeHub sin leer tus logs: pnpm demo
 // Son deterministas: mismos numeros en cada arranque. Los chats activos se calculan respecto a "ahora".
@@ -83,6 +84,22 @@ export function demoCodexLimits(now = Date.now()): CodexRateLimits {
     planType: 'plus',
     primary: { usedPercent: 30, windowMinutes: 300, resetsAt: Math.floor((now + (2 * 60 + 10) * 60_000) / 1000) },
     secondary: { usedPercent: 12, windowMinutes: 10080, resetsAt: Math.floor((now + 5 * 86_400_000) / 1000) },
+  }
+}
+
+/** Aviso ficticio de version nueva: la actual con el menor subido. Sin red. */
+export function demoUpdate(now = Date.now()): UpdateInfo {
+  const [major, minor] = VERSION.split('.').map(Number)
+  const latest = `${major}.${minor + 1}.0`
+  return {
+    enabled: true,
+    current: VERSION,
+    latest,
+    available: true,
+    url: `${RELEASES_PREFIX}tag/v${latest}`,
+    name: `ClaudeHub ${latest}`,
+    notes: ['Mascota con animacion de anuncio', 'Aviso cuando hay una version nueva', 'Interruptor para buscar versiones en Ajustes'],
+    checkedAt: now,
   }
 }
 
