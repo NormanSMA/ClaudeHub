@@ -864,11 +864,12 @@ button.primary:disabled {
   --lv4: color-mix(in srgb, var(--warn) 55%, var(--danger));
   --lv5: var(--danger);
 }
-.lv-1 { --lv: var(--lv1); }
-.lv-2 { --lv: var(--lv2); }
-.lv-3 { --lv: var(--lv3); }
-.lv-4 { --lv: var(--lv4); }
-.lv-5 { --lv: var(--lv5); }
+/* doble clase: debe ganar al --lv neutro de .level-card, que va despues */
+.level-card.lv-1 { --lv: var(--lv1); }
+.level-card.lv-2 { --lv: var(--lv2); }
+.level-card.lv-3 { --lv: var(--lv3); }
+.level-card.lv-4 { --lv: var(--lv4); }
+.level-card.lv-5 { --lv: var(--lv5); }
 .level-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
