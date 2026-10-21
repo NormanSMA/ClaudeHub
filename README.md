@@ -120,7 +120,7 @@ Abre `http://127.0.0.1:4318`.
   </tr>
   <tr>
     <td><img src="docs/screenshots/ajustes.png" alt="Pestaña de ajustes" /></td>
-    <td><img src="docs/screenshots/agentes.png" alt="Agentes: límites por fuente y agentes en vivo" /></td>
+    <td><img src="docs/screenshots/agentes.png" alt="Agentes: nivel de consumo, ritmo, proyección, límites y agentes en vivo" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Ajustes dentro del dashboard</sub></td>
@@ -157,7 +157,7 @@ Si un agente de Codex trabaja (según el hook), Chispa muestra una insignia de C
 Al tocarla se abre el panel de chats activos. Si abres el dashboard desde ahí, la mascota se oculta y vuelve cuando lo cierras.
 
 </td>
-    <td><img src="docs/screenshots/mascota.png" alt="Panel de la mascota con chats activos" width="300" /></td>
+    <td><img src="docs/screenshots/mascota.png" alt="Mascota con el nivel de consumo y el aviso de versión nueva" width="300" /></td>
   </tr>
 </table>
 
