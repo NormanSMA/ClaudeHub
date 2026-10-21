@@ -120,7 +120,7 @@ Open `http://127.0.0.1:4318`.
   </tr>
   <tr>
     <td><img src="docs/screenshots/ajustes.png" alt="Settings tab" /></td>
-    <td><img src="docs/screenshots/agentes.png" alt="Agents: limits per source and live agents" /></td>
+    <td><img src="docs/screenshots/agentes.png" alt="Agents: usage level, burn rate, projection, limits and live agents" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Settings inside the dashboard</sub></td>
@@ -157,7 +157,7 @@ If a Codex agent is working (according to the hook), Chispa shows a Codex badge.
 Touch it to open the active chats panel. If you open the dashboard from there, the mascot hides and comes back when you close it.
 
 </td>
-    <td><img src="docs/screenshots/mascota.png" alt="Mascot panel with active chats" width="300" /></td>
+    <td><img src="docs/screenshots/mascota.png" alt="Mascot with usage level and new-version notice" width="300" /></td>
   </tr>
 </table>
 

@@ -120,7 +120,7 @@ Abra `http://127.0.0.1:4318`.
   </tr>
   <tr>
     <td><img src="docs/screenshots/ajustes.png" alt="Aba de ajustes" /></td>
-    <td><img src="docs/screenshots/agentes.png" alt="Agentes: limites por fonte e agentes ao vivo" /></td>
+    <td><img src="docs/screenshots/agentes.png" alt="Agentes: nível de consumo, ritmo, projeção, limites e agentes ao vivo" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Ajustes dentro do dashboard</sub></td>
@@ -157,7 +157,7 @@ Se um agente do Codex trabalha (segundo o hook), Chispa mostra um selo do Codex.
 Toque nele para abrir o painel de chats ativos. Se abrir o dashboard a partir daí, o mascote se oculta e volta quando você o fecha.
 
 </td>
-    <td><img src="docs/screenshots/mascota.png" alt="Painel do mascote com chats ativos" width="300" /></td>
+    <td><img src="docs/screenshots/mascota.png" alt="Mascote com o nível de consumo e o aviso de versão nova" width="300" /></td>
   </tr>
 </table>
 
