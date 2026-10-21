@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('hub', {
   resize: (width, height) => ipcRenderer.send('hub:resize', width, height),
   openDashboard: () => ipcRenderer.send('hub:dashboard'),
   hide: () => ipcRenderer.send('hub:hide'),
+  openExternal: (url) => ipcRenderer.send('hub:openExternal', url),
 })

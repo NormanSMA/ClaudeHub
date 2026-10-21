@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { HookEvent } from '../src/core/agents'
+import { activeReport, burnRate, cacheEfficiency, delegationShare } from '../src/core/aggregate'
+import { demoData, demoPlanRaw } from '../src/core/demo'
 import { activeExtras } from '../src/core/overview'
 import type { CodexRateLimits } from '../src/core/sources/codex'
-import type { PlanReport } from '../src/core/plan'
+import { planReport, type PlanReport } from '../src/core/plan'
+import { sourceOf, type Rec } from '../src/core/types'
 
 const NOW = 1_800_000_000_000
 const MIN = 60_000
@@ -20,7 +23,86 @@ const limits: CodexRateLimits = {
   secondary: { usedPercent: 12, windowMinutes: 10080, resetsAt: Math.floor((NOW + 3 * 86_400_000) / 1000) },
 }
 
-const base = { claudePlan, recs: [], codexLimits: null, events: [] as HookEvent[], now: NOW }
+const base = { claudePlan, contextPct: null, recs: [] as Rec[], codexLimits: null, events: [] as HookEvent[], now: NOW }
+
+const rec = (over: Partial<Rec>): Rec => ({
+  id: String(Math.random()),
+  ts: NOW - MIN,
+  model: 'claude-opus-5-5',
+  input: 0,
+  cacheWrite: 0,
+  cacheRead: 0,
+  output: 0,
+  session: 's',
+  project: 'p',
+  role: 'orchestrator',
+  ...over,
+})
+
+describe('ritmo, eficiencia y delegacion', () => {
+  it('burnRate cuenta solo Claude dentro de la ventana', () => {
+    const recs = [
+      rec({ output: 1500 }),
+      rec({ ts: NOW - 20 * MIN, output: 9999 }),
+      rec({ output: 7777, source: 'codex' }),
+    ]
+    expect(burnRate(recs, NOW)).toBe(100)
+    expect(burnRate([], NOW)).toBe(0)
+  })
+
+  it('cacheEfficiency es lectura de cache sobre la entrada', () => {
+    expect(cacheEfficiency({ input: 10, cacheWrite: 10, cacheRead: 80 })).toBe(80)
+    expect(cacheEfficiency({ input: 0, cacheWrite: 0, cacheRead: 0 })).toBe(0)
+  })
+
+  it('delegationShare usa 5 h y solo Claude', () => {
+    const recs = [
+      rec({ output: 300, role: 'subagent' }),
+      rec({ output: 700 }),
+      rec({ ts: NOW - 6 * 60 * MIN, output: 5000, role: 'subagent' }),
+      rec({ output: 5000, role: 'subagent', source: 'gemini' }),
+    ]
+    expect(delegationShare(recs, NOW)).toBeCloseTo(0.3)
+    expect(delegationShare([], NOW)).toBe(0)
+  })
+})
+
+describe('nivel y subagentes con datos del demo', () => {
+  const now = Date.now()
+  const { recs, sessions } = demoData(now)
+  const claude = recs.filter((r) => sourceOf(r) === 'claude')
+  const plan = planReport(claude, now, demoPlanRaw(now))
+  const chats = activeReport(claude, sessions, now, undefined, {})
+
+  it('activeExtras da nivel 3 con ritmo y proyeccion', () => {
+    const contextPct = Math.max(...chats.map((c) => c.context.pct))
+    const { level } = activeExtras({ claudePlan: plan, contextPct, recs, codexLimits: null, events: [], now })
+    expect(level).toMatchObject({ level: 3, basis: 'plan5h' })
+    expect(level!.burnPerMin).toBeGreaterThan(0)
+    expect(level!.minutesLeft).not.toBeNull()
+    expect(level!.exhaustsBeforeReset).not.toBeNull()
+    expect(level!.cacheEfficiency).toBeGreaterThan(0)
+  })
+
+  it('level es null sin plan ni chats', () => {
+    expect(activeExtras(base).level).toBeNull()
+  })
+
+  it('el chat pg-migration trae sus subagentes', () => {
+    const chat = chats.find((c) => c.session === 'demo-pg-migration')!
+    expect(chat.subagents.length).toBeGreaterThan(0)
+    const live = chat.subagents.find((s) => s.file === 'agent-live-1')!
+    expect(live).toMatchObject({ agent: 'Explore', working: true })
+    expect(live.tokens).toBeGreaterThan(0)
+    expect(chat.activeSubagents).toBe(chat.subagents.filter((s) => s.working).length)
+    // solo los 10 mas recientes, del mas nuevo al mas viejo
+    expect(chat.subagents.length).toBeLessThanOrEqual(10)
+    expect(chat.subagents[0].file).toBe('agent-live-1')
+    const ts = chat.subagents.map((s) => s.lastTs)
+    expect(ts).toEqual([...ts].sort((a, b) => b - a))
+    expect(chat.subagents.reduce((a, s) => a + s.tokens, 0)).toBeLessThanOrEqual(chat.tokens.subagents)
+  })
+})
 
 describe('activeExtras', () => {
   it('sin eventos ni limites: planes vacios y mascota durmiendo', () => {

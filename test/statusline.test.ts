@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -40,6 +40,12 @@ describe('linea de estado', () => {
     const saved = JSON.parse(readFileSync(file, 'utf8'))
     expect(saved['sess-1'].size).toBe(1_000_000)
     expect(saved['sess-1'].model).toBe('claude-opus-5-5')
+  })
+
+  it('no deja archivos .tmp tras escribir', () => {
+    run(sample)
+    run({ ...sample, session_id: 'sess-2' })
+    expect(readdirSync(dir).filter((f) => f.endsWith('.tmp'))).toEqual([])
   })
 
   it('no falla con entradas invalidas ni sin ventana', () => {

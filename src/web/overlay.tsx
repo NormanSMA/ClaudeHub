@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { ActiveList, PlanLimits } from './Active'
 import { useApi, type ActiveReport } from './api'
 import { compact } from './format'
-import { CodexBadge, Mascot } from './Mascot'
-import { codexBusy, pickMascotState, type MascotState } from './mascotState'
+import { CodexBadge, LevelBadge, Mascot } from './Mascot'
+import { codexBusy, exhaustText, levelClass, levelFrom, levelText, pickMascotState, type MascotState } from './mascotState'
+import { balloonText, useUpdateNotice } from './update'
 import './style.css'
 import './overlay.css'
 
@@ -13,10 +14,12 @@ interface HubBridge {
   resize(width: number, height: number): void
   openDashboard(): void
   hide(): void
+  openExternal?(url: string): void
 }
 const hub = (window as unknown as { hub?: HubBridge }).hub
 
 const COLLAPSED_W = 68
+const PILL_W = 220
 const EXPANDED_W = 360
 
 function Overlay() {
@@ -30,6 +33,13 @@ function Overlay() {
   const alertAt = data?.alertAt ?? 0.85
   const mood: MascotState = pickMascotState(data)
   const codex = codexBusy(data)
+  const level = levelFrom(data)
+  const exhaust = exhaustText(level)
+  const hasLevel = Boolean(level)
+  const hasExhaust = exhaust !== null
+  const pill = hasLevel && !open
+  const { info: update, dismiss } = useUpdateNotice()
+  const notice = update !== null && !open
 
   // al ocultarse la ventana (por ejemplo al abrir el dashboard) el panel se cierra: reaparece colapsada
   useEffect(() => {
@@ -43,12 +53,13 @@ function Overlay() {
   useEffect(() => {
     const el = root.current
     if (!el) return
-    const send = () => hub?.resize(open ? EXPANDED_W : COLLAPSED_W, Math.ceil(el.getBoundingClientRect().height))
+    const width = open ? EXPANDED_W : hasLevel || notice ? PILL_W : COLLAPSED_W
+    const send = () => hub?.resize(width, Math.ceil(el.getBoundingClientRect().height))
     send()
     const ro = new ResizeObserver(send)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [open])
+  }, [open, hasLevel, hasExhaust, notice])
 
   const down = (e: PointerEvent) => {
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -99,17 +110,52 @@ function Overlay() {
           </footer>
         </section>
       )}
+      {notice && update?.url && (
+        <section className="update-balloon" role="status" aria-label="Versión nueva">
+          <p>{balloonText(update)}</p>
+          {update.notes.length > 0 && (
+            <ul>
+              {update.notes.slice(0, 3).map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          )}
+          <div className="update-actions">
+            {hub?.openExternal ? (
+              <button className="update-btn" onClick={() => hub.openExternal?.(update.url!)}>
+                Descargar
+              </button>
+            ) : (
+              <a className="update-btn" href={update.url} target="_blank" rel="noopener noreferrer">
+                Descargar
+              </a>
+            )}
+            <button className="link" onClick={dismiss}>
+              Luego
+            </button>
+          </div>
+        </section>
+      )}
       <button
-        className="mascot-btn"
+        className={`mascot-btn${pill ? ` mascot-pill ${levelClass(level)}` : ''}`}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={end}
         onClick={toggle}
-        aria-label="Mascota de ClaudeHub"
+        aria-label={level ? `Mascota de ClaudeHub, nivel ${levelText(level)}${exhaust ? `, ${exhaust}` : ''}` : 'Mascota de ClaudeHub'}
         aria-expanded={open}
       >
-        <Mascot state={mood} size={44} />
+        <Mascot state={mood} size={44} level={level?.level} announce={notice} />
+        {pill && level ? (
+          <span className="pill-text">
+            <strong>{levelText(level)}</strong>
+            {level.label && <span className="pill-label">{level.label}</span>}
+            {exhaust && <span className="pill-exhaust">{exhaust}</span>}
+          </span>
+        ) : (
+          level && <LevelBadge level={level.level} />
+        )}
         {codex && <CodexBadge />}
         {chats.length > 0 && <span className={`badge ${mood === 'alert' ? 'bad' : ''}`}>{chats.length}</span>}
       </button>

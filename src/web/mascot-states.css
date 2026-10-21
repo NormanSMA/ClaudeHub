@@ -68,6 +68,104 @@
   50% { opacity: 0.7; }
 }
 
+/* nivel de tokens: --lv colorea la insignia, el anillo y la mini-pill */
+.mascot-lv1 { --lv: var(--ok); }
+.mascot-lv2 { --lv: var(--blue); }
+.mascot-lv3 { --lv: var(--warn); }
+.mascot-lv4 { --lv: #e8833a; }
+.mascot-lv5 { --lv: var(--danger); }
+.mascot {
+  --mascot-sweat: #8fc7ff;
+}
+.level-badge {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  min-width: 20px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--lv);
+  color: #1a1918;
+  font: 700 10px/16px Inter, sans-serif;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.mascot-lv5.level-badge {
+  color: #fff;
+}
+
+/* N4: gotas de sudor y anillo de aviso suave */
+.m-sweat {
+  transform-box: fill-box;
+  animation: sweat 1.2s steps(4, end) infinite;
+}
+.m-sweat-b {
+  animation-delay: 0.6s;
+}
+@keyframes sweat {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(2px); opacity: 0.2; }
+}
+.m-ring {
+  opacity: 0.55;
+  animation: ring 2.4s ease-in-out infinite;
+}
+@keyframes ring {
+  50% { opacity: 0.15; }
+}
+
+/* N5: tinte calido y brillo */
+.mascot.mascot-lv5,
+.mascot-btn .mascot.mascot-lv5 {
+  filter: sepia(0.3) saturate(1.35) drop-shadow(0 0 4px var(--danger));
+}
+.mascot.mascot-lv5 .m-ring {
+  opacity: 0.9;
+  animation-duration: 1.2s;
+}
+
+/* anuncio de version nueva: salto, mano que saluda y destellos durante 2,4 s; luego reposo suave */
+.mascot.mascot-announce .m-body {
+  animation: announce-jump 0.6s ease-out 4, bob 1.6s steps(2, end) 2.4s infinite;
+}
+.m-wave {
+  animation: wave-out 0.01s linear 2.4s forwards;
+}
+.m-wave-top,
+.m-wave-arm {
+  transform-box: fill-box;
+}
+.m-wave-top {
+  animation: wave 0.4s steps(1, end) 6;
+}
+.m-glint {
+  opacity: 0.2;
+  animation: glint 1.8s ease-in-out infinite;
+}
+@keyframes announce-jump {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-1.6px); }
+}
+@keyframes wave {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-1px); }
+}
+@keyframes wave-out {
+  to { opacity: 0; }
+}
+@keyframes glint {
+  50% { opacity: 1; }
+}
+
+/* movimiento reducido: especificidad mayor que style.css (.mascot-alert .m-body, .m-alert) */
 @media (prefers-reduced-motion: reduce) {
+  .mascot.mascot-announce .m-body { animation: none; }
+  .m-wave, .m-glint { display: none; }
   .m-hand, .m-dot, .m-wait, .codex-badge { animation: none; }
+  .mascot .m-alert,
+  .mascot.mascot-alert .m-body,
+  .mascot .m-sweat,
+  .mascot .m-ring { animation: none; }
 }

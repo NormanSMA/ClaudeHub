@@ -607,7 +607,7 @@ Fluxo SSE sem dados de uso. Envia `hello` ao conectar, `changed` quando os arqui
 ## Privacidade e segurança
 
 - O servidor escuta apenas em `127.0.0.1`.
-- Sem telemetria nem chamadas a serviços externos. A única requisição de rede é carregar Google Fonts na interface.
+- Sem telemetria. Há duas requisições de rede: Google Fonts na interface e a verificação de versão nova. A verificação é um GET na API pública do GitHub Releases ao iniciar e a cada 6 horas. Não envia dados de uso. Desative em **Ajustes** ou com `"checkUpdates": false` no `config.json`.
 - Apenas campos de uso e títulos de chats são lidos. Respostas não são salvas, nem textos do Codex, Gemini ou OmniRoute.
 - O cache contém apenas dados agregados por mensagem.
 - O hook de estados não salva prompts nem argumentos de ferramentas, e sai sempre com código 0 e sem saída.

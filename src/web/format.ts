@@ -10,6 +10,13 @@ export const int = (n: number) => n.toLocaleString('es-MX')
 
 export const pct = (x: number) => (x * 100).toFixed(1) + '%'
 
+/** "45 min", "2 h 10 min". */
+export function minutesText(min: number): string {
+  const m = Math.max(0, Math.round(min))
+  if (m < 60) return `${m} min`
+  return `${Math.floor(m / 60)} h ${m % 60} min`
+}
+
 export function hourLabel(h: number | null): string {
   if (h === null) return '-'
   const suffix = h >= 12 ? 'p. m.' : 'a. m.'

@@ -13,5 +13,5 @@ export default defineConfig({
     rollupOptions: { input: { main: resolve(web, 'index.html'), overlay: resolve(web, 'overlay.html') } },
   },
   server: { host: '127.0.0.1', port: 5173, proxy: { '/api': 'http://127.0.0.1:4317' } },
-  test: { root: import.meta.dirname, include: ['test/**/*.test.ts'] },
+  test: { root: import.meta.dirname, include: ['test/**/*.test.ts'], setupFiles: ['test/setup.ts'] },
 })

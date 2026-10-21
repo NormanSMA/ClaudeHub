@@ -93,5 +93,7 @@ describe('parser', () => {
     expect(modelName('claude-sonnet-4-5')).toBe('Sonnet 4.5')
     expect(modelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
     expect(modelName('claude-opus-4-8')).toBe('Opus 4.8')
+    expect(modelName('claude-sonnet-5-5')).toBe('Sonnet 5.5')
+    expect(modelName('claude-haiku-5-5')).toBe('Haiku 5.5')
   })
 })

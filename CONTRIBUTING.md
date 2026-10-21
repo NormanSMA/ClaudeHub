@@ -40,6 +40,12 @@ Los tres deben pasar. El CI los corre en Linux, Windows y macOS.
 - El servidor escucha solo en `127.0.0.1`. No lo cambies.
 - Si agregas una función, agrega una prueba en `test/`.
 - Las capturas del README salen siempre del modo demo. Nunca subas capturas con tus chats reales.
+- Las pruebas usan una carpeta de datos temporal (`test/setup.ts`). Nunca leen tu `config.json` real.
+- La única llamada de red del servidor es la revisión de versión (`src/core/update.ts`). No agregues otras sin abrir un issue antes.
+
+## Subagentes de Claude Code
+
+Si usas Claude Code, `.claude/agents/` trae tres subagentes para este repositorio: `explorer-qa-haiku` (explorar y probar), `core-engineer-sonnet` (núcleo y servidor) y `ui-ux-specialist-sonnet` (interfaz). La tabla está en [AGENTS.md](AGENTS.md). Revisa siempre su diff antes de enviar un pull request.
 
 ## Estilo de commits
 

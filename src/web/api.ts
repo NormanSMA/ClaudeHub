@@ -9,6 +9,8 @@ export interface Breakdown {
   cacheRead: number
   output: number
   total: number
+  /** Pensamiento, parte de `output`. Solo lo traen Codex, Gemini y OmniRoute. */
+  reasoning?: number
 }
 
 export interface Summary {
@@ -143,10 +145,46 @@ export interface ActiveChat {
   context: { used: number; limit: number; estimated: boolean; source: 'statusline' | 'config' | 'estimate'; pct: number }
   tokens: { orchestrator: number; subagents: number; total: number }
   activeSubagents: number
+  subagents?: ActiveSubagent[]
+}
+
+export interface ActiveSubagent {
+  agent: string | null
+  file: string
+  tokens: number
+  lastTs: number
+  working: boolean
+}
+
+export type LevelId = 1 | 2 | 3 | 4 | 5
+
+export interface TokenLevel {
+  level: LevelId
+  label: string
+  pct: number
+  basis: 'plan5h' | 'context'
+  burnPerMin: number
+  minutesLeft: number | null
+  exhaustsBeforeReset: boolean | null
+  cacheEfficiency: number
+  delegationShare: number
+}
+
+/** Respuesta de /api/update. `available` solo es true con una version mayor y `url` validada. */
+export interface UpdateInfo {
+  enabled: boolean
+  current: string
+  latest: string | null
+  available: boolean
+  url: string | null
+  name: string | null
+  /** hasta 3 cambios en texto plano */
+  notes: string[]
+  checkedAt: number | null
 }
 
 export interface SettingsInfo {
-  config: { name: string; alertAt: number; activeMinutes: number; contextLimits: Record<string, number> }
+  config: { name: string; alertAt: number; activeMinutes: number; contextLimits: Record<string, number>; checkUpdates?: boolean }
   path: string
   demo: boolean
   models: string[]
@@ -197,4 +235,6 @@ export interface ActiveReport {
   plans?: { claude: PlanReport | null; codex: PlanReport | null }
   agents?: AgentLive[]
   collisions?: Collision[]
+  mascot?: 'waiting' | 'error' | 'alert' | 'tool' | 'thinking' | 'happy' | 'sleeping'
+  level?: TokenLevel | null
 }

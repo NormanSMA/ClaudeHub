@@ -27,6 +27,50 @@ body.overlay-body {
 .mascot-btn .mascot {
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
 }
+/* modo cerrado con nivel: ancho fijo (PILL_W 220 menos el relleno de .overlay) y cifras tabulares */
+.mascot-btn.mascot-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--lv);
+  border-radius: 14px;
+  padding: 6px 10px 6px 6px;
+  text-align: left;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+.mascot-btn.mascot-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.pill-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  font: 12px/1.3 Inter, sans-serif;
+}
+.pill-text strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+.pill-label {
+  color: var(--muted);
+}
+.pill-exhaust {
+  color: var(--warn);
+  font-weight: 600;
+}
+.pill-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .badge {
   position: absolute;
   top: 0;
@@ -70,6 +114,52 @@ body.overlay-body {
 }
 .overlay-panel .empty {
   padding: 18px 0;
+}
+
+/* globo de version nueva: cabe en el ancho de la mini-pill (220 px menos el relleno) */
+.update-balloon {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 10px 12px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font: 12px/1.35 Inter, sans-serif;
+}
+.update-balloon::after {
+  content: '';
+  position: absolute;
+  right: 26px;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  background: var(--card);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+.update-balloon p {
+  margin: 0;
+  font-weight: 600;
+}
+.update-balloon ul {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: var(--muted);
+}
+.update-balloon li {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.update-balloon .update-actions {
+  margin-top: 8px;
 }
 
 /* el panel nunca pasa del ancho de la ventana de Electron (360 px) */

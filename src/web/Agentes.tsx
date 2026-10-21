@@ -1,6 +1,6 @@
 import { ActiveList, PlanLimits, ctxColor, untilText } from './Active'
-import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId } from './api'
-import { compact } from './format'
+import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId, type TokenLevel } from './api'
+import { compact, minutesText, pct } from './format'
 
 const SOURCE_NAME: Record<SourceId, string> = {
   claude: 'Claude',
@@ -63,6 +63,54 @@ function CodexLimits({ plan, alertAt }: { plan: PlanReport | null; alertAt: numb
   )
 }
 
+/** Cuatro tarjetas: nivel, ritmo, proyeccion y eficiencia de cache. Sin `level`, no se dibuja. */
+function LevelCards({ level }: { level: TokenLevel }) {
+  const basis = level.basis === 'plan5h' ? 'del limite de 5 horas' : 'del contexto'
+  const burn = level.burnPerMin > 0
+  return (
+    <>
+      <div className="level-cards">
+        <div className={`level-card lv-${level.level}`}>
+          <div className="stat-label">Nivel {level.level}</div>
+          <div className="stat-value">{level.label}</div>
+          <div className="stat-sub">
+            {Math.round(level.pct)}% {basis}
+          </div>
+          <div className="level-meter" aria-hidden="true">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <i key={n} className={n <= level.level ? 'on' : ''} />
+            ))}
+          </div>
+        </div>
+        <div className="level-card">
+          <div className="stat-label">Ritmo</div>
+          <div className="stat-value">{burn ? `${compact(level.burnPerMin)}/min` : '-'}</div>
+          <div className="stat-sub">tokens por minuto</div>
+        </div>
+        <div className="level-card">
+          <div className="stat-label">Proyeccion</div>
+          <div className="stat-value">{level.minutesLeft === null ? '-' : minutesText(level.minutesLeft)}</div>
+          <div className="stat-sub">
+            {level.exhaustsBeforeReset === null
+              ? 'sin estimacion'
+              : level.exhaustsBeforeReset
+                ? 'se agota antes del reinicio'
+                : 'alcanza hasta el reinicio'}
+          </div>
+        </div>
+        <div className="level-card">
+          <div className="stat-label">Eficiencia de cache</div>
+          <div className="stat-value">{pct(level.cacheEfficiency / 100)}</div>
+          <div className="stat-sub">entrada leida desde cache</div>
+        </div>
+      </div>
+      <p className="active-meta delegated">
+        Tokens delegados (fuera del contexto del orquestador): <b>{pct(level.delegationShare)}</b>
+      </p>
+    </>
+  )
+}
+
 function AgentsNow({ agents }: { agents: AgentLive[] }) {
   if (!agents.length) {
     return (
@@ -114,6 +162,7 @@ export function AgentesView() {
           Dos agentes trabajan a la vez en <strong>{c.project}</strong>
         </div>
       ))}
+      {data.level && <LevelCards level={data.level} />}
       <h3>Limites del plan</h3>
       <div className="plan-sources">
         <div>

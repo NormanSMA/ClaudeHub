@@ -58,6 +58,12 @@ describe('readOmniroute con dbPath', () => {
     expect(total(r)).toBe(210)
   })
 
+  it('guarda tokens_reasoning en reasoning sin cambiar output', async () => {
+    const { recs } = await readOmniroute({ container: 'omniroute', dbPath: dbFile, workDir: newWork() })
+    expect(recs.find((x) => x.id === 'omniroute:1')).toMatchObject({ output: 60, reasoning: 10 })
+    expect(recs.find((x) => x.id === 'omniroute:3')!.reasoning).toBe(0)
+  })
+
   it('ignora filas con total 0', async () => {
     const { recs } = await readOmniroute({ container: 'omniroute', dbPath: dbFile, workDir: newWork() })
     expect(recs.map((r) => r.id)).toEqual(['omniroute:1', 'omniroute:3'])

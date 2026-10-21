@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { dataDir } from './paths'
-import { total, type LimitHit, type Rec } from './types'
+import { LEVEL_LABELS, total, type LevelId, type LimitHit, type Rec, type TokenLevel } from './types'
 import type { CodexRateLimits, CodexWindow } from './sources/codex'
 
 /**
@@ -102,6 +102,60 @@ export function codexPlanReport(limits: CodexRateLimits | null, recs: Rec[], now
   const sevenDay = w7 ? codexWindow(w7, 10080, recs, now) : null
   if (!fiveHour && !sevenDay) return null
   return { fiveHour, sevenDay, blocked: null, updatedAt: limits.ts, planType: limits.planType || undefined }
+}
+
+/** Nivel de consumo segun el porcentaje usado (0 a 100). */
+export function levelOf(pct: number): LevelId {
+  if (pct <= 20) return 1
+  if (pct <= 50) return 2
+  if (pct <= 75) return 3
+  if (pct <= 90) return 4
+  return 5
+}
+
+export interface TokenLevelInput {
+  claude: PlanReport | null
+  /** mayor uso de contexto entre los chats activos, de 0 a 1. null si no hay chats */
+  contextPct: number | null
+  burnPerMin: number
+  cacheEfficiency: number
+  delegationShare: number
+  now: number
+}
+
+const MIN_PROJECTION_PCT = 5
+
+/**
+ * Nivel de consumo. Base: ventana de 5 h del plan (un limite alcanzado da nivel 5);
+ * sin plan, el chat activo con mas contexto; sin ninguno, null.
+ */
+export function tokenLevel({ claude, contextPct, burnPerMin, cacheEfficiency, delegationShare, now }: TokenLevelInput): TokenLevel | null {
+  let pct: number
+  let basis: TokenLevel['basis']
+  let resetsAt = 0
+  const win = claude?.fiveHour ?? null
+  if (claude?.blocked) {
+    pct = 100
+    basis = 'plan5h'
+    resetsAt = claude.blocked.resetsAt
+  } else if (win) {
+    pct = win.pct
+    basis = 'plan5h'
+    resetsAt = win.resetsAt
+  } else if (contextPct !== null && Number.isFinite(contextPct)) {
+    pct = Math.min(100, Math.max(0, contextPct * 100))
+    basis = 'context'
+  } else return null
+
+  let minutesLeft: number | null = null
+  let exhaustsBeforeReset: boolean | null = null
+  if (basis === 'plan5h' && win && pct >= MIN_PROJECTION_PCT && win.tokens > 0 && burnPerMin > 0) {
+    const atLimit = (win.tokens * 100) / pct
+    minutesLeft = (atLimit - win.tokens) / burnPerMin
+    exhaustsBeforeReset = minutesLeft < (resetsAt - now) / 60_000
+  }
+  const level = levelOf(pct)
+  return { level, label: LEVEL_LABELS[level - 1], pct, basis, burnPerMin, minutesLeft, exhaustsBeforeReset, cacheEfficiency, delegationShare }
 }
 
 /** Limites de ambos planes. `plan` de la API sigue siendo el de Claude. */

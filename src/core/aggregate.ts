@@ -54,13 +54,14 @@ export function filterRange(recs: Rec[], range: Range, now = Date.now()): Rec[] 
 
 const sum = (recs: Rec[]) => recs.reduce((a, r) => a + total(r), 0)
 
-function breakdown(recs: Rec[]) {
-  const b = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, total: 0 }
+export function breakdown(recs: Rec[]) {
+  const b = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0 }
   for (const r of recs) {
     b.input += r.input
     b.cacheWrite += r.cacheWrite
     b.cacheRead += r.cacheRead
     b.output += r.output
+    b.reasoning += r.reasoning ?? 0
   }
   b.total = b.input + b.cacheWrite + b.cacheRead + b.output
   return b
@@ -219,6 +220,42 @@ export function live(all: Rec[], now = Date.now()) {
 
 const WORKING_MS = 60_000
 const SUBAGENT_LIVE_MS = 2 * 60_000
+const FIVE_HOURS_MS = 5 * 3_600_000
+const MAX_SUBAGENTS = 10
+
+/** Tokens por minuto de Claude dentro de la ventana que termina en `now`. */
+export function burnRate(recs: Rec[], now: number, windowMs = 15 * 60_000): number {
+  let tokens = 0
+  for (const r of recs) if (sourceOf(r) === 'claude' && r.ts > now - windowMs && r.ts <= now) tokens += total(r)
+  return tokens / (windowMs / 60_000)
+}
+
+/** Porcentaje (0 a 100) de la entrada que se leyo de la cache. 0 si no hay entrada. */
+export function cacheEfficiency(tokens: { input: number; cacheWrite: number; cacheRead: number }): number {
+  const denom = tokens.input + tokens.cacheWrite + tokens.cacheRead
+  return denom > 0 ? (tokens.cacheRead / denom) * 100 : 0
+}
+
+/** Parte (0 a 1) de los tokens de Claude, en las ultimas 5 h, que gastaron los subagentes. */
+export function delegationShare(recs: Rec[], now = Date.now()): number {
+  let sub = 0
+  let all = 0
+  for (const r of recs) {
+    if (sourceOf(r) !== 'claude' || r.ts <= now - FIVE_HOURS_MS || r.ts > now) continue
+    const t = total(r)
+    all += t
+    if (r.role === 'subagent') sub += t
+  }
+  return all > 0 ? sub / all : 0
+}
+
+export interface ChatSubagent {
+  agent: string | null
+  file: string
+  tokens: number
+  lastTs: number
+  working: boolean
+}
 
 /** Chats con actividad reciente, con su uso de ventana de contexto. */
 export function activeReport(
@@ -230,7 +267,7 @@ export function activeReport(
 ) {
   const by = new Map<
     string,
-    { last: Rec | null; peak: number; project: string; orch: number; sub: number; lastTs: number; subs: Map<string, number> }
+    { last: Rec | null; peak: number; project: string; orch: number; sub: number; lastTs: number; subs: Map<string, Omit<ChatSubagent, 'working'>> }
   >()
   for (const r of all) {
     // los chats activos y su ventana de contexto son de Claude; otras fuentes se ven en Agentes
@@ -245,7 +282,12 @@ export function activeReport(
       if (!s.last || r.ts > s.last.ts) s.last = r
     } else {
       s.sub += total(r)
-      if (r.agentFile) s.subs.set(r.agentFile, Math.max(s.subs.get(r.agentFile) ?? 0, r.ts))
+      if (r.agentFile) {
+        const sub = s.subs.get(r.agentFile) ?? { agent: r.agent ?? null, file: r.agentFile, tokens: 0, lastTs: 0 }
+        sub.tokens += total(r)
+        sub.lastTs = Math.max(sub.lastTs, r.ts)
+        s.subs.set(r.agentFile, sub)
+      }
     }
     by.set(r.session, s)
   }
@@ -256,6 +298,9 @@ export function activeReport(
     const modelLabel = modelName(s.last.model)
     const { limit, estimated, source } = contextLimit(s.peak, modelLabel, windows[session]?.size)
     const meta = metas.get(session)
+    const all = [...s.subs.values()].map((x) => ({ ...x, working: now - x.lastTs < SUBAGENT_LIVE_MS }))
+    // la API publica solo los mas recientes: una sesion larga acumula decenas de subagentes
+    const subagents: ChatSubagent[] = [...all].sort((a, b) => b.lastTs - a.lastTs).slice(0, MAX_SUBAGENTS)
     out.push({
       session,
       title: sessionTitle(meta),
@@ -266,7 +311,8 @@ export function activeReport(
       working: now - s.lastTs < WORKING_MS,
       context: { used, limit, estimated, source, pct: Math.min(1, used / limit) },
       tokens: { orchestrator: s.orch, subagents: s.sub, total: s.orch + s.sub },
-      activeSubagents: [...s.subs.values()].filter((t) => now - t < SUBAGENT_LIVE_MS).length,
+      activeSubagents: all.filter((x) => x.working).length,
+      subagents,
     })
   }
   return out.sort((a, b) => b.lastTs - a.lastTs)

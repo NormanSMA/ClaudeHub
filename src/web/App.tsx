@@ -1,4 +1,4 @@
-import { pickMascotState } from './mascotState'
+import { levelFrom, pickMascotState } from './mascotState'
 import { useEffect, useMemo, useState } from 'react'
 import { AgentesView } from './Agentes'
 import {
@@ -15,11 +15,12 @@ import {
   type SourcesReport,
   type Summary,
 } from './api'
-import { Heatmap, PALETTE, SplitBar, StackedBars, fillDays } from './charts'
+import { CategoryBar, Heatmap, PALETTE, SplitBar, StackedBars, fillDays } from './charts'
 import { compact, dateLabel, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './Mascot'
 import { SettingsView } from './Settings'
 import { useSort } from './sort'
+import { balloonText, useUpdateNotice } from './update'
 
 type Tab = 'agentes' | 'resumen' | 'modelos' | 'sesiones' | 'proyectos' | 'ajustes'
 type RangeId = 'all' | '30d' | '7d' | 'custom'
@@ -143,17 +144,15 @@ function ResumenView({ q, qClaude }: { q: string; qClaude: string }) {
       </div>
       <Heatmap days={data.heatmap} />
       <p className="note">Usaste ~{int(Math.round(t.total / BOOK_TOKENS))}x mas tokens que Rebelion en la granja.</p>
-      <div className="stats small">
-        <Stat label="Entrada" value={compact(t.input)} />
-        <Stat label="Escritura de cache" value={compact(t.cacheWrite)} />
-        <Stat label="Lectura de cache" value={compact(t.cacheRead)} />
-        <Stat label="Salida" value={compact(t.output)} />
+      <div className="stats two">
         <Stat
-          label="Aciertos de cache"
+          label="Eficiencia de cache"
           value={pct(t.cacheRead / Math.max(1, t.input + t.cacheWrite + t.cacheRead))}
           hint="Parte de la entrada que se leyo desde cache"
         />
+        <Stat label="Salida visible" value={compact(Math.max(0, t.output - (t.reasoning ?? 0)))} hint="Salida sin pensamiento" />
       </div>
+      <CategoryBar tokens={t} />
       <h3 className="section-title">Orquestador vs subagentes (solo Claude)</h3>
       <RolesView q={qClaude} />
     </>
@@ -489,13 +488,14 @@ export function App() {
   const { data: live } = useApi<Live>('/api/live', 5_000)
   const { data: act } = useApi<ActiveReport>('/api/active', 5_000)
   const mood: MascotState = pickMascotState(act)
-  const q = rangeQuery(range, from, to)
+  const { info: update, dismiss: dismissUpdate } = useUpdateNotice()
+  const q =rangeQuery(range, from, to)
   const qs = withSource(q, source)
   const claudeOnly = tab === 'agentes'
   return (
     <main>
       <header className="greeting">
-        <Mascot state={mood} size={56} />
+        <Mascot state={mood} size={56} level={levelFrom(act)?.level} />
         <h1>Que sigue{cfg?.name ? `, ${cfg.name}` : ''}?</h1>
         <span className="today" title="Tokens de hoy">
           {live ? `Hoy ${compact(live.todayTokens)}` : ''}
@@ -516,6 +516,29 @@ export function App() {
         </button>
       </header>
       {cfg?.demo && <p className="demo-banner">Modo demo: todos los datos son ficticios.</p>}
+      {update?.url && (
+        <section className="update-banner" role="status" aria-label="Versión nueva">
+          <Mascot state={mood} size={40} announce />
+          <div className="update-body">
+            <p>{balloonText(update)}</p>
+            {update.notes.length > 0 && (
+              <ul>
+                {update.notes.slice(0, 3).map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="update-actions">
+            <a className="update-btn" href={update.url} target="_blank" rel="noopener noreferrer">
+              Descargar
+            </a>
+            <button className="link" onClick={dismissUpdate}>
+              Luego
+            </button>
+          </div>
+        </section>
+      )}
       <section className="card">
         <div className="bar">
           <nav className="tabs" aria-label="Secciones">
