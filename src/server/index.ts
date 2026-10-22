@@ -204,12 +204,13 @@ app.get('/api/active', (c) =>
       const plan = planReport(claude, now, DEMO ? demoPlanRaw(now) : undefined, data().limitHit)
       const codexLimits = DEMO ? demoCodexLimits(now) : config().sources.codex ? latestCodexLimits() : null
       const chats = activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined)
-      const { todayTokens, todayFresh, todayCacheRead } = live(claude, now)
+      const { todayTokens, todayFresh, todayCacheRead, todayCostUsd } = live(claude, now)
       return {
         alertAt: config().alertAt,
         todayTokens,
         todayFresh,
         todayCacheRead,
+        todayCostUsd,
         chats,
         plan,
         ...activeExtras({

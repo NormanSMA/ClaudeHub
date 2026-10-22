@@ -1,5 +1,6 @@
 import { config } from './config'
 import { modelName } from './models'
+import { costParts } from './pricing'
 import { recordedWindows } from './windows'
 import { fresh, sourceOf, total, type Range, type Rec, type SessionMeta, type Source } from './types'
 
@@ -55,8 +56,17 @@ export function filterRange<T extends { ts: number }>(recs: T[], range: Range, n
 const sum = (recs: Rec[]) => recs.reduce((a, r) => a + total(r), 0)
 
 export function breakdown(recs: Rec[]) {
-  const b = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0, fresh: 0 }
+  const b = {
+    input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0, fresh: 0,
+    costUsd: 0, costUnpriced: 0, cacheSavingsUsd: 0, freeSavingsUsd: 0,
+  }
+  const { overrides, freeProviders } = config().pricing
   for (const r of recs) {
+    const cost = costParts(r, overrides, freeProviders)
+    b.costUsd += cost.costUsd
+    b.costUnpriced += cost.unpricedTokens
+    b.cacheSavingsUsd += cost.cacheSavingsUsd
+    b.freeSavingsUsd += cost.freeSavingsUsd
     b.input += r.input
     b.cacheWrite += r.cacheWrite
     b.cacheRead += r.cacheRead
@@ -169,9 +179,13 @@ export function rolesReport(all: Rec[], range: Range, now = Date.now()) {
 
 export function sessionsReport(all: Rec[], metas: Metas, range: Range, limit = 100, now = Date.now()) {
   const recs = filterRange(all, range, now)
-  const map = new Map<string, { project: string; first: number; last: number; orch: number; sub: number; messages: number; fresh: number; cacheRead: number }>()
+  const { overrides, freeProviders } = config().pricing
+  const map = new Map<string, { project: string; first: number; last: number; orch: number; sub: number; messages: number; fresh: number; cacheRead: number; costUsd: number; cacheSavingsUsd: number }>()
   for (const r of recs) {
-    const s = map.get(r.session) ?? { project: r.project, first: r.ts, last: r.ts, orch: 0, sub: 0, messages: 0, fresh: 0, cacheRead: 0 }
+    const s = map.get(r.session) ?? { project: r.project, first: r.ts, last: r.ts, orch: 0, sub: 0, messages: 0, fresh: 0, cacheRead: 0, costUsd: 0, cacheSavingsUsd: 0 }
+    const cost = costParts(r, overrides, freeProviders)
+    s.costUsd += cost.costUsd
+    s.cacheSavingsUsd += cost.cacheSavingsUsd
     s.first = Math.min(s.first, r.ts)
     s.last = Math.max(s.last, r.ts)
     s.messages++
@@ -197,9 +211,13 @@ export function sessionsReport(all: Rec[], metas: Metas, range: Range, limit = 1
 
 export function projectsReport(all: Rec[], range: Range, now = Date.now()) {
   const recs = filterRange(all, range, now)
-  const map = new Map<string, { orch: number; sub: number; fresh: number; cacheRead: number; sessions: Set<string> }>()
+  const { overrides, freeProviders } = config().pricing
+  const map = new Map<string, { orch: number; sub: number; fresh: number; cacheRead: number; costUsd: number; cacheSavingsUsd: number; sessions: Set<string> }>()
   for (const r of recs) {
-    const p = map.get(r.project) ?? { orch: 0, sub: 0, fresh: 0, cacheRead: 0, sessions: new Set<string>() }
+    const p = map.get(r.project) ?? { orch: 0, sub: 0, fresh: 0, cacheRead: 0, costUsd: 0, cacheSavingsUsd: 0, sessions: new Set<string>() }
+    const cost = costParts(r, overrides, freeProviders)
+    p.costUsd += cost.costUsd
+    p.cacheSavingsUsd += cost.cacheSavingsUsd
     if (r.role === 'orchestrator') p.orch += total(r)
     else p.sub += total(r)
     p.fresh += fresh(r)
@@ -215,6 +233,8 @@ export function projectsReport(all: Rec[], range: Range, now = Date.now()) {
       total: p.orch + p.sub,
       fresh: p.fresh,
       cacheRead: p.cacheRead,
+      costUsd: p.costUsd,
+      cacheSavingsUsd: p.cacheSavingsUsd,
       sessions: p.sessions.size,
     }))
     .sort((a, b) => b.total - a.total)
@@ -229,6 +249,7 @@ export function live(all: Rec[], now = Date.now()) {
     lastTs: last || null,
     working: last > 0 && now - last < 60_000,
     todayTokens: sum(today),
+    todayCostUsd: tokens.costUsd,
     todayFresh: tokens.fresh,
     todayCacheRead: tokens.cacheRead,
     todayMessages: today.length,

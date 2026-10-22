@@ -1,5 +1,5 @@
 import { modelName } from './models'
-import type { Rec } from './types'
+import { sourceOf, total, type Rec } from './types'
 
 /** Tarifas en USD por un millon de tokens. */
 export interface Price {
@@ -59,6 +59,8 @@ const RULES: PriceRule[] = [
   // codex-auto-review: sin tarifa publicada en la tabla de 2026-10-22.
 ]
 
+const rulesByModel = new Map<string, PriceRule[]>()
+
 /** Resuelve el id, el volumen del prompt, la fecha y los ajustes por nombre visible. */
 export function priceOf(
   model: string,
@@ -67,7 +69,12 @@ export function priceOf(
   ts = Date.now(),
 ): Price | null {
   const id = model.toLowerCase().replace(/-\d{8}$/, '').replace(/^claude-(\d+)-(\d+)-([a-z]+)$/, 'claude-$3-$1-$2')
-  const rule = RULES.find((r) => r.match.test(id) && (r.until === undefined || ts < r.until))
+  let rules = rulesByModel.get(id)
+  if (!rules) {
+    rules = RULES.filter((r) => r.match.test(id))
+    rulesByModel.set(id, rules)
+  }
+  const rule = rules.find((r) => r.until === undefined || ts < r.until)
   const base = rule ? (rule.tierAbove && promptTokens > rule.tierAbove.tokens ? rule.tierAbove.price : rule.price) : null
   const name = modelName(model)
   if (!overrides || !Object.hasOwn(overrides, name)) return base ? { ...base } : null
@@ -77,15 +84,42 @@ export function priceOf(
 /** Calcula el costo del registro sin volver a cobrar la escritura de una hora. */
 export function costOf(r: Rec, overrides?: Record<string, Partial<Price>>): number | null {
   const p = priceOf(r.model, overrides, r.input + r.cacheWrite + r.cacheRead, r.ts)
-  if (!p) return null
+  return p ? pricedParts(r, p).costUsd : null
+}
+
+function pricedParts(r: Rec, p: Price) {
   // acotado: un registro incoherente no puede cobrar mas escritura de 1 h que escritura total
   const cacheWrite1h = Math.min(r.cacheWrite1h ?? 0, r.cacheWrite)
   const cacheWrite5m = Math.max(0, r.cacheWrite - cacheWrite1h)
-  return (
+  const costUsd = (
     r.input * p.input +
     r.output * p.output +
     cacheWrite5m * p.cacheWrite +
     cacheWrite1h * p.cacheWrite1h +
     r.cacheRead * p.cacheRead
   ) / 1_000_000
+  const cacheSavingsUsd = (
+    r.cacheRead * (p.input - p.cacheRead) -
+    cacheWrite5m * (p.cacheWrite - p.input) -
+    cacheWrite1h * (p.cacheWrite1h - p.input)
+  ) / 1_000_000
+  return { costUsd, cacheSavingsUsd }
+}
+
+/** Separa el costo, los tokens sin tarifa y los ahorros del registro. */
+export function costParts(
+  r: Rec,
+  overrides?: Record<string, Partial<Price>>,
+  freeProviders?: readonly string[],
+): { costUsd: number; unpricedTokens: number; cacheSavingsUsd: number; freeSavingsUsd: number } {
+  const p = priceOf(r.model, overrides, r.input + r.cacheWrite + r.cacheRead, r.ts)
+  if (!p) return { costUsd: 0, unpricedTokens: total(r), cacheSavingsUsd: 0, freeSavingsUsd: 0 }
+  const parts = pricedParts(r, p)
+  const free = sourceOf(r) === 'omniroute' && freeProviders?.includes(r.project)
+  return {
+    costUsd: free ? 0 : parts.costUsd,
+    unpricedTokens: 0,
+    cacheSavingsUsd: parts.cacheSavingsUsd,
+    freeSavingsUsd: free ? parts.costUsd : 0,
+  }
 }
