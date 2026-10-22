@@ -97,6 +97,15 @@ h3 {
   color: var(--muted);
   font-size: 13px;
 }
+.heavy-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  color: var(--warn);
+  font-size: 11px;
+}
 .today-count {
   display: inline-flex;
   flex-direction: column;
@@ -204,6 +213,39 @@ button:focus-visible {
 }
 .stats.small .stat-value {
   font-size: 15px;
+}
+.summary-primary,
+.summary-secondary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.summary-primary .stat,
+.summary-secondary .stat {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.summary-primary .stat {
+  padding: 16px 12px;
+  border-top: 3px solid var(--accent);
+}
+.summary-primary .stat-value {
+  margin-top: 6px;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.summary-token-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 6px;
+}
+.summary-token-pair > div {
+  min-width: 0;
+}
+.projects-table .project-cost {
+  background: var(--stat);
+}
+.project-cost strong {
+  font-size: 16px;
 }
 .stat-sub {
   color: var(--muted);
@@ -394,6 +436,18 @@ th {
 @media (max-width: 560px) {
   .stats {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .stats.summary-primary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stats.summary-secondary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .summary-secondary .stat {
+    padding: 8px;
+  }
+  .filters select {
+    max-width: 100%;
   }
   .legend .detail {
     display: none;
