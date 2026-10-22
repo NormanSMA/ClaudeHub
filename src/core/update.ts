@@ -135,25 +135,50 @@ export function getUpdate(): UpdateInfo {
   return { ...last, current: VERSION, available: !!last.latest && compareVersions(last.latest, VERSION) > 0 }
 }
 
-/** Consulta GitHub Releases. Con checkUpdates en false no hace ninguna peticion. Un fallo conserva el dato previo y no lanza. */
-export async function checkUpdate(doFetch: typeof fetch = fetch): Promise<UpdateInfo> {
-  if (!config().checkUpdates) return getUpdate()
+/** Pide el ultimo release. true si la respuesta fue valida y se guardo. */
+async function fetchRelease(doFetch: typeof fetch): Promise<boolean> {
   try {
     const res = await doFetch(API_URL, {
       headers: { 'User-Agent': `ClaudeHub/${VERSION}`, Accept: 'application/vnd.github+json' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
-    if (!res.ok) return getUpdate()
+    if (!res.ok) return false
     const info = parseRelease(await res.json(), VERSION)
-    if (info) {
-      load()
-      last = { ...info, checkedAt: Date.now() }
-      save(last)
-    }
+    if (!info) return false
+    load()
+    last = { ...info, checkedAt: Date.now() }
+    save(last)
+    return true
   } catch {
-    /* sin red, tiempo agotado o JSON invalido */
+    return false // sin red, tiempo agotado o JSON invalido
   }
+}
+
+/** Consulta GitHub Releases. Con checkUpdates en false no hace ninguna peticion. Un fallo conserva el dato previo y no lanza. */
+export async function checkUpdate(doFetch: typeof fetch = fetch): Promise<UpdateInfo> {
+  if (config().checkUpdates) await fetchRelease(doFetch)
   return getUpdate()
+}
+
+export type ManualResult = 'checked' | 'failed' | 'disabled' | 'throttled'
+export interface ManualCheck {
+  result: ManualResult
+  info: UpdateInfo
+  /** solo con `throttled`: espera antes de reintentar */
+  retryInMs?: number
+}
+
+const MANUAL_GAP_MS = 60_000
+let lastManual = 0
+
+/** Boton "Buscar actualizacion": una consulta por minuto como maximo. Respeta checkUpdates en false. */
+export async function manualCheck(doFetch: typeof fetch = fetch, now = Date.now()): Promise<ManualCheck> {
+  if (!config().checkUpdates) return { result: 'disabled', info: getUpdate() }
+  const wait = lastManual + MANUAL_GAP_MS - now
+  if (lastManual > 0 && wait > 0) return { result: 'throttled', info: getUpdate(), retryInMs: wait }
+  lastManual = now
+  const ok = await fetchRelease(doFetch)
+  return { result: ok ? 'checked' : 'failed', info: getUpdate() }
 }
 
 /** Revisa ahora y cada 6 h. El interruptor se lee en cada vuelta. */
@@ -168,4 +193,5 @@ export function startUpdateChecks(): () => void {
 export function resetUpdateState(): void {
   last = null
   loaded = false
+  lastManual = 0
 }

@@ -89,6 +89,8 @@ beforeAll(async () => {
   mkdirSync(claudeDir, { recursive: true })
   mkdirSync(dataDir, { recursive: true })
   for (const d of ['codex', 'gemini']) mkdirSync(join(root, d), { recursive: true })
+  // sin red en las pruebas: el boton de actualizacion responde 'disabled'
+  writeFileSync(join(dataDir, 'config.json'), JSON.stringify({ checkUpdates: false }))
   child = spawn('pnpm', ['exec', 'tsx', 'src/server/index.ts'], {
     cwd: process.cwd(),
     shell: process.platform === 'win32',
@@ -184,5 +186,28 @@ describe('GET /api/events', () => {
 
   it('un Host ajeno recibe 403', async () => {
     expect(await statusWithHost('evil.com')).toBe(403)
+  })
+})
+
+describe('rutas de hoy y de actualizacion', () => {
+  it('/api/live y /api/active exponen tokens nuevos y lectura de cache', async () => {
+    for (const path of ['/api/live', '/api/active']) {
+      const body = (await (await fetch(BASE + path)).json()) as Record<string, unknown>
+      expect(body).toMatchObject({ todayTokens: 0, todayFresh: 0, todayCacheRead: 0 })
+    }
+  })
+
+  it('POST /api/update/check rechaza un origen ajeno', async () => {
+    const res = await fetch(`${BASE}/api/update/check`, { method: 'POST', headers: { Origin: 'https://evil.com' } })
+    expect(res.status).toBe(403)
+  })
+
+  it('POST /api/update/check respeta checkUpdates en false y trae la version actual', async () => {
+    const res = await fetch(`${BASE}/api/update/check`, { method: 'POST', headers: { Origin: BASE } })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { result: string; info: { current: string; enabled: boolean } }
+    expect(body.result).toBe('disabled')
+    expect(body.info.enabled).toBe(false)
+    expect(body.info.current).toMatch(/^\d+\.\d+\.\d+$/)
   })
 })

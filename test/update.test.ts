@@ -7,7 +7,7 @@ const dir = mkdtempSync(join(tmpdir(), 'ch-upd-'))
 process.env.CLAUDEHUB_DATA = dir
 process.env.CLAUDEHUB_CONFIG = join(dir, 'config.json')
 
-const { compareVersions, parseRelease, checkUpdate, getUpdate, resetUpdateState, VERSION } = await import('../src/core/update')
+const { compareVersions, parseRelease, checkUpdate, getUpdate, manualCheck, resetUpdateState, VERSION } = await import('../src/core/update')
 const { saveConfig } = await import('../src/core/config')
 const { demoUpdate } = await import('../src/core/demo')
 
@@ -111,5 +111,31 @@ describe('demoUpdate', () => {
     expect(d.available).toBe(true)
     expect(d.url!.startsWith('https://github.com/NormanSMA/ClaudeHub/releases/')).toBe(true)
     expect(d.notes).toHaveLength(3)
+  })
+})
+
+describe('manualCheck', () => {
+  it('con checkUpdates en false no pide nada y devuelve la version actual', async () => {
+    saveConfig({ checkUpdates: false })
+    const f = reply(release())
+    const out = await manualCheck(f, 1_000)
+    expect(out.result).toBe('disabled')
+    expect(out.info).toMatchObject({ enabled: false, current: VERSION })
+    expect(f).not.toHaveBeenCalled()
+  })
+
+  it('marca checked con una respuesta valida y failed sin ella', async () => {
+    expect((await manualCheck(reply(release()), 1_000)).result).toBe('checked')
+    resetUpdateState()
+    expect((await manualCheck(reply({}, false), 1_000)).result).toBe('failed')
+  })
+
+  it('permite una consulta por minuto', async () => {
+    const f = reply(release())
+    await manualCheck(f, 1_000)
+    const again = await manualCheck(f, 31_000)
+    expect(again).toMatchObject({ result: 'throttled', retryInMs: 30_000 })
+    expect(f).toHaveBeenCalledTimes(1)
+    expect((await manualCheck(f, 61_000)).result).toBe('checked')
   })
 })
