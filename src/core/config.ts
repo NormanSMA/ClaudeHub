@@ -22,6 +22,7 @@ export interface HubConfig {
   pricing: { overrides: Record<string, Partial<Price>>; freeProviders: string[] }
   /** Modalidad de facturacion. */
   billing: 'subscription' | 'api'
+  mascot: { talk: boolean; talkCooldownMin: number }
 }
 
 export const DEFAULTS: HubConfig = {
@@ -34,6 +35,7 @@ export const DEFAULTS: HubConfig = {
   checkUpdates: true,
   pricing: { overrides: {}, freeProviders: [] },
   billing: 'subscription',
+  mascot: { talk: true, talkCooldownMin: 10 },
 }
 const FILE = process.env.CLAUDEHUB_CONFIG ?? join(dataDir(), 'config.json')
 
@@ -55,6 +57,7 @@ export function sanitize(raw: unknown): HubConfig {
   }
   const src = (r.sources && typeof r.sources === 'object' ? r.sources : {}) as Record<string, unknown>
   const omni = (r.omniroute && typeof r.omniroute === 'object' ? r.omniroute : {}) as Record<string, unknown>
+  const mascot = (r.mascot && typeof r.mascot === 'object' ? r.mascot : {}) as Record<string, unknown>
   const pricing = (r.pricing && typeof r.pricing === 'object' ? r.pricing : {}) as Record<string, unknown>
   const overrides: [string, Partial<Price>][] = []
   const fields: (keyof Price)[] = ['input', 'output', 'cacheWrite', 'cacheWrite1h', 'cacheRead']
@@ -96,6 +99,10 @@ export function sanitize(raw: unknown): HubConfig {
     checkUpdates: flag(r.checkUpdates, DEFAULTS.checkUpdates),
     pricing: { overrides: Object.fromEntries(overrides), freeProviders },
     billing: r.billing === 'api' || r.billing === 'subscription' ? r.billing : DEFAULTS.billing,
+    mascot: {
+      talk: flag(mascot.talk, DEFAULTS.mascot.talk),
+      talkCooldownMin: Math.round(clamp(mascot.talkCooldownMin, 1, 240, DEFAULTS.mascot.talkCooldownMin)),
+    },
   }
 }
 

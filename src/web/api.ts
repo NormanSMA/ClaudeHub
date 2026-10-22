@@ -218,6 +218,11 @@ export interface ManualCheck {
 
 export type Billing = 'subscription' | 'api'
 
+export interface MascotConfig {
+  talk: boolean
+  talkCooldownMin: number
+}
+
 export interface PriceOverride {
   input?: number
   output?: number
@@ -235,6 +240,7 @@ export interface SettingsInfo {
     checkUpdates?: boolean
     sources: { codex: boolean; gemini: boolean; omniroute: boolean }
     billing: Billing
+    mascot: MascotConfig
     pricing: { overrides: Record<string, PriceOverride>; freeProviders: string[] }
   }
   path: string
@@ -246,6 +252,7 @@ export interface ConfigInfo {
   name: string
   demo: boolean
   billing: Billing
+  mascot: MascotConfig
 }
 
 export interface PlanWindow {

@@ -44,6 +44,25 @@ describe('configuracion', () => {
     expect(sanitize('texto')).toEqual(DEFAULTS)
   })
 
+  it('valida los ajustes de la mascota y aplica valores por defecto', () => {
+    expect(sanitize({}).mascot).toEqual({ talk: true, talkCooldownMin: 10 })
+    expect(sanitize({ mascot: { talk: false, talkCooldownMin: 1 } }).mascot).toEqual({ talk: false, talkCooldownMin: 1 })
+    expect(sanitize({ mascot: { talk: 'no', talkCooldownMin: '20' } }).mascot).toEqual(DEFAULTS.mascot)
+    expect(sanitize({ mascot: null }).mascot).toEqual(DEFAULTS.mascot)
+    expect(sanitize({ mascot: { talkCooldownMin: 0 } }).mascot.talkCooldownMin).toBe(1)
+    expect(sanitize({ mascot: { talkCooldownMin: 999 } }).mascot.talkCooldownMin).toBe(240)
+    expect(sanitize({ mascot: { talkCooldownMin: 2.6 } }).mascot.talkCooldownMin).toBe(3)
+    expect(sanitize({ mascot: { talkCooldownMin: NaN } }).mascot.talkCooldownMin).toBe(10)
+    expect(sanitize({ mascot: { talkCooldownMin: Infinity } }).mascot.talkCooldownMin).toBe(10)
+  })
+
+  it('guarda los ajustes de la mascota', () => {
+    const mascot = { talk: false, talkCooldownMin: 240 }
+    expect(saveConfig({ mascot }).mascot).toEqual(mascot)
+    expect(config().mascot).toEqual(mascot)
+    expect(JSON.parse(readFileSync(file, 'utf8')).mascot).toEqual(mascot)
+  })
+
   it('valida la modalidad de facturacion', () => {
     expect(sanitize({}).billing).toBe('subscription')
     expect(sanitize({ billing: 'api' }).billing).toBe('api')
@@ -105,6 +124,7 @@ describe('configuracion', () => {
     isolated.useDefaultsOnly()
     expect(isolated.config().name).toBe('')
     expect(isolated.config().alertAt).toBe(0.85)
+    expect(isolated.config().mascot).toEqual(DEFAULTS.mascot)
   })
 
   it('guarda de forma atomica y config() lo lee de vuelta', () => {
