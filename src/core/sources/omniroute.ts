@@ -99,7 +99,11 @@ function mapRow(row: Row): Rec | null {
   const input = num(row.tokens_input)
   const cacheRead = num(row.tokens_cache_read)
   const cacheWrite = num(row.tokens_cache_creation)
-  const output = num(row.tokens_output) + num(row.tokens_reasoning)
+  // Misma regla que el calculo de costo de OmniRoute: si el razonamiento supera la salida,
+  // el proveedor lo informo aparte; si no, ya viene dentro de tokens_output (estilo OpenAI).
+  const reasoning = num(row.tokens_reasoning)
+  const rawOutput = num(row.tokens_output)
+  const output = reasoning > rawOutput ? rawOutput + reasoning : rawOutput
   if (input + cacheRead + cacheWrite + output <= 0) return null
   const ts = Date.parse(String(row.timestamp))
   if (Number.isNaN(ts)) return null
@@ -113,7 +117,7 @@ function mapRow(row: Row): Rec | null {
     cacheRead,
     cacheWrite,
     output,
-    reasoning: num(row.tokens_reasoning),
+    reasoning,
     session: `omniroute:${provider}`,
     project: provider,
     role: 'orchestrator',

@@ -62,11 +62,13 @@ const WANTED = ['session_meta', 'turn_context', 'token_count'] as const
 /**
  * Convierte un rollout de Codex en registros. Un registro por cada subida del acumulado
  * `total_token_usage.total_tokens`, con el incremento por campo. No copia texto de mensajes.
+ * `fallbackSession` (el nombre del archivo) evita que dos rollouts sin `session_meta`
+ * compartan ids `codex:unknown:<total>` y se descarten como repetidos.
  */
-export function parseCodex(text: string): Rec[] {
+export function parseCodex(text: string, fallbackSession = 'unknown'): Rec[] {
   const recs: Rec[] = []
   const last = new Map<string, Usage>()
-  let session = 'unknown'
+  let session = fallbackSession
   let project = 'unknown'
   let model = 'codex'
   for (const o of relevantLines(text, WANTED)) {
