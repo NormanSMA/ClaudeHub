@@ -90,6 +90,7 @@ describe('attachVia', () => {
     expect(out.models).toEqual([{
       model: 'Gemini 4 Argon',
       input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0, fresh: 0, share: 0,
+      costUsd: 0, costUnpriced: 0, cacheSavingsUsd: 0, freeSavingsUsd: 0,
       via: {
         calls: 3, ok: 0, successRate: 0, e429: 1, e403: 1, e5xx: 1,
         p95Ms: null, tokens: 0, providers: ['prov-a'],

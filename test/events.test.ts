@@ -193,7 +193,7 @@ describe('rutas de hoy y de actualizacion', () => {
   it('/api/live y /api/active exponen tokens nuevos y lectura de cache', async () => {
     for (const path of ['/api/live', '/api/active']) {
       const body = (await (await fetch(BASE + path)).json()) as Record<string, unknown>
-      expect(body).toMatchObject({ todayTokens: 0, todayFresh: 0, todayCacheRead: 0 })
+      expect(body).toMatchObject({ todayTokens: 0, todayFresh: 0, todayCacheRead: 0, todayCostUsd: 0 })
     }
   })
 
