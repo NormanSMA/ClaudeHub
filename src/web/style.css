@@ -740,6 +740,87 @@ button.primary:disabled {
   color: var(--danger);
 }
 
+/* acerca de y version */
+.about-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--stat);
+  overflow-wrap: anywhere;
+}
+.about-card h3,
+.about-card p {
+  margin: 0;
+}
+.about-version {
+  font-weight: 600;
+}
+.about-checked {
+  color: var(--muted);
+  font-size: 13px;
+}
+.update-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.update-check:hover:not(:disabled) {
+  border-color: var(--text);
+}
+.update-check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.update-check:disabled {
+  color: var(--muted);
+  cursor: wait;
+}
+.about-release ul {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+.update-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: update-spin 0.8s linear infinite;
+}
+@keyframes update-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-spinner { animation: none; }
+}
+.dashboard-footer {
+  margin-top: 14px;
+  text-align: right;
+}
+.version-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* limites del plan */
 .plan {
   background: var(--stat);
