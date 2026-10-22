@@ -42,7 +42,7 @@ export function dayKey(ts: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-export function filterRange(recs: Rec[], range: Range, now = Date.now()): Rec[] {
+export function filterRange<T extends { ts: number }>(recs: T[], range: Range, now = Date.now()): T[] {
   if (range === 'all') return recs
   if (typeof range === 'object') return recs.filter((r) => r.ts >= range.from && r.ts <= range.to)
   const days = range === '7d' ? 7 : 30

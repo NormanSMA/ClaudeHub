@@ -14,7 +14,9 @@ import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
 import { dataDir, codexSessionsDir, geminiTmpDir } from '../core/paths'
 import { createEventHub, createWatcher } from './watch'
 import { modelName } from '../core/models'
-import { readOmniroute, type OmnirouteStatus } from '../core/sources/omniroute'
+import { demoOmniroute } from '../core/demo-omniroute'
+import { attachVia } from '../core/omniroute-via'
+import { readOmniroute, type OmnirouteResult } from '../core/sources/omniroute'
 import {
   summary,
   modelsReport,
@@ -26,7 +28,7 @@ import {
   filterSource,
   parseSource,
 } from '../core/aggregate'
-import type { Range, Rec, SourceStat } from '../core/types'
+import type { Range, SourceStat } from '../core/types'
 import type { ScanResult } from '../core/scan'
 
 const DEMO = process.env.CLAUDEHUB_DEMO === '1'
@@ -42,7 +44,7 @@ const DIST = resolve(
 
 // OmniRoute se lee en segundo plano (docker cp o SQLite) y nunca bloquea data().
 const OMNI_EVERY_MS = 60_000
-let omni: { recs: Rec[]; status: OmnirouteStatus } | null = null
+let omni: OmnirouteResult | null = null
 let omniAt = 0
 let omniBusy = false
 
@@ -132,7 +134,14 @@ app.use('*', async (c, next) => {
   await next()
 })
 app.get('/api/summary', (c) => c.json(summary(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
-app.get('/api/models', (c) => c.json(modelsReport(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
+app.get('/api/models', (c) => {
+  const source = sourceOfQuery(c)
+  const range = rangeOf((k) => c.req.query(k))
+  const report = modelsReport(filterSource(records(), source), range)
+  // la etiqueta de OmniRoute solo tiene sentido si la tabla incluye esa fuente
+  if (source !== 'all' && source !== 'omniroute') return c.json(report)
+  return c.json(attachVia(report, { calls: DEMO ? demoOmniroute() : (omni?.calls ?? []), range }))
+})
 app.get('/api/roles', (c) => c.json(rolesReport(claudeRecords(), rangeOf((k) => c.req.query(k)))))
 app.get('/api/sessions', (c) =>
   c.json(sessionsReport(filterSource(records(), sourceOfQuery(c)), data().sessions, rangeOf((k) => c.req.query(k)))),
