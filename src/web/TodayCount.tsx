@@ -1,18 +1,20 @@
-import { compact, int } from './format'
+import { compact, fmtUsd, int } from './format'
 
 export interface TodayTokens {
   todayTokens: number
   todayFresh?: number
   todayCacheRead?: number
+  todayCostUsd?: number
 }
 
 /** Textos del contador de hoy. Sin los campos nuevos (servidor viejo) cae al total. */
 export function todayText(t: TodayTokens): { main: string; cache: string | null; title: string } {
+  const cost = t.todayCostUsd === undefined ? '' : ` · ~${fmtUsd(t.todayCostUsd)}`
   if (t.todayFresh === undefined || t.todayCacheRead === undefined) {
-    return { main: `Hoy ${compact(t.todayTokens)}`, cache: null, title: `Tokens de hoy: ${int(t.todayTokens)}` }
+    return { main: `Hoy ${compact(t.todayTokens)}${cost}`, cache: null, title: `Tokens de hoy: ${int(t.todayTokens)}` }
   }
   return {
-    main: `Hoy ${compact(t.todayFresh)} nuevos`,
+    main: `Hoy ${compact(t.todayFresh)} nuevos${cost}`,
     cache: `${compact(t.todayCacheRead)} caché`,
     title:
       `Nuevos (entrada + escritura de caché + salida): ${int(t.todayFresh)}\n` +

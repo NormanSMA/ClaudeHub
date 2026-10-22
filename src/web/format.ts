@@ -10,6 +10,18 @@ export const int = (n: number) => n.toLocaleString('es-MX')
 
 export const pct = (x: number) => (x * 100).toFixed(1) + '%'
 
+export function fmtUsd(n: number): string {
+  if (n > 0 && n < 0.01) return '<$0.01'
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`
+  return `$${n.toFixed(2)}`
+}
+
+export function billingText(billing: 'subscription' | 'api' = 'subscription') {
+  return billing === 'api'
+    ? { label: 'Costo', title: undefined }
+    : { label: 'Valor API', title: 'Valor equivalente en API. Con tu plan no pagas esto por token.' }
+}
+
 /** "45 min", "2 h 10 min". */
 export function minutesText(min: number): string {
   const m = Math.max(0, Math.round(min))

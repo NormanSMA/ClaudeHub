@@ -1,5 +1,5 @@
 import { levelFrom, pickMascotState } from './mascotState'
-import { useEffect, useMemo, useState } from 'react'
+import { cloneElement, useEffect, useMemo, useState } from 'react'
 import { AgentesView } from './Agentes'
 import { Loading } from './Loading'
 import { ModelosView } from './Modelos'
@@ -7,6 +7,7 @@ import {
   useApi,
   useLiveStatus,
   type ActiveReport,
+  type Billing,
   type ConfigInfo,
   type Live,
   type ProjectRow,
@@ -16,7 +17,7 @@ import {
   type Summary,
 } from './api'
 import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './charts'
-import { compact, dateLabel, hourLabel, int, pct } from './format'
+import { billingText, compact, dateLabel, fmtUsd, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './Mascot'
 import { SettingsView } from './Settings'
 import { TodayCount } from './TodayCount'
@@ -46,22 +47,31 @@ const RANGES: { id: RangeId; label: string }[] = [
 // ~38.9k tokens, la longitud aproximada de "Rebelion en la granja"
 const BOOK_TOKENS = 38_918
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Stat({ label, value, hint, labelTitle, showHint }: { label: string; value: string; hint?: string; labelTitle?: string; showHint?: boolean }) {
   return (
     <div className="stat" title={hint}>
-      <div className="stat-label">{label}</div>
+      <div className="stat-label" title={labelTitle}>{label}</div>
       <div className="stat-value">{value}</div>
+      {showHint && <div className="stat-sub">{hint}</div>}
     </div>
   )
 }
 
-function ResumenView({ q, qClaude }: { q: string; qClaude: string }) {
+function ResumenView({ q, qClaude, billing }: { q: string; qClaude: string; billing: Billing }) {
   const { data, error } = useApi<Summary>(`/api/summary?${q}`)
   if (!data) return <Loading error={error} />
   const t = data.tokens
+  const cost = billingText(billing)
   return (
     <>
       <div className="stats">
+        <Stat
+          label={cost.label}
+          labelTitle={cost.title}
+          value={fmtUsd(t.costUsd ?? 0)}
+          hint={`Ahorro por caché ${fmtUsd(t.cacheSavingsUsd ?? 0)}${(t.costUnpriced ?? 0) > 0 ? ` · ${compact(t.costUnpriced ?? 0)} tokens sin precio` : ''}`}
+          showHint
+        />
         <Stat label="Sesiones" value={int(data.sessions)} />
         <Stat label="Mensajes" value={int(data.messages)} hint="Respuestas del modelo, sin duplicados" />
         <Stat label="Tokens totales" value={compact(t.total)} hint="Entrada + cache + salida" />
@@ -161,7 +171,8 @@ function RolesView({ q }: { q: string }) {
   )
 }
 
-function SesionesView({ q }: { q: string }) {
+function SesionesView({ q, billing }: { q: string; billing: Billing }) {
+  const cost = billingText(billing)
   const { data, error } = useApi<SessionRow[]>(`/api/sessions?${q}`)
   const [text, setText] = useState('')
   const [project, setProject] = useState('')
@@ -181,6 +192,7 @@ function SesionesView({ q }: { q: string }) {
       split: (s) => s.sub / (s.total || 1),
       messages: (s) => s.messages,
       total: (s) => s.total,
+      costUsd: (s) => s.costUsd,
     },
     'total',
   )
@@ -205,7 +217,7 @@ function SesionesView({ q }: { q: string }) {
           ))}
         </select>
       </div>
-      <table>
+      <table className="sessions-table">
         <thead>
           <tr>
             {th('title', 'Chat')}
@@ -213,6 +225,7 @@ function SesionesView({ q }: { q: string }) {
             {th('split', 'Reparto')}
             {th('messages', 'Mensajes', true)}
             {th('total', 'Tokens', true)}
+            {cloneElement(th('costUsd', cost.label, true), { title: cost.title })}
           </tr>
         </thead>
         <tbody>
@@ -228,6 +241,7 @@ function SesionesView({ q }: { q: string }) {
               </td>
               <td className="num">{int(s.messages)}</td>
               <td className="num">{compact(s.total)}</td>
+              <td className="num">{fmtUsd(s.costUsd)}</td>
             </tr>
           ))}
         </tbody>
@@ -237,23 +251,25 @@ function SesionesView({ q }: { q: string }) {
   )
 }
 
-function ProyectosView({ q }: { q: string }) {
+function ProyectosView({ q, billing }: { q: string; billing: Billing }) {
+  const cost = billingText(billing)
   const { data, error } = useApi<ProjectRow[]>(`/api/projects?${q}`)
   const all = useMemo(() => data ?? [], [data])
   const { sorted, th } = useSort<ProjectRow>(
     all,
-    { project: (p) => p.project, split: (p) => p.sub / (p.total || 1), sessions: (p) => p.sessions, total: (p) => p.total },
+    { project: (p) => p.project, split: (p) => p.sub / (p.total || 1), sessions: (p) => p.sessions, total: (p) => p.total, costUsd: (p) => p.costUsd },
     'total',
   )
   if (!data) return <Loading error={error} />
   return (
-    <table>
+    <table className="projects-table">
       <thead>
         <tr>
           {th('project', 'Proyecto')}
           {th('split', 'Reparto')}
           {th('sessions', 'Sesiones', true)}
           {th('total', 'Tokens', true)}
+          {cloneElement(th('costUsd', cost.label, true), { title: cost.title })}
         </tr>
       </thead>
       <tbody>
@@ -265,6 +281,7 @@ function ProyectosView({ q }: { q: string }) {
             </td>
             <td className="num">{int(p.sessions)}</td>
             <td className="num">{compact(p.total)}</td>
+            <td className="num">{fmtUsd(p.costUsd)}</td>
           </tr>
         ))}
       </tbody>
@@ -431,10 +448,10 @@ export function App() {
           </div>
         )}
         {tab === 'agentes' && <AgentesView />}
-        {tab === 'resumen' && <ResumenView q={qs} qClaude={q} />}
-        {tab === 'modelos' && <ModelosView q={qs} />}
-        {tab === 'sesiones' && <SesionesView q={qs} />}
-        {tab === 'proyectos' && <ProyectosView q={qs} />}
+        {tab === 'resumen' && <ResumenView q={qs} qClaude={q} billing={cfg?.billing ?? 'subscription'} />}
+        {tab === 'modelos' && <ModelosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
+        {tab === 'sesiones' && <SesionesView q={qs} billing={cfg?.billing ?? 'subscription'} />}
+        {tab === 'proyectos' && <ProyectosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
         {tab === 'ajustes' && <SettingsView />}
       </section>
       <DashboardFooter />

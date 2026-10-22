@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { useApi, type SettingsInfo } from './api'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useApi, type Billing, type PriceOverride, type SettingsInfo } from './api'
 import { int } from './format'
 import { normVersion, useUpdateCheck } from './update'
 
@@ -10,6 +10,20 @@ const PRESETS = [
   { value: 'custom', label: 'Otro valor' },
 ]
 
+const PRICE_FIELDS = [
+  { id: 'input', label: 'Entrada' },
+  { id: 'output', label: 'Salida' },
+  { id: 'cacheWrite', label: 'Escritura de caché (5 min)' },
+  { id: 'cacheWrite1h', label: 'Escritura de caché (1 h)' },
+  { id: 'cacheRead', label: 'Lectura de caché' },
+] as const
+
+interface PriceRow {
+  id: number
+  model: string
+  values: Partial<Record<keyof PriceOverride, string>>
+}
+
 interface Form {
   name: string
   alertAt: number
@@ -17,6 +31,9 @@ interface Form {
   limits: Record<string, number>
   checkUpdates: boolean
   sources: SettingsInfo['config']['sources']
+  billing: Billing
+  freeProviders: string
+  prices: PriceRow[]
 }
 
 function presetOf(limit: number | undefined): string {
@@ -30,6 +47,7 @@ export function SettingsView() {
   const [custom, setCustom] = useState<Record<string, boolean>>({})
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
   const [saving, setSaving] = useState(false)
+  const nextPriceId = useRef(0)
 
   useEffect(() => {
     if (!data || form) return
@@ -41,6 +59,13 @@ export function SettingsView() {
       limits: { ...c.contextLimits },
       checkUpdates: c.checkUpdates !== false,
       sources: { ...c.sources },
+      billing: c.billing ?? 'subscription',
+      freeProviders: (c.pricing?.freeProviders ?? []).join(', '),
+      prices: Object.entries(c.pricing?.overrides ?? {}).map(([model, price]) => ({
+        id: nextPriceId.current++,
+        model,
+        values: Object.fromEntries(Object.entries(price).map(([field, value]) => [field, String(value)])),
+      })),
     })
     setCustom(Object.fromEntries(Object.entries(c.contextLimits).map(([m, v]) => [m, presetOf(v) === 'custom'])))
   }, [data, form])
@@ -48,6 +73,12 @@ export function SettingsView() {
   if (!data || !form) return <div className="empty">{error ? `No se pudo cargar (${error}).` : 'Cargando ajustes...'}</div>
 
   const models = [...new Set([...data.models, ...Object.keys(form.limits)])]
+  const priceModels = [...new Set([...data.models, ...form.prices.map((row) => row.model)])].filter((m) => m.length <= 80)
+  const nextModel = priceModels.find((model) => !form.prices.some((row) => row.model === model))
+
+  const setPrice = (id: number, update: Partial<PriceRow>) => {
+    setForm({ ...form, prices: form.prices.map((row) => row.id === id ? { ...row, ...update } : row) })
+  }
 
   const setLimit = (model: string, v: number | undefined) =>
     setForm((f) => {
@@ -74,6 +105,16 @@ export function SettingsView() {
           contextLimits: form.limits,
           checkUpdates: form.checkUpdates,
           sources: form.sources,
+          billing: form.billing,
+          pricing: {
+            freeProviders: [...new Set(form.freeProviders.split(',').map((p) => p.trim()).filter(Boolean))],
+            overrides: Object.fromEntries(form.prices.map((row) => [
+              row.model,
+              Object.fromEntries(PRICE_FIELDS
+                .filter(({ id }) => row.values[id] !== undefined && row.values[id] !== '')
+                .map(({ id }) => [id, Number(row.values[id])])),
+            ])),
+          },
         }),
       })
       const body = await res.json()
@@ -116,6 +157,49 @@ export function SettingsView() {
       </div>
 
       <SourceSettings sources={form.sources} onChange={(sources) => setForm({ ...form, sources })} />
+
+      <fieldset className="field pricing-settings">
+        <legend>Precios</legend>
+        <label htmlFor="s-billing">Modalidad de facturación</label>
+        <select id="s-billing" value={form.billing} onChange={(e) => setForm({ ...form, billing: e.target.value as Billing })}>
+          <option value="subscription">Suscripción Pro o Max</option>
+          <option value="api">API por token</option>
+        </select>
+        <small>Con suscripción, el valor API indica el costo equivalente por token.</small>
+        <label htmlFor="s-free-providers">Proveedores gratuitos de OmniRoute</label>
+        <input id="s-free-providers" type="text" value={form.freeProviders} aria-describedby="s-free-help" onChange={(e) => setForm({ ...form, freeProviders: e.target.value })} />
+        <small id="s-free-help">Separa los nombres de proveedores con comas.</small>
+        <p className="pricing-label">Tarifas propias por modelo</p>
+        <small id="s-price-help">USD por millón de tokens. Deja campos vacíos para conservar las tarifas predeterminadas.</small>
+        {form.prices.map((row) => (
+          <fieldset className="price-row" key={row.id} aria-describedby="s-price-help">
+            <legend>Tarifa de {row.model}</legend>
+            <label htmlFor={`s-price-model-${row.id}`}>Modelo</label>
+            <select id={`s-price-model-${row.id}`} value={row.model} onChange={(e) => setPrice(row.id, { model: e.target.value })}>
+              {priceModels.map((model) => (
+                <option key={model} value={model} disabled={form.prices.some((r) => r.id !== row.id && r.model === model)}>{model}</option>
+              ))}
+            </select>
+            <div className="price-fields">
+              {PRICE_FIELDS.map(({ id, label }) => (
+                <div key={id}>
+                  <label htmlFor={`s-price-${row.id}-${id}`}>{label}</label>
+                  <input
+                    id={`s-price-${row.id}-${id}`} type="number" min={0} max={1000} step="any" inputMode="decimal"
+                    value={row.values[id] ?? ''}
+                    onChange={(e) => setPrice(row.id, { values: { ...row.values, [id]: e.target.value } })}
+                  />
+                </div>
+              ))}
+            </div>
+            <button type="button" className="link" aria-label={`Quitar tarifa de ${row.model}`} onClick={() => setForm({ ...form, prices: form.prices.filter((r) => r.id !== row.id) })}>Quitar tarifa</button>
+          </fieldset>
+        ))}
+        <button type="button" className="link add-price" disabled={!nextModel || form.prices.length >= 50} onClick={() => {
+          if (nextModel) setForm({ ...form, prices: [...form.prices, { id: nextPriceId.current++, model: nextModel, values: {} }] })
+        }}>Agregar tarifa</button>
+        {priceModels.length === 0 && <small>Aún no hay modelos en tus registros.</small>}
+      </fieldset>
 
       <fieldset className="field">
         <legend>Ventana de contexto por modelo</legend>
