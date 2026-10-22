@@ -76,6 +76,9 @@ export interface Live {
   lastTs: number | null
   working: boolean
   todayTokens: number
+  /** entrada + escritura de cache + salida */
+  todayFresh: number
+  todayCacheRead: number
   todayMessages: number
 }
 
@@ -249,6 +252,8 @@ export interface Collision {
 export interface ActiveReport {
   alertAt: number
   todayTokens: number
+  todayFresh: number
+  todayCacheRead: number
   chats: ActiveChat[]
   plan: PlanReport | null
   plans?: { claude: PlanReport | null; codex: PlanReport | null }

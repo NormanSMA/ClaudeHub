@@ -19,6 +19,7 @@ import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './charts'
 import { compact, dateLabel, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './Mascot'
 import { SettingsView } from './Settings'
+import { TodayCount } from './TodayCount'
 import { SourceChips, loadSource, saveSource, type SourceFilter } from './SourceChips'
 import { useSort } from './sort'
 import { balloonText, useUpdateNotice } from './update'
@@ -347,9 +348,7 @@ export function App() {
       <header className="greeting">
         <Mascot state={mood} size={56} level={levelFrom(act)?.level} />
         <h1>Que sigue{cfg?.name ? `, ${cfg.name}` : ''}?</h1>
-        <span className="today" title="Tokens de hoy">
-          {live ? `Hoy ${compact(live.todayTokens)}` : ''}
-        </span>
+        <TodayCount data={live} className="today" />
         <span
           className={`live-state ${liveStatus}`}
           title={

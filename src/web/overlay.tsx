@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ActiveList, PlanLimits } from './Active'
 import { useApi, type ActiveReport } from './api'
-import { compact } from './format'
+import { TodayCount } from './TodayCount'
 import { CodexBadge, LevelBadge, Mascot } from './Mascot'
 import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type MascotState } from './mascotState'
 import { balloonText, useUpdateNotice } from './update'
@@ -95,7 +95,7 @@ function Overlay() {
         <section className="overlay-panel">
           <header>
             <strong>Chats activos</strong>
-            <span>Hoy {compact(data?.todayTokens ?? 0)}</span>
+            <TodayCount data={data ?? { todayTokens: 0 }} />
           </header>
           <PlanLimits plan={data?.plan ?? null} alertAt={alertAt} dense />
           <ActiveList chats={chats} alertAt={alertAt} dense />
