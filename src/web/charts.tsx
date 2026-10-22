@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { Breakdown } from './api'
 import { compact, dayLabel, niceMax } from './format'
 
@@ -45,11 +46,12 @@ export function StackedBars({
             <title>{`${dayLabel(d.day)}: ${compact(totals[i])}`}</title>
             {series.map((s) => {
               const v = d.values[s.key] ?? 0
-              if (!v) return null
               const top = y(acc + v)
               const h = y(acc) - top
+              const bottom = y(acc)
               acc += v
-              return <rect key={s.key} x={x + bw * 0.12} y={top} width={Math.max(1, bw * 0.76)} height={h} fill={s.color} />
+              return <rect key={s.key} className="chart-bar" x={x + bw * 0.12} y={-1} width={Math.max(1, bw * 0.76)} height={1} fill={s.color}
+                style={{ '--bar-base': `${bottom}px`, '--bar-scale': h, '--chart-bottom': `${y(0)}px` } as CSSProperties} />
             })}
             {i % every === 0 && (
               <text x={x + bw / 2} y={H - 8} textAnchor="middle" className="axis">
@@ -124,12 +126,16 @@ export function categorySegments(t: Breakdown): Segment[] {
 export function CategoryBar({ tokens }: { tokens: Breakdown }) {
   const segs = categorySegments(tokens)
   const sum = segs.reduce((a, s) => a + s.value, 0) || 1
+  let offset = 0
   return (
     <div className="catbar">
       <div className="catbar-track" role="img" aria-label="Desglose de tokens por categoria">
-        {segs.map((s) => (
-          <i key={s.key} title={`${s.label}: ${compact(s.value)}`} style={{ width: `${(s.value / sum) * 100}%`, background: s.color }} />
-        ))}
+        {segs.map((s) => {
+          const start = offset
+          offset += s.value / sum
+          return <i key={s.key} title={`${s.label}: ${compact(s.value)}`}
+            style={{ '--bar-start': `${start * 100}%`, '--bar-scale': s.value / sum, background: s.color } as CSSProperties} />
+        })}
       </div>
       <ul className="catbar-legend">
         {segs.map((s) => (
@@ -149,8 +155,8 @@ export function SplitBar({ a, b }: { a: number; b: number }) {
   const t = a + b || 1
   return (
     <span className="split" title={`Orquestador ${compact(a)} / Subagentes ${compact(b)}`}>
-      <i style={{ width: `${(a / t) * 100}%`, background: 'var(--accent)' }} />
-      <i style={{ width: `${(b / t) * 100}%`, background: 'var(--blue)' }} />
+      <i style={{ '--bar-start': '0%', '--bar-scale': a / t, background: 'var(--accent)' } as CSSProperties} />
+      <i style={{ '--bar-start': `${(a / t) * 100}%`, '--bar-scale': b / t, background: 'var(--blue)' } as CSSProperties} />
     </span>
   )
 }

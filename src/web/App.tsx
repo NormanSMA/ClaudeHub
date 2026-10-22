@@ -1,5 +1,6 @@
 import { levelFrom, pickMascotState } from './mascotState'
-import { cloneElement, useEffect, useMemo, useState } from 'react'
+import { cloneElement, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { AnimatedNumber } from './AnimatedNumber'
 import { AgentesView } from './Agentes'
 import { Loading } from './Loading'
 import { ModelosView } from './Modelos'
@@ -49,7 +50,7 @@ const BOOK_TOKENS = 38_918
 // encima de esto cada turno relee mucho contexto de cache
 const HEAVY_CONTEXT = 600_000
 
-function Stat({ label, value, hint, labelTitle, valueTitle, showHint }: { label: string; value: string; hint?: string; labelTitle?: string; valueTitle?: string; showHint?: boolean }) {
+function Stat({ label, value, hint, labelTitle, valueTitle, showHint }: { label: string; value: ReactNode; hint?: string; labelTitle?: string; valueTitle?: string; showHint?: boolean }) {
   return (
     <div className="stat" title={hint}>
       <div className="stat-label" title={labelTitle}>{label}</div>
@@ -70,7 +71,7 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
         <Stat
           label={`${cost.label} del rango`}
           labelTitle={cost.title}
-          value={fmtUsd(t.costUsd ?? 0)}
+          value={<AnimatedNumber value={t.costUsd ?? 0} format={fmtUsd} />}
           hint={`Ahorro por caché ${fmtUsd(t.cacheSavingsUsd ?? 0)}${(t.costUnpriced ?? 0) > 0 ? ` · ${compact(t.costUnpriced ?? 0)} tokens sin precio` : ''}`}
           showHint
         />
@@ -78,11 +79,11 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
           <div className="stat-label">Tokens nuevos frente a lectura de caché</div>
           <div className="summary-token-pair">
             <div title="Entrada + escritura de caché + salida">
-              <div className="stat-value">{compact(t.fresh ?? t.input + t.cacheWrite + t.output)}</div>
+              <div className="stat-value"><AnimatedNumber value={t.fresh ?? t.input + t.cacheWrite + t.output} format={compact} /></div>
               <div className="stat-sub">Nuevos</div>
             </div>
             <div>
-              <div className="stat-value">{compact(t.cacheRead)}</div>
+              <div className="stat-value"><AnimatedNumber value={t.cacheRead} format={compact} /></div>
               <div className="stat-sub">Lectura de caché</div>
             </div>
           </div>
@@ -90,13 +91,13 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
         </div>
         <Stat
           label="Sesiones y mensajes"
-          value={`${int(data.sessions)} sesiones`}
+          value={<><AnimatedNumber value={data.sessions} format={int} /> sesiones</>}
           hint={`${int(data.messages)} mensajes · Respuestas del modelo, sin duplicados`}
           showHint
         />
       </section>
       <section className="stats small summary-secondary" aria-label="Métricas secundarias">
-        <Stat label="Días activos" value={int(data.activeDays)} />
+        <Stat label="Días activos" value={<AnimatedNumber value={data.activeDays} format={int} />} />
         <Stat label="Hora pico" value={hourLabel(data.peakHour)} />
         <Stat label="Modelo favorito" value={data.favoriteModel ?? '-'} />
       </section>
@@ -105,10 +106,10 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
       <div className="stats two">
         <Stat
           label="Eficiencia de cache"
-          value={pct(t.cacheRead / Math.max(1, t.input + t.cacheWrite + t.cacheRead))}
+          value={<AnimatedNumber value={t.cacheRead / Math.max(1, t.input + t.cacheWrite + t.cacheRead)} format={pct} />}
           hint="Parte de la entrada que se leyo desde cache"
         />
-        <Stat label="Salida visible" value={compact(Math.max(0, t.output - (t.reasoning ?? 0)))} hint="Salida sin pensamiento" />
+        <Stat label="Salida visible" value={<AnimatedNumber value={Math.max(0, t.output - (t.reasoning ?? 0))} format={compact} />} hint="Salida sin pensamiento" />
       </div>
       <CategoryBar tokens={t} />
       <h3 className="section-title">Orquestador vs subagentes (solo Claude)</h3>
@@ -141,7 +142,7 @@ function RolesView({ q }: { q: string }) {
           <div className="stat-label">
             <i className="dot" style={{ background: 'var(--accent)' }} /> Orquestador
           </div>
-          <div className="stat-value">{compact(o.total)}</div>
+          <div className="stat-value"><AnimatedNumber value={o.total} format={compact} /></div>
           <div className="stat-sub">
             {pct(o.share)} · {int(o.messages)} mensajes · salida {compact(o.output)}
           </div>
@@ -150,7 +151,7 @@ function RolesView({ q }: { q: string }) {
           <div className="stat-label">
             <i className="dot" style={{ background: 'var(--blue)' }} /> Subagentes
           </div>
-          <div className="stat-value">{compact(s.total)}</div>
+          <div className="stat-value"><AnimatedNumber value={s.total} format={compact} /></div>
           <div className="stat-sub">
             {pct(s.share)} · {int(s.messages)} mensajes · salida {compact(s.output)}
           </div>

@@ -1,4 +1,5 @@
 import { compact, fmtUsd, int } from './format'
+import { AnimatedNumber } from './AnimatedNumber'
 
 export interface TodayTokens {
   todayTokens: number
@@ -27,10 +28,15 @@ export function todayText(t: TodayTokens): { main: string; cache: string | null;
 export function TodayCount({ data, className = '' }: { data: TodayTokens | null | undefined; className?: string }) {
   if (!data) return <span className={`today-count ${className}`} />
   const t = todayText(data)
+  const hasCache = data.todayFresh !== undefined && data.todayCacheRead !== undefined
   return (
     <span className={`today-count ${className}`} title={t.title}>
-      <span>{t.main}</span>
-      {t.cache && <small>{t.cache}</small>}
+      <span>
+        Hoy <AnimatedNumber value={hasCache ? data.todayFresh! : data.todayTokens} format={compact} />
+        {hasCache && ' nuevos'}
+        {data.todayCostUsd !== undefined && <> · ~<AnimatedNumber value={data.todayCostUsd} format={fmtUsd} /></>}
+      </span>
+      {hasCache && <small><AnimatedNumber value={data.todayCacheRead!} format={compact} /> caché</small>}
     </span>
   )
 }
