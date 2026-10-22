@@ -60,4 +60,11 @@ describe('tokens nuevos y lectura de cache', () => {
     expect(rows[0]).toMatchObject({ project: 'p', fresh: 19526, cacheRead: 11455600, total: 11475126 })
     expect(rows[1]).toMatchObject({ project: 'other', fresh: 1502, cacheRead: 881200, sub: 882702, total: 882702 })
   })
+
+  it('sessionsReport guarda el pico de contexto del orquestador', () => {
+    const big = rec({ id: 'big', cacheRead: 700_000 })
+    const sub = rec({ id: 'sub', role: 'subagent', cacheRead: 900_000 })
+    const [row] = sessionsReport([rec({ cacheRead: 100 }), big, sub], new Map(), '7d', 100, NOW)
+    expect(row.peakContext).toBe(2 + 1000 + 700_000)
+  })
 })

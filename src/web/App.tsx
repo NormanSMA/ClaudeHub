@@ -46,39 +46,60 @@ const RANGES: { id: RangeId; label: string }[] = [
 
 // ~38.9k tokens, la longitud aproximada de "Rebelion en la granja"
 const BOOK_TOKENS = 38_918
+// encima de esto cada turno relee mucho contexto de cache
+const HEAVY_CONTEXT = 600_000
 
-function Stat({ label, value, hint, labelTitle, showHint }: { label: string; value: string; hint?: string; labelTitle?: string; showHint?: boolean }) {
+function Stat({ label, value, hint, labelTitle, valueTitle, showHint }: { label: string; value: string; hint?: string; labelTitle?: string; valueTitle?: string; showHint?: boolean }) {
   return (
     <div className="stat" title={hint}>
       <div className="stat-label" title={labelTitle}>{label}</div>
-      <div className="stat-value">{value}</div>
+      <div className="stat-value" title={valueTitle}>{value}</div>
       {showHint && <div className="stat-sub">{hint}</div>}
     </div>
   )
 }
 
-function ResumenView({ q, qClaude, billing }: { q: string; qClaude: string; billing: Billing }) {
+export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: string; billing: Billing }) {
   const { data, error } = useApi<Summary>(`/api/summary?${q}`)
   if (!data) return <Loading error={error} />
   const t = data.tokens
   const cost = billingText(billing)
   return (
     <>
-      <div className="stats">
+      <section className="stats summary-primary" aria-label="Métricas principales">
         <Stat
-          label={cost.label}
+          label={`${cost.label} del rango`}
           labelTitle={cost.title}
           value={fmtUsd(t.costUsd ?? 0)}
           hint={`Ahorro por caché ${fmtUsd(t.cacheSavingsUsd ?? 0)}${(t.costUnpriced ?? 0) > 0 ? ` · ${compact(t.costUnpriced ?? 0)} tokens sin precio` : ''}`}
           showHint
         />
-        <Stat label="Sesiones" value={int(data.sessions)} />
-        <Stat label="Mensajes" value={int(data.messages)} hint="Respuestas del modelo, sin duplicados" />
-        <Stat label="Tokens totales" value={compact(t.total)} hint="Entrada + cache + salida" />
-        <Stat label="Dias activos" value={int(data.activeDays)} />
+        <div className="stat">
+          <div className="stat-label">Tokens nuevos frente a lectura de caché</div>
+          <div className="summary-token-pair">
+            <div title="Entrada + escritura de caché + salida">
+              <div className="stat-value">{compact(t.fresh ?? t.input + t.cacheWrite + t.output)}</div>
+              <div className="stat-sub">Nuevos</div>
+            </div>
+            <div>
+              <div className="stat-value">{compact(t.cacheRead)}</div>
+              <div className="stat-sub">Lectura de caché</div>
+            </div>
+          </div>
+          <div className="stat-sub">{compact(t.total)} tokens totales</div>
+        </div>
+        <Stat
+          label="Sesiones y mensajes"
+          value={`${int(data.sessions)} sesiones`}
+          hint={`${int(data.messages)} mensajes · Respuestas del modelo, sin duplicados`}
+          showHint
+        />
+      </section>
+      <section className="stats small summary-secondary" aria-label="Métricas secundarias">
+        <Stat label="Días activos" value={int(data.activeDays)} />
         <Stat label="Hora pico" value={hourLabel(data.peakHour)} />
         <Stat label="Modelo favorito" value={data.favoriteModel ?? '-'} />
-      </div>
+      </section>
       <Heatmap days={data.heatmap} />
       <p className="note">Usaste ~{int(Math.round(t.total / BOOK_TOKENS))}x mas tokens que Rebelion en la granja.</p>
       <div className="stats two">
@@ -233,7 +254,14 @@ function SesionesView({ q, billing }: { q: string; billing: Billing }) {
             <tr key={s.session}>
               <td className="title" title={`${s.title} - ${s.project} (${s.session.slice(0, 8)})`}>
                 {s.title}
-                <div className="active-meta">{s.project}</div>
+                <div className="active-meta">
+                  {s.project}
+                  {(s.peakContext ?? 0) > HEAVY_CONTEXT && (
+                    <span className="heavy-tag" title={`Pico de contexto: ${int(s.peakContext ?? 0)} tokens. Cada turno relee todo ese contexto.`}>
+                      Contexto pesado
+                    </span>
+                  )}
+                </div>
               </td>
               <td>{dateLabel(s.last)}</td>
               <td>
@@ -281,7 +309,7 @@ function ProyectosView({ q, billing }: { q: string; billing: Billing }) {
             </td>
             <td className="num">{int(p.sessions)}</td>
             <td className="num">{compact(p.total)}</td>
-            <td className="num">{fmtUsd(p.costUsd)}</td>
+            <td className="num project-cost"><strong>{fmtUsd(p.costUsd)}</strong></td>
           </tr>
         ))}
       </tbody>

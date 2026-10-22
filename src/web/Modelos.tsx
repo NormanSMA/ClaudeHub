@@ -44,7 +44,7 @@ function ModelLegendItem({ m, color, billing }: { m: ModelRow; color: string; bi
   return (
     <li>
       <i style={{ background: color }} />
-      <span className="name">
+      <span className="name" title={m.ids?.length ? m.ids.join(', ') : undefined}>
         {m.model}
         {m.via && <OmniBadge via={m.via} />}
       </span>

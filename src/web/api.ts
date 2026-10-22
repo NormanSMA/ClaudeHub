@@ -34,7 +34,7 @@ export interface Summary {
 export interface ModelsReport {
   daily: { day: string; byModel: Record<string, number> }[]
   /** `via`: lo que paso por OmniRoute. Solo si el modelo lo uso */
-  models: (Breakdown & { model: string; share: number; via?: ModelVia })[]
+  models: (Breakdown & { model: string; /** ids tecnicos bajo el mismo nombre visible */ ids?: string[]; share: number; via?: ModelVia })[]
 }
 
 export interface RolesReport {
@@ -59,6 +59,8 @@ export interface SessionRow {
   cacheRead: number
   costUsd: number
   cacheSavingsUsd: number
+  /** mayor contexto de un mensaje del orquestador */
+  peakContext?: number
 }
 
 export interface ProjectRow {

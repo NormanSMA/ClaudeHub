@@ -142,7 +142,8 @@ export function modelsReport(all: Rec[], range: Range, now = Date.now()) {
     range,
     daily: [...daily.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, byModel]) => ({ day, byModel })),
     models: [...table.entries()]
-      .map(([model, rs]) => ({ model, ...breakdown(rs), share: sum(rs) / grand }))
+      // ids: los identificadores tecnicos que caen bajo el mismo nombre visible
+      .map(([model, rs]) => ({ model, ids: [...new Set(rs.map((r) => r.model))].sort(), ...breakdown(rs), share: sum(rs) / grand }))
       .sort((a, b) => b.total - a.total),
   }
 }
@@ -180,9 +181,9 @@ export function rolesReport(all: Rec[], range: Range, now = Date.now()) {
 export function sessionsReport(all: Rec[], metas: Metas, range: Range, limit = 100, now = Date.now()) {
   const recs = filterRange(all, range, now)
   const { overrides, freeProviders } = config().pricing
-  const map = new Map<string, { project: string; first: number; last: number; orch: number; sub: number; messages: number; fresh: number; cacheRead: number; costUsd: number; cacheSavingsUsd: number }>()
+  const map = new Map<string, { project: string; first: number; last: number; orch: number; sub: number; messages: number; fresh: number; cacheRead: number; costUsd: number; cacheSavingsUsd: number; peakContext: number }>()
   for (const r of recs) {
-    const s = map.get(r.session) ?? { project: r.project, first: r.ts, last: r.ts, orch: 0, sub: 0, messages: 0, fresh: 0, cacheRead: 0, costUsd: 0, cacheSavingsUsd: 0 }
+    const s = map.get(r.session) ?? { project: r.project, first: r.ts, last: r.ts, orch: 0, sub: 0, messages: 0, fresh: 0, cacheRead: 0, costUsd: 0, cacheSavingsUsd: 0, peakContext: 0 }
     const cost = costParts(r, overrides, freeProviders)
     s.costUsd += cost.costUsd
     s.cacheSavingsUsd += cost.cacheSavingsUsd
@@ -194,6 +195,8 @@ export function sessionsReport(all: Rec[], metas: Metas, range: Range, limit = 1
     if (r.role === 'orchestrator') {
       s.orch += total(r)
       s.project = r.project
+      // contexto de un mensaje del orquestador: toda su entrada
+      s.peakContext = Math.max(s.peakContext, r.input + r.cacheWrite + r.cacheRead)
     } else s.sub += total(r)
     map.set(r.session, s)
   }
