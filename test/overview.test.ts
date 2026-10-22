@@ -50,6 +50,21 @@ describe('ritmo, eficiencia y delegacion', () => {
     expect(burnRate([], NOW)).toBe(0)
   })
 
+  it('burnFreshPerMin excluye cache y otras fuentes dentro de la misma ventana', () => {
+    const recs = [
+      rec({ ts: NOW, input: 2, cacheWrite: 1000, cacheRead: 881200, output: 498, reasoning: 200 }),
+      rec({ ts: NOW - 15 * MIN + 1, output: 1500, role: 'subagent', source: 'claude' }),
+      rec({ ts: NOW - 15 * MIN, output: 9999 }),
+      rec({ ts: NOW + 1, output: 9999 }),
+      rec({ output: 9999, source: 'codex' }),
+      rec({ output: 9999, source: 'gemini' }),
+      rec({ output: 9999, source: 'omniroute' }),
+    ]
+    const { level } = activeExtras({ ...base, contextPct: 0.5, recs })
+    expect(level).toMatchObject({ burnFreshPerMin: 200, burnPerMin: (881200 + 3000) / 15 })
+    expect(activeExtras({ ...base, contextPct: 0.5 }).level).toMatchObject({ burnFreshPerMin: 0 })
+  })
+
   it('cacheEfficiency es lectura de cache sobre la entrada', () => {
     expect(cacheEfficiency({ input: 10, cacheWrite: 10, cacheRead: 80 })).toBe(80)
     expect(cacheEfficiency({ input: 0, cacheWrite: 0, cacheRead: 0 })).toBe(0)

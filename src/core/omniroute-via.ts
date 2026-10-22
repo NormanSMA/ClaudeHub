@@ -69,7 +69,7 @@ export function attachVia<R extends { models: ModelRow[] }>(
   })
   for (const [model, calls] of byName) {
     models.push({
-      model, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0, share: 0,
+      model, input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0, fresh: 0, share: 0,
       via: viaOf(calls),
     })
   }

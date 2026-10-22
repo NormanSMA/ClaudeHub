@@ -2,7 +2,7 @@ import { agentStates, collisions, mascotState, type EventSource, type HookEvent,
 import { breakdown, burnRate, cacheEfficiency, delegationShare } from './aggregate'
 import { codexPlanReport, tokenLevel, type PlanReport } from './plan'
 import type { CodexRateLimits } from './sources/codex'
-import { sourceOf, type Rec, type TokenLevel } from './types'
+import { fresh, sourceOf, type Rec, type TokenLevel } from './types'
 
 /** Estado de una sesion en la forma publica de la API: sin huella de carpeta ni rutas. */
 export interface PublicAgent {
@@ -27,7 +27,7 @@ export interface ActiveExtras {
   agents: PublicAgent[]
   collisions: PublicCollision[]
   mascot: MascotState
-  level: TokenLevel | null
+  level: (TokenLevel & { burnFreshPerMin: number }) | null
 }
 
 export interface ActiveExtrasInput {
@@ -74,6 +74,6 @@ export function activeExtras({ claudePlan, contextPct, recs, codexLimits, events
       since: c.since,
     })),
     mascot: mascotState(states, clashes, now),
-    level,
+    level: level ? { ...level, burnFreshPerMin: burnRate(recs, now, undefined, fresh) } : null,
   }
 }
