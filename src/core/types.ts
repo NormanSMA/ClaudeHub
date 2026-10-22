@@ -18,6 +18,8 @@ export interface Rec {
   model: string
   input: number
   cacheWrite: number
+  /** Tokens de escritura de una hora. Subconjunto de cacheWrite. */
+  cacheWrite1h?: number
   cacheRead: number
   output: number
   /** tokens de pensamiento. Subconjunto de output: no se suma al total. Solo donde la fuente lo trae */
