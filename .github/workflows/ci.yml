@@ -48,7 +48,9 @@ jobs:
             curl -fsS http://127.0.0.1:4399/api/config && break
             sleep 1
           done
-          curl -fsS "http://127.0.0.1:4399/api/summary?range=all" | head -c 200
+          # sin tuberia: con pipefail, head cerraba la salida antes de tiempo y curl salia con 23
+          curl -fsS -o "$RUNNER_TEMP/summary.json" "http://127.0.0.1:4399/api/summary?range=all"
+          head -c 200 "$RUNNER_TEMP/summary.json"
           echo
           curl -fsS -o /dev/null -w "pagina: %{http_code}\n" http://127.0.0.1:4399/
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example.com' http://127.0.0.1:4399/api/active)" = "403"

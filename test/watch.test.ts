@@ -7,6 +7,9 @@ import { createEventHub, createWatcher } from '../src/server/watch'
 const root = mkdtempSync(join(tmpdir(), 'ch-watch-'))
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// fs.watch en macOS (FSEvents) tarda en armarse: una escritura inmediata puede perderse
+const armed = () => sleep(200)
+
 async function until(cond: () => boolean, timeout = 3000): Promise<void> {
   const end = Date.now() + timeout
   while (!cond() && Date.now() < end) await sleep(20)
@@ -24,6 +27,7 @@ describe('createWatcher', () => {
     const dir = mkdtempSync(join(root, 'burst-'))
     const calls: string[] = []
     open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 150 }))
+    await armed()
     for (let i = 0; i < 5; i++) writeFileSync(join(dir, 'a.jsonl'), `linea ${i}\n`)
     await until(() => calls.length > 0)
     await sleep(400)
@@ -58,6 +62,7 @@ describe('createWatcher', () => {
     mkdirSync(join(dir, 'sub'))
     const calls: string[] = []
     open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 100 }))
+    await armed()
     writeFileSync(join(dir, 'sub', 'b.json'), '{}')
     await until(() => calls.length > 0)
     expect(calls).toHaveLength(1)
