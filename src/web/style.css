@@ -93,6 +93,25 @@ h3 {
   gap: 14px;
   margin-bottom: 22px;
 }
+.header-mascot {
+  position: relative;
+  display: flex;
+  flex: none;
+}
+.header-mascot .speech-bubble {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 5;
+  width: min(280px, calc(100vw - 40px));
+}
+.header-mascot .speech-bubble::after {
+  top: -6px;
+  bottom: auto;
+  left: 22px;
+  right: auto;
+  transform: rotate(225deg);
+}
 .today {
   color: var(--muted);
   font-size: 13px;

@@ -1,5 +1,5 @@
 import { levelFrom, pickMascotState } from './mascotState'
-import { cloneElement, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { cloneElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatedNumber } from './AnimatedNumber'
 import { AgentesView } from './Agentes'
 import { Loading } from './Loading'
@@ -11,6 +11,7 @@ import {
   type Billing,
   type ConfigInfo,
   type Live,
+  type ModelsReport,
   type ProjectRow,
   type RolesReport,
   type SessionRow,
@@ -20,6 +21,8 @@ import {
 import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './charts'
 import { billingText, compact, dateLabel, fmtUsd, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './Mascot'
+import { SpeechBubble } from './SpeechBubble'
+import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine, type SpeechMemory } from './mascotSpeech'
 import { SettingsView } from './Settings'
 import { TodayCount } from './TodayCount'
 import { SourceChips, loadSource, saveSource, type SourceFilter } from './SourceChips'
@@ -364,6 +367,68 @@ function tabFromHash(): Tab {
   return TABS.find((t) => t.id === id)?.id ?? 'agentes'
 }
 
+function HeaderMascot({ act, live, cfg, omniEnabled }: {
+  act: ActiveReport | null
+  live: Live | null
+  cfg: ConfigInfo | null
+  omniEnabled: boolean | undefined
+}) {
+  const memory = useRef<SpeechMemory | null>(null)
+  const [line, setLine] = useState<SpeechLine | null>(null)
+  const [talking, setTalking] = useState(false)
+  const [omniFailures, setOmniFailures] = useState<number>()
+
+  useEffect(() => {
+    setOmniFailures(undefined)
+    if (!omniEnabled) return
+    const controller = new AbortController()
+    const load = async () => {
+      if (document.hidden) return
+      try {
+        const response = await fetch('/api/models?source=omniroute&range=7d', { signal: controller.signal })
+        if (!response.ok) return
+        const report: ModelsReport = await response.json()
+        if (!controller.signal.aborted) {
+          setOmniFailures(report.models.reduce((n, model) => n + (model.via?.e429 ?? 0) + (model.via?.e5xx ?? 0), 0))
+        }
+      } catch {
+        /* conserva la última lectura hasta el siguiente sondeo */
+      }
+    }
+    void load()
+    const timer = setInterval(() => void load(), 300_000)
+    return () => {
+      controller.abort()
+      clearInterval(timer)
+    }
+  }, [omniEnabled])
+
+  useEffect(() => {
+    if (!cfg || !act || !live) return
+    const result = pickLine({
+      mascot: cfg.mascot ?? { talk: true, talkCooldownMin: 10 },
+      chats: act.chats,
+      level: act.level,
+      todayFresh: live.todayFresh,
+      todayCostUsd: live.todayCostUsd,
+      omniFailures: omniEnabled === false ? null : omniFailures,
+    }, memory.current ?? loadSpeechMemory(), Date.now())
+    memory.current = result.memory
+    saveSpeechMemory(result.memory)
+    if (cfg.mascot?.talk === false) setLine(null)
+    else if (result.line) setLine(result.line)
+  }, [act, live, cfg, omniEnabled, omniFailures])
+
+  return (
+    <div className="header-mascot">
+      <Mascot state={pickMascotState(act)} size={56} level={levelFrom(act)?.level} talking={talking} />
+      {line && cfg?.mascot?.talk !== false && (
+        <SpeechBubble key={line.id} text={line.text} onTyping={setTalking} onDone={() => setLine(null)} />
+      )}
+    </div>
+  )
+}
+
 export function App() {
   const [tab, setTabState] = useState<Tab>(tabFromHash)
   const setTab = (t: Tab) => {
@@ -392,7 +457,7 @@ export function App() {
   return (
     <main>
       <header className="greeting">
-        <Mascot state={mood} size={56} level={levelFrom(act)?.level} />
+        <HeaderMascot act={act} live={live} cfg={cfg} omniEnabled={sources?.omniroute.enabled} />
         <h1>Que sigue{cfg?.name ? `, ${cfg.name}` : ''}?</h1>
         <TodayCount data={live} className="today" />
         <span

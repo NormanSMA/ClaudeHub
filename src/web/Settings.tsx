@@ -31,6 +31,7 @@ interface Form {
   limits: Record<string, number>
   checkUpdates: boolean
   sources: SettingsInfo['config']['sources']
+  mascot: SettingsInfo['config']['mascot']
   billing: Billing
   freeProviders: string
   prices: PriceRow[]
@@ -59,6 +60,7 @@ export function SettingsView() {
       limits: { ...c.contextLimits },
       checkUpdates: c.checkUpdates !== false,
       sources: { ...c.sources },
+      mascot: { talk: c.mascot?.talk ?? true, talkCooldownMin: c.mascot?.talkCooldownMin ?? 10 },
       billing: c.billing ?? 'subscription',
       freeProviders: (c.pricing?.freeProviders ?? []).join(', '),
       prices: Object.entries(c.pricing?.overrides ?? {}).map(([model, price]) => ({
@@ -105,6 +107,7 @@ export function SettingsView() {
           contextLimits: form.limits,
           checkUpdates: form.checkUpdates,
           sources: form.sources,
+          mascot: form.mascot,
           billing: form.billing,
           pricing: {
             freeProviders: [...new Set(form.freeProviders.split(',').map((p) => p.trim()).filter(Boolean))],
@@ -157,6 +160,15 @@ export function SettingsView() {
       </div>
 
       <SourceSettings sources={form.sources} onChange={(sources) => setForm({ ...form, sources })} />
+
+      <fieldset className="field">
+        <legend>Mascota</legend>
+        <label htmlFor="s-talk">
+          <input id="s-talk" type="checkbox" checked={form.mascot.talk} onChange={(e) => setForm({ ...form, mascot: { ...form.mascot, talk: e.target.checked } })} /> Chispa habla
+        </label>
+        <label htmlFor="s-talk-cooldown">Minutos entre frases</label>
+        <input id="s-talk-cooldown" type="number" min={1} max={240} step={1} disabled={!form.mascot.talk} value={form.mascot.talkCooldownMin} onChange={(e) => setForm({ ...form, mascot: { ...form.mascot, talkCooldownMin: Number(e.target.value) } })} />
+      </fieldset>
 
       <fieldset className="field pricing-settings">
         <legend>Precios</legend>
