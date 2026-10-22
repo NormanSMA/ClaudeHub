@@ -150,6 +150,8 @@ function consume(text: string, info: FileInfo, byId: Map<string, Rec>, meta: Ses
       agent: info.agent,
       agentFile: info.agentFile,
     }
+    const cacheWrite1h = u.cache_creation?.ephemeral_1h_input_tokens
+    if (typeof cacheWrite1h === 'number' && cacheWrite1h > 0) rec.cacheWrite1h = cacheWrite1h
     const prev = byId.get(rec.id)
     if (!prev || rec.output >= prev.output) byId.set(rec.id, rec)
   }

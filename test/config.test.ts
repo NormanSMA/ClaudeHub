@@ -44,6 +44,58 @@ describe('configuracion', () => {
     expect(sanitize('texto')).toEqual(DEFAULTS)
   })
 
+  it('valida la modalidad de facturacion', () => {
+    expect(sanitize({}).billing).toBe('subscription')
+    expect(sanitize({ billing: 'api' }).billing).toBe('api')
+    expect(sanitize({ billing: 'subscription' }).billing).toBe('subscription')
+    expect(sanitize({ billing: 'otro' }).billing).toBe('subscription')
+    expect(sanitize({ billing: false }).billing).toBe('subscription')
+  })
+
+  it('acepta tarifas parciales entre cero y mil y descarta otros campos', () => {
+    expect(sanitize({ pricing: { overrides: { 'Opus 5': { input: 0, output: 1000, otro: 4 } }, freeProviders: ['local'] } }).pricing)
+      .toEqual({ overrides: { 'Opus 5': { input: 0, output: 1000 } }, freeProviders: ['local'] })
+  })
+
+  it.each([-1, 1000.01, NaN, Infinity, -Infinity, '3', null, true])('rechaza la tarifa invalida %s', (value) => {
+    const overrides = { 'Opus 5': { input: value, output: value, cacheWrite: value, cacheWrite1h: value, cacheRead: value } }
+    expect(sanitize({ pricing: { overrides } }).pricing.overrides).toEqual({})
+  })
+
+  it('conserva solamente los campos validos de cada tarifa', () => {
+    expect(sanitize({ pricing: { overrides: { 'Opus 5': { input: 5, output: -1, cacheWrite1h: 10 } } } }).pricing.overrides)
+      .toEqual({ 'Opus 5': { input: 5, cacheWrite1h: 10 } })
+  })
+
+  it('limita los modelos, proveedores y textos de precios', () => {
+    const overrides = Object.fromEntries(Array.from({ length: 55 }, (_, i) => [`Modelo ${i}`, { input: 1 }]))
+    const freeProviders = Array.from({ length: 55 }, (_, i) => `Proveedor ${i}`)
+    const pricing = sanitize({ pricing: { overrides, freeProviders } }).pricing
+    expect(Object.keys(pricing.overrides)).toHaveLength(50)
+    expect(pricing.freeProviders).toHaveLength(50)
+    const valid = 'a'.repeat(80)
+    const invalid = 'a'.repeat(81)
+    expect(sanitize({ pricing: {
+      overrides: { [valid]: { input: 1 }, [invalid]: { input: 2 } },
+      freeProviders: [valid, invalid, '', 3],
+    } }).pricing).toEqual({ overrides: { [valid]: { input: 1 } }, freeProviders: [valid] })
+  })
+
+  it.each([null, 'texto', [], { overrides: [], freeProviders: 'local' }, { overrides: { modelo: [1] } }])(
+    'descarta estructuras de precios invalidas: %s', (pricing) => {
+      expect(sanitize({ pricing }).pricing).toEqual(DEFAULTS.pricing)
+    },
+  )
+
+  it('guarda precios y modalidad y los recupera con config()', () => {
+    const pricing = { overrides: { 'Opus 5': { input: 4, cacheRead: 0 } }, freeProviders: ['local'] }
+    const saved = saveConfig({ pricing, billing: 'api' })
+    expect(saved.pricing).toEqual(pricing)
+    expect(config().pricing).toEqual(pricing)
+    expect(config().billing).toBe('api')
+    expect(JSON.parse(readFileSync(file, 'utf8')).pricing).toEqual(pricing)
+  })
+
   it('en modo demo ignora el archivo del usuario', async () => {
     saveConfig({ name: 'Privado', alertAt: 0.6 })
     // instancia nueva del modulo: no contamina las demas pruebas

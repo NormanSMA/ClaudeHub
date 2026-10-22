@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { dataDir } from './paths'
+import type { Price } from './pricing'
 
 export interface HubConfig {
   /** Limite de contexto por nombre de modelo, p. ej. { "Opus 5": 1000000 } */
@@ -17,6 +18,10 @@ export interface HubConfig {
   omniroute: { container: string; dbPath: string }
   /** Consulta GitHub Releases para avisar de versiones nuevas. Con false no hay peticiones de red */
   checkUpdates: boolean
+  /** Ajustes de tarifas por nombre visible y proveedores gratuitos. */
+  pricing: { overrides: Record<string, Partial<Price>>; freeProviders: string[] }
+  /** Modalidad de facturacion. */
+  billing: 'subscription' | 'api'
 }
 
 export const DEFAULTS: HubConfig = {
@@ -27,6 +32,8 @@ export const DEFAULTS: HubConfig = {
   sources: { codex: true, gemini: true, omniroute: false },
   omniroute: { container: 'omniroute', dbPath: '' },
   checkUpdates: true,
+  pricing: { overrides: {}, freeProviders: [] },
+  billing: 'subscription',
 }
 const FILE = process.env.CLAUDEHUB_CONFIG ?? join(dataDir(), 'config.json')
 
@@ -48,6 +55,24 @@ export function sanitize(raw: unknown): HubConfig {
   }
   const src = (r.sources && typeof r.sources === 'object' ? r.sources : {}) as Record<string, unknown>
   const omni = (r.omniroute && typeof r.omniroute === 'object' ? r.omniroute : {}) as Record<string, unknown>
+  const pricing = (r.pricing && typeof r.pricing === 'object' ? r.pricing : {}) as Record<string, unknown>
+  const overrides: [string, Partial<Price>][] = []
+  const fields: (keyof Price)[] = ['input', 'output', 'cacheWrite', 'cacheWrite1h', 'cacheRead']
+  if (pricing.overrides && typeof pricing.overrides === 'object' && !Array.isArray(pricing.overrides)) {
+    for (const [model, value] of Object.entries(pricing.overrides)) {
+      if (overrides.length >= 50) break
+      if (!model.length || model.length > 80 || !value || typeof value !== 'object' || Array.isArray(value)) continue
+      const p: Partial<Price> = {}
+      for (const field of fields) {
+        const v = (value as Record<string, unknown>)[field]
+        if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1000) p[field] = v
+      }
+      if (Object.keys(p).length) overrides.push([model, p])
+    }
+  }
+  const freeProviders = Array.isArray(pricing.freeProviders)
+    ? pricing.freeProviders.filter((v): v is string => typeof v === 'string' && v.length > 0 && v.length <= 80).slice(0, 50)
+    : []
   const flag = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback)
   return {
     contextLimits: limits,
@@ -69,6 +94,8 @@ export function sanitize(raw: unknown): HubConfig {
       dbPath: typeof omni.dbPath === 'string' ? omni.dbPath.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 260) : '',
     },
     checkUpdates: flag(r.checkUpdates, DEFAULTS.checkUpdates),
+    pricing: { overrides: Object.fromEntries(overrides), freeProviders },
+    billing: r.billing === 'api' || r.billing === 'subscription' ? r.billing : DEFAULTS.billing,
   }
 }
 

@@ -11,7 +11,7 @@ import type { LimitHit, Rec, SessionMeta, Source, SourceStat } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
 const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
-const CACHE_VERSION = 6
+const CACHE_VERSION = 7
 const SAVE_EVERY_MS = 60_000
 
 interface CacheEntry {
