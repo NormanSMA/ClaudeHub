@@ -5,7 +5,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { scan, PROJECTS_DIR } from '../core/scan'
 import { demoData, demoPlanRaw, demoEvents, demoCodexLimits, demoUpdate } from '../core/demo'
-import { getUpdate, startUpdateChecks } from '../core/update'
+import { getUpdate, manualCheck, startUpdateChecks, type ManualCheck } from '../core/update'
 import { planReport } from '../core/plan'
 import { activeExtras } from '../core/overview'
 import { readEvents } from '../core/agents'
@@ -159,19 +159,20 @@ app.get('/api/settings', (c) =>
     models: [...new Set(records().map((r) => modelName(r.model)))].sort((a, b) => a.localeCompare(b, 'es')),
   }),
 )
+/** Defensa contra CSRF: sin cabecera Origin (curl) o con un origen propio. */
+function originOk(origin: string | undefined): boolean {
+  if (!origin) return true
+  try {
+    return HOST_OK.test(new URL(origin).host)
+  } catch {
+    return false // origen invalido
+  }
+}
+
 app.put('/api/settings', async (c) => {
   if (DEMO) return c.json({ error: 'El modo demo no guarda cambios.' }, 403)
-  // defensa contra CSRF: origen propio, JSON obligatorio (obliga a un preflight que no se concede) y cuerpo pequeno
-  const origin = c.req.header('origin')
-  if (origin) {
-    let ok = false
-    try {
-      ok = HOST_OK.test(new URL(origin).host)
-    } catch {
-      /* origen invalido */
-    }
-    if (!ok) return c.json({ error: 'Origen no permitido.' }, 403)
-  }
+  // origen propio, JSON obligatorio (obliga a un preflight que no se concede) y cuerpo pequeno
+  if (!originOk(c.req.header('origin'))) return c.json({ error: 'Origen no permitido.' }, 403)
   if (!(c.req.header('content-type') ?? '').toLowerCase().startsWith('application/json')) {
     return c.json({ error: 'Se requiere application/json.' }, 415)
   }
@@ -187,6 +188,13 @@ app.put('/api/settings', async (c) => {
   return c.json({ config: saved })
 })
 app.get('/api/update', (c) => c.json(DEMO ? demoUpdate() : getUpdate()))
+// Boton "Buscar actualizacion". POST sin cuerpo: un formulario ajeno no puede leer la respuesta.
+app.post('/api/update/check', async (c) => {
+  if (!originOk(c.req.header('origin'))) return c.json({ error: 'Origen no permitido.' }, 403)
+  if (DEMO) return c.json({ result: 'checked', info: demoUpdate() } satisfies ManualCheck)
+  const out = await manualCheck()
+  return c.json(out, out.result === 'throttled' ? 429 : 200)
+})
 app.get('/api/live', (c) => c.json(once('live', () => live(records()))))
 app.get('/api/active', (c) =>
   c.json(
