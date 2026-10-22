@@ -34,8 +34,6 @@ export function contextLimit(peak: number, model = '', recorded?: number): { lim
   return { limit: peak > 200_000 ? 1_000_000 : 200_000, estimated: true, source: 'estimate' }
 }
 
-const DAY_MS = 86_400_000
-
 export function dayKey(ts: number): string {
   const d = new Date(ts)
   const p = (n: number) => String(n).padStart(2, '0')
@@ -46,9 +44,11 @@ export function filterRange<T extends { ts: number }>(recs: T[], range: Range, n
   if (range === 'all') return recs
   if (typeof range === 'object') return recs.filter((r) => r.ts >= range.from && r.ts <= range.to)
   const days = range === '7d' ? 7 : 30
+  // por calendario local: restar 24 h fijas falla en los dias con cambio de horario
   const start = new Date(now)
   start.setHours(0, 0, 0, 0)
-  const from = start.getTime() - (days - 1) * DAY_MS
+  start.setDate(start.getDate() - (days - 1))
+  const from = start.getTime()
   return recs.filter((r) => r.ts >= from)
 }
 
@@ -93,9 +93,10 @@ export function summary(all: Rec[], range: Range, now = Date.now()) {
   const end = new Date(now)
   end.setHours(0, 0, 0, 0)
   const weekday = (end.getDay() + 6) % 7
-  const start = end.getTime() - (27 * 7 + weekday) * DAY_MS
-  for (let t = start; t <= end.getTime() + (6 - weekday) * DAY_MS; t += DAY_MS) {
-    const k = dayKey(t)
+  const cursor = new Date(end)
+  cursor.setDate(cursor.getDate() - (27 * 7 + weekday))
+  for (let i = 0; i < 28 * 7; i++, cursor.setDate(cursor.getDate() + 1)) {
+    const k = dayKey(cursor.getTime())
     heat.push({ day: k, tokens: days.get(k) ?? 0 })
   }
   const peak = topKey(hours)
