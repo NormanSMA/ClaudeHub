@@ -1,6 +1,6 @@
 import { config } from './config'
 import { modelName } from './models'
-import { costParts } from './pricing'
+import { costParts, priceOf } from './pricing'
 import { recordedWindows } from './windows'
 import { fresh, sourceOf, total, type Range, type Rec, type SessionMeta, type Source } from './types'
 
@@ -345,6 +345,7 @@ export function activeReport(
       project: s.project,
       cwd: meta?.cwd ?? null,
       model: modelLabel,
+      cacheReadPerM: priceOf(s.last.model, config().pricing.overrides)?.cacheRead ?? null,
       lastTs: s.lastTs,
       working: now - s.lastTs < WORKING_MS,
       context: { used, limit, estimated, source, pct: Math.min(1, used / limit) },

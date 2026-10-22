@@ -98,12 +98,19 @@ function Overlay() {
             <TodayCount data={data ?? { todayTokens: 0 }} />
           </header>
           <PlanLimits plan={data?.plan ?? null} alertAt={alertAt} dense />
-          <ActiveList chats={chats} alertAt={alertAt} dense />
+          <ActiveList chats={chats} agents={data?.agents} alertAt={alertAt} dense />
           <footer>
-            <button className="link" onClick={() => hub?.openDashboard()}>
+            <button type="button" className="overlay-action" onClick={() => hub?.openDashboard()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <path d="M3 9h18M9 9v12" />
+              </svg>
               Abrir dashboard
             </button>
-            <button className="link" onClick={() => hub?.hide()}>
+            <button type="button" className="overlay-action" onClick={() => hub?.hide()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9 5.5a10 10 0 013-.5c6 0 9 7 9 7a16 16 0 01-3 4M6 6.5A17 17 0 003 12s3 7 9 7a10 10 0 004-.8" />
+              </svg>
               Ocultar mascota
             </button>
           </footer>

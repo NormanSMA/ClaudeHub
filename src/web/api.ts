@@ -161,6 +161,8 @@ export interface ActiveChat {
   project: string
   cwd: string | null
   model: string
+  /** USD por millon de lectura de cache del modelo; null sin tarifa */
+  cacheReadPerM?: number | null
   lastTs: number
   working: boolean
   context: { used: number; limit: number; estimated: boolean; source: 'statusline' | 'config' | 'estimate'; pct: number }

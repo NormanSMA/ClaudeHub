@@ -14,6 +14,9 @@
   --mascot-eye: #1f1e1d;
   --ok: #6fa58a;
   --warn: #e3a64b;
+  --dot-paused: #a8a49a;
+  --dot-working: #6fa58a;
+  --dot-waiting: #e3a64b;
   --danger: #e0584a;
   --heat0: #302f2d;
   --heat1: #8a4a36;
@@ -24,6 +27,9 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
+    --dot-paused: #88847a;
+    --dot-working: #397557;
+    --dot-waiting: #956015;
     --bg: #f5f4ee;
     --card: #ffffff;
     --stat: #f0eee6;
@@ -40,6 +46,9 @@
   }
 }
 :root[data-theme='light'] {
+  --dot-paused: #88847a;
+  --dot-working: #397557;
+  --dot-waiting: #956015;
   --bg: #f5f4ee;
   --card: #ffffff;
   --stat: #f0eee6;
@@ -483,17 +492,48 @@ th {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--line);
+  background: var(--dot-paused);
 }
 .live-dot.on {
-  background: var(--ok);
-  animation: pulse 1.2s steps(2, end) infinite;
+  background: var(--dot-working);
+  animation: live-pulse 1.2s ease-in-out infinite;
+}
+.live-dot.waiting {
+  background: var(--dot-waiting);
+}
+@keyframes live-pulse {
+  50% { transform: scale(1.3); }
 }
 @keyframes pulse {
   50% { opacity: 0.35; }
 }
 .ctx {
   margin-top: 6px;
+}
+.compact-action {
+  margin-top: 8px;
+}
+.compact-btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.compact-btn:hover:not(:disabled) {
+  border-color: var(--text);
+}
+.compact-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.compact-btn:disabled {
+  cursor: default;
 }
 .ctx-track {
   height: 8px;
