@@ -38,3 +38,9 @@ export function niceMax(v: number): number {
 export function dateLabel(ts: number): string {
   return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: '2-digit' }).replace('.', '')
 }
+
+/** "850 ms", "4,2 s". El guion indica que no hay dato. */
+export function msText(ms: number | null): string {
+  if (ms === null) return '-'
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1).replace('.', ',')} s`
+}

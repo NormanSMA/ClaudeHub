@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import type { ModelVia } from '../core/omniroute-via'
 import { onStatus, subscribeChanges, throttle, type LiveStatus } from './live'
+
+export type { ModelVia }
 
 export type Range = 'all' | '30d' | '7d'
 
@@ -25,7 +28,8 @@ export interface Summary {
 
 export interface ModelsReport {
   daily: { day: string; byModel: Record<string, number> }[]
-  models: (Breakdown & { model: string; share: number })[]
+  /** `via`: lo que paso por OmniRoute. Solo si el modelo lo uso */
+  models: (Breakdown & { model: string; share: number; via?: ModelVia })[]
 }
 
 export interface RolesReport {
@@ -184,7 +188,14 @@ export interface UpdateInfo {
 }
 
 export interface SettingsInfo {
-  config: { name: string; alertAt: number; activeMinutes: number; contextLimits: Record<string, number>; checkUpdates?: boolean }
+  config: {
+    name: string
+    alertAt: number
+    activeMinutes: number
+    contextLimits: Record<string, number>
+    checkUpdates?: boolean
+    sources: { codex: boolean; gemini: boolean; omniroute: boolean }
+  }
   path: string
   demo: boolean
   models: string[]
