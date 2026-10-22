@@ -1,0 +1,12 @@
+/* logo de OmniRoute en la lista de modelos */
+.omni-badge {
+  display: inline-flex;
+  margin-left: 8px;
+  vertical-align: middle;
+  cursor: help;
+}
+.omni-logo {
+  display: block;
+  flex: none;
+  border-radius: 4px;
+}

@@ -1,24 +1,25 @@
 import { levelFrom, pickMascotState } from './mascotState'
 import { useEffect, useMemo, useState } from 'react'
 import { AgentesView } from './Agentes'
+import { Loading } from './Loading'
+import { ModelosView } from './Modelos'
 import {
   useApi,
   useLiveStatus,
   type ActiveReport,
   type ConfigInfo,
   type Live,
-  type ModelsReport,
   type ProjectRow,
   type RolesReport,
   type SessionRow,
-  type SourceId,
   type SourcesReport,
   type Summary,
 } from './api'
-import { CategoryBar, Heatmap, PALETTE, SplitBar, StackedBars, fillDays } from './charts'
+import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './charts'
 import { compact, dateLabel, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './Mascot'
 import { SettingsView } from './Settings'
+import { SourceChips, loadSource, saveSource, type SourceFilter } from './SourceChips'
 import { useSort } from './sort'
 import { balloonText, useUpdateNotice } from './update'
 
@@ -41,83 +42,8 @@ const RANGES: { id: RangeId; label: string }[] = [
   { id: 'custom', label: 'Fechas' },
 ]
 
-type SourceFilter = 'all' | SourceId
-
-const SOURCES: { id: SourceFilter; label: string; color: string }[] = [
-  { id: 'all', label: 'Todas', color: 'var(--muted)' },
-  { id: 'claude', label: 'Claude', color: 'var(--accent)' },
-  { id: 'codex', label: 'Codex', color: 'var(--blue)' },
-  { id: 'gemini', label: 'Gemini', color: 'var(--violet)' },
-  { id: 'omniroute', label: 'OmniRoute', color: 'var(--ok)' },
-]
-
-const SOURCE_KEY = 'source'
-
-function loadSource(): SourceFilter {
-  try {
-    const v = localStorage.getItem(SOURCE_KEY)
-    return SOURCES.find((s) => s.id === v)?.id ?? 'all'
-  } catch {
-    return 'all'
-  }
-}
-
-function saveSource(id: SourceFilter) {
-  try {
-    localStorage.setItem(SOURCE_KEY, id)
-  } catch {
-    /* sin almacenamiento */
-  }
-}
-
-/** Texto del atributo title de un chip de fuente; vacio si la fuente esta sana. */
-function sourceHint(info: SourcesReport[SourceId] | undefined): string | undefined {
-  if (!info) return undefined
-  if (info.reason) return info.reason
-  if (!info.enabled) return 'Fuente desactivada'
-  if (!info.ok) return 'La fuente no se pudo leer'
-  return undefined
-}
-
-function SourceChips({
-  source,
-  onChange,
-  report,
-}: {
-  source: SourceFilter
-  onChange: (id: SourceFilter) => void
-  report: SourcesReport | null
-}) {
-  return (
-    <div className="sources" role="group" aria-label="Fuente">
-      {SOURCES.map((s) => {
-        const info = s.id === 'all' ? undefined : report?.[s.id]
-        const dim = info ? !info.enabled || !info.ok : false
-        return (
-          <button
-            key={s.id}
-            type="button"
-            className={`chip${source === s.id ? ' on' : ''}${dim ? ' dim' : ''}`}
-            aria-pressed={source === s.id}
-            title={sourceHint(info)}
-            onClick={() => onChange(s.id)}
-          >
-            <i className="dot" style={{ background: s.color }} />
-            {s.label}
-            {info && <span className="chip-count">{int(info.records)}</span>}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 // ~38.9k tokens, la longitud aproximada de "Rebelion en la granja"
 const BOOK_TOKENS = 38_918
-
-function Loading({ error }: { error: string | null }) {
-  return <div className="empty">{error ? `No se pudo cargar (${error}). Esta corriendo el servidor?` : 'Leyendo tus logs...'}</div>
-}
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -155,82 +81,6 @@ function ResumenView({ q, qClaude }: { q: string; qClaude: string }) {
       <CategoryBar tokens={t} />
       <h3 className="section-title">Orquestador vs subagentes (solo Claude)</h3>
       <RolesView q={qClaude} />
-    </>
-  )
-}
-
-type ModelRow = ModelsReport['models'][number]
-
-const MODEL_SORTS: { id: string; label: string; get: (m: ModelRow) => string | number }[] = [
-  { id: 'total', label: 'Tokens', get: (m) => m.total },
-  { id: 'input', label: 'Entrada', get: (m) => m.input },
-  { id: 'output', label: 'Salida', get: (m) => m.output },
-  { id: 'model', label: 'Nombre', get: (m) => m.model },
-]
-
-function ModelosView({ q }: { q: string }) {
-  const { data, error } = useApi<ModelsReport>(`/api/models?${q}`)
-  const [more, setMore] = useState(false)
-  const [sortId, setSortId] = useState('total')
-  const [desc, setDesc] = useState(true)
-  const ordered = useMemo(() => {
-    const get = MODEL_SORTS.find((s) => s.id === sortId)!.get
-    const m = desc ? -1 : 1
-    return [...(data?.models ?? [])].sort((a, b) => {
-      const x = get(a)
-      const y = get(b)
-      return (typeof x === 'string' && typeof y === 'string' ? x.localeCompare(y, 'es') : Number(x) - Number(y)) * m
-    })
-  }, [data, sortId, desc])
-  if (!data) return <Loading error={error} />
-  const names = data.models.map((m) => m.model)
-  const color = (m: string) => PALETTE[names.indexOf(m) % PALETTE.length]
-  const series = names.map((k) => ({ key: k, color: color(k) })).reverse()
-  const rows = fillDays(
-    data.daily.map((d) => ({ day: d.day, values: d.byModel })),
-    (day) => ({ day, values: {} }),
-  )
-  const shown = more ? ordered : ordered.slice(0, 6)
-  return (
-    <>
-      <StackedBars data={rows} series={series} />
-      <div className="legend-tools">
-        <label htmlFor="model-sort">Ordenar por</label>
-        <select
-          id="model-sort"
-          value={sortId}
-          onChange={(e) => {
-            setSortId(e.target.value)
-            setDesc(e.target.value !== 'model')
-          }}
-        >
-          {MODEL_SORTS.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <button className="link" onClick={() => setDesc(!desc)} title="Invertir orden">
-          {desc ? 'Mayor a menor' : 'Menor a mayor'}
-        </button>
-      </div>
-      <ul className="legend">
-        {shown.map((m) => (
-          <li key={m.model}>
-            <i style={{ background: color(m.model) }} />
-            <span className="name">{m.model}</span>
-            <span className="detail">
-              {compact(m.input)} entrada · {compact(m.output)} salida
-            </span>
-            <span className="share">{pct(m.share)}</span>
-          </li>
-        ))}
-      </ul>
-      {ordered.length > 6 && (
-        <button className="link" onClick={() => setMore(!more)}>
-          {more ? 'Mostrar menos' : `Mostrar ${ordered.length - 6} mas`}
-        </button>
-      )}
     </>
   )
 }

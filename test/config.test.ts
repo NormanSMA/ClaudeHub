@@ -62,6 +62,17 @@ describe('configuracion', () => {
     expect(existsSync(`${file}.tmp`)).toBe(false)
     expect(config().contextLimits['Sonnet 5.5']).toBe(200_000)
   })
+
+  it('guarda sources completo y conserva las otras fuentes al alternar OmniRoute', () => {
+    const sources = { codex: false, gemini: true, omniroute: true }
+    expect(saveConfig({ sources }).sources).toEqual(sources)
+    expect(JSON.parse(readFileSync(file, 'utf8')).sources).toEqual(sources)
+    expect(config().sources).toEqual(sources)
+    const disabled = { ...sources, omniroute: false }
+    expect(saveConfig({ sources: disabled }).sources).toEqual(disabled)
+    expect(JSON.parse(readFileSync(file, 'utf8')).sources).toEqual(disabled)
+    expect(config().sources).toEqual(disabled)
+  })
 })
 
 describe('rutas y nombres de proyecto', () => {

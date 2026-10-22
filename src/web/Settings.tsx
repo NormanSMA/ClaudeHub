@@ -15,6 +15,7 @@ interface Form {
   activeMinutes: number
   limits: Record<string, number>
   checkUpdates: boolean
+  sources: SettingsInfo['config']['sources']
 }
 
 function presetOf(limit: number | undefined): string {
@@ -38,6 +39,7 @@ export function SettingsView() {
       activeMinutes: c.activeMinutes,
       limits: { ...c.contextLimits },
       checkUpdates: c.checkUpdates !== false,
+      sources: { ...c.sources },
     })
     setCustom(Object.fromEntries(Object.entries(c.contextLimits).map(([m, v]) => [m, presetOf(v) === 'custom'])))
   }, [data, form])
@@ -70,6 +72,7 @@ export function SettingsView() {
           activeMinutes: form.activeMinutes,
           contextLimits: form.limits,
           checkUpdates: form.checkUpdates,
+          sources: form.sources,
         }),
       })
       const body = await res.json()
@@ -110,6 +113,8 @@ export function SettingsView() {
         </label>
         <small>Consulta la última versión publicada en GitHub al iniciar y cada 6 horas. Apagado, no hay llamadas a la red.</small>
       </div>
+
+      <SourceSettings sources={form.sources} onChange={(sources) => setForm({ ...form, sources })} />
 
       <fieldset className="field">
         <legend>Ventana de contexto por modelo</legend>
@@ -167,5 +172,28 @@ export function SettingsView() {
         Se guarda en {data.path}. Límite máximo aceptado: {int(10_000_000)} tokens.
       </p>
     </form>
+  )
+}
+
+const SOURCE_LABELS = { codex: 'Codex', gemini: 'Gemini', omniroute: 'OmniRoute' } as const
+
+function SourceSettings({ sources, onChange }: {
+  sources: Form['sources']
+  onChange: (sources: Form['sources']) => void
+}) {
+  return (
+    <fieldset className="field">
+      <legend>Fuentes</legend>
+      {(Object.keys(SOURCE_LABELS) as (keyof typeof SOURCE_LABELS)[]).map((id) => (
+        <label key={id} htmlFor={`s-${id}`}>
+          <input
+            id={`s-${id}`} type="checkbox" checked={sources[id]}
+            aria-describedby={id === 'omniroute' ? 's-omniroute-help' : undefined}
+            onChange={(e) => onChange({ ...sources, [id]: e.target.checked })}
+          /> {SOURCE_LABELS[id]}
+        </label>
+      ))}
+      <small id="s-omniroute-help">OmniRoute necesita Docker y el contenedor omniroute.</small>
+    </fieldset>
   )
 }
