@@ -58,11 +58,13 @@ export function Mascot({
   size = 56,
   level,
   announce = false,
+  talking = false,
 }: {
   state?: MascotState
   size?: number
   level?: number | null
   announce?: boolean
+  talking?: boolean
 }) {
   const lv = level && level >= 1 && level <= 5 ? level : null
   const cells: ReactElement[] = []
@@ -85,7 +87,7 @@ export function Mascot({
   const busy = state === 'working' || state === 'tool' || state === 'thinking'
   return (
     <svg
-      className={`mascot mascot-${state}${busy ? ' mascot-working' : ''}${lv ? ` mascot-lv${lv}` : ''}${announce ? ' mascot-announce' : ''}`}
+      className={`mascot mascot-${state}${busy ? ' mascot-working' : ''}${lv ? ` mascot-lv${lv}` : ''}${announce ? ' mascot-announce' : ''}${talking ? ' mascot-talking' : ''}`}
       width={size}
       height={Math.round((size * 12) / 14)}
       viewBox="0 0 14 12"
@@ -105,6 +107,20 @@ export function Mascot({
           X_EYES.map(([x, y]) => px(x, y, 'var(--mascot-eye)', 'm-x'))
         ) : (
           eyes.map(([x, y]) => <rect key={`e${x}-${y}`} className="m-eye" x={x} y={y} width={1} height={1} fill="var(--mascot-eye)" />)
+        )}
+        {talking && (
+          <g className="m-mouth" fill="var(--mascot-eye)">
+            <g className="m-mouth-frame m-mouth-1">
+              <rect x={6} y={9} width={2} height={1} />
+            </g>
+            <g className="m-mouth-frame m-mouth-2">
+              <rect x={6} y={8} width={2} height={2} />
+            </g>
+            <g className="m-mouth-frame m-mouth-3">
+              <rect x={5} y={8} width={4} height={1} />
+              <rect x={6} y={9} width={2} height={1} />
+            </g>
+          </g>
         )}
         {state === 'tool' && (
           <>

@@ -159,8 +159,31 @@
   50% { opacity: 1; }
 }
 
+/* Habla: tres cuadros de boca, uno cada 120 ms. */
+.mascot.mascot-talking {
+  animation: talk-bounce 360ms steps(2, end) infinite;
+}
+.m-mouth-frame {
+  opacity: 0;
+  animation: talk-mouth 360ms steps(1, end) infinite;
+}
+.m-mouth-1 { opacity: 1; }
+.m-mouth-2 { animation-delay: -240ms; }
+.m-mouth-3 { animation-delay: -120ms; }
+@keyframes talk-mouth {
+  0% { opacity: 1; }
+  33.333333%, 100% { opacity: 0; }
+}
+@keyframes talk-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
 /* movimiento reducido: especificidad mayor que style.css (.mascot-alert .m-body, .m-alert) */
 @media (prefers-reduced-motion: reduce) {
+  .mascot.mascot-talking,
+  .mascot-talking .m-mouth-frame { animation: none; }
+  .mascot.mascot-talking .m-body { animation: none; }
   .mascot.mascot-announce .m-body { animation: none; }
   .m-wave, .m-glint { display: none; }
   .m-hand, .m-dot, .m-wait, .codex-badge { animation: none; }
