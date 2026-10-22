@@ -430,7 +430,10 @@ async function runSmoke() {
     result.trayCreated = !!tray && !tray.isDestroyed()
     result.overlayVisible = !!overlay && overlay.isVisible()
     showDashboard()
-    await wait(5000)
+    // el dashboard se muestra en ready-to-show (primer pintado). En Linux del CI, sin GPU, puede tardar
+    // mas de 5 s: se espera hasta 20 s y se sigue en cuanto aparece
+    for (let i = 0; i < 80 && !(win && win.isVisible()); i++) await wait(250)
+    await wait(500)
     result.dashboardVisible = !!win && win.isVisible()
     result.overlayHiddenAfter = !!overlay && !overlay.isVisible()
   } catch (e) {
