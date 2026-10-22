@@ -48,7 +48,7 @@ describe('readOmniroute con dbPath', () => {
       cacheRead: 30,
       cacheWrite: 20,
       output: 60,
-      model: 'openai/gpt-x',
+      model: 'gpt-x',
       project: 'openai',
       session: 'omniroute:openai',
       role: 'orchestrator',

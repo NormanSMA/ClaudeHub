@@ -9,7 +9,7 @@ import { VERSION, RELEASES_PREFIX, type UpdateInfo } from './update'
 
 const DAY_MS = 86_400_000
 
-function rng(seed: number) {
+export function rng(seed: number) {
   let a = seed
   return () => {
     a = (a + 0x6d2b79f5) | 0
@@ -232,9 +232,10 @@ const GEMINI_SPECS: OtherSpec[] = [
 const OMNI_PROVIDERS = [
   { provider: 'antigravity', model: 'gemini-3-pro-preview', from: 14, to: 0 },
   { provider: 'groq', model: 'llama-4-70b', from: 9, to: 0 },
+  { provider: 'gemini', model: 'gemini-3-flash-preview', from: 6, to: 0 },
 ]
 
-/** Registros ficticios de OmniRoute (proveedores antigravity y groq). Generador propio. */
+/** Registros ficticios de OmniRoute (proveedores antigravity, groq y gemini). Generador propio. */
 function demoOmniroute(now: number): Rec[] {
   const rand = rng(20261008)
   const today = new Date(now)
@@ -250,7 +251,7 @@ function demoOmniroute(now: number): Rec[] {
         recs.push({
           id: `omniroute:demo-${recs.length}`,
           ts: Math.min(now - 10 * 60_000, dayStart + hour * 3_600_000),
-          model: `${p.provider}/${p.model}`,
+          model: p.model,
           input: 200 + Math.round(rand() * 3_000),
           cacheWrite: 0,
           cacheRead: Math.round(rand() * 8_000),

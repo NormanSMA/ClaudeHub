@@ -13,9 +13,38 @@ export interface OmnirouteStatus {
   copiedAt?: number
 }
 
-export interface OmnirouteResult {
+/** Una llamada de usage_history, incluidas las fallidas (sin tokens). Solo campos de uso. */
+export interface OmniCall {
+  ts: number
+  provider: string
+  model: string
+  /** codigo HTTP; 0 si no se registro */
+  status: number
+  ok: boolean
+  latencyMs: number | null
+  tokens: number
+}
+
+interface OmnirouteData {
   recs: Rec[]
+  calls: OmniCall[]
+}
+
+export interface OmnirouteResult extends OmnirouteData {
   status: OmnirouteStatus
+}
+
+/** Lo minimo que se usa de node:sqlite, para no depender de `any`. */
+interface SqliteStatement {
+  get(): Record<string, unknown> | undefined
+  all(): Record<string, unknown>[]
+}
+interface SqliteDb {
+  prepare(sql: string): SqliteStatement
+  close(): void
+}
+interface SqliteModule {
+  DatabaseSync: new (path: string, options: { readOnly: boolean }) => SqliteDb
 }
 
 export interface OmnirouteOpts {
@@ -29,7 +58,7 @@ export interface OmnirouteOpts {
   /** Copia `origen` (contenedor:ruta) a `destino`. Por defecto usa docker cp. Util para pruebas. */
   copy?: (src: string, dest: string) => Promise<void>
   /** Carga el modulo sqlite. Por defecto import('node:sqlite'). Util para pruebas. */
-  loadSqlite?: () => Promise<any>
+  loadSqlite?: () => Promise<SqliteModule>
 }
 
 const REMOTE = '/app/data/storage.sqlite'
@@ -37,29 +66,36 @@ const SUFFIXES = ['', '-wal', '-shm'] as const
 const CONTAINER_RE = /^[\w.-]{1,64}$/
 const DEFAULT_TTL = 60_000
 const MAX_RETRIES = 2
+// Tope de filas para acotar memoria. Se leen primero las mas recientes.
+const MAX_ROWS = 50_000
 const execFileP = promisify(execFile)
 
-// Solo columnas de uso. Nunca cuerpos, prompts, claves ni tokens de acceso.
-const QUERY =
-  'SELECT id, provider, model, tokens_input, tokens_output, tokens_cache_read, ' +
-  'tokens_cache_creation, tokens_reasoning, timestamp FROM usage_history'
+// Solo columnas de uso. Nunca cuerpos, prompts, claves, cuentas ni tokens de acceso.
+// Las ultimas tres faltan en versiones viejas de OmniRoute y se leen como NULL.
+const COLS = [
+  'id', 'provider', 'model', 'tokens_input', 'tokens_output', 'tokens_cache_read', 'tokens_cache_creation',
+  'tokens_reasoning', 'timestamp', 'status', 'success', 'latency_ms',
+]
 
-interface Cached {
-  recs: Rec[]
+interface Cached extends OmnirouteData {
   copiedAt: number
 }
 const cache = new Map<string, Cached>()
 const inflight = new Map<string, Promise<OmnirouteResult>>()
+const EMPTY: OmnirouteData = { recs: [], calls: [] }
+
+type Row = Record<string, unknown>
 
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+const nullable = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 
 const dockerCopy = async (src: string, dest: string): Promise<void> => {
   await execFileP('docker', ['cp', src, dest], { timeout: 10_000, windowsHide: true })
 }
 
-const defaultLoad = () => import('node:sqlite')
+const defaultLoad = () => import('node:sqlite') as Promise<SqliteModule>
 
-function mapRow(row: any): Rec | null {
+function mapRow(row: Row): Rec | null {
   const input = num(row.tokens_input)
   const cacheRead = num(row.tokens_cache_read)
   const cacheWrite = num(row.tokens_cache_creation)
@@ -71,7 +107,8 @@ function mapRow(row: any): Rec | null {
   return {
     id: `omniroute:${row.id}`,
     ts,
-    model: `${provider}/${String(row.model ?? 'unknown')}`,
+    // sin el proveedor: el mismo modelo usado directo y via OmniRoute cae en una sola fila de Modelos
+    model: String(row.model ?? 'unknown'),
     input,
     cacheRead,
     cacheWrite,
@@ -84,18 +121,45 @@ function mapRow(row: any): Rec | null {
   }
 }
 
+function mapCall(row: Row): OmniCall | null {
+  const ts = Date.parse(String(row.timestamp))
+  if (Number.isNaN(ts)) return null
+  const status = Number.parseInt(String(row.status ?? ''), 10) || 0
+  const success = nullable(row.success)
+  return {
+    ts,
+    provider: String(row.provider ?? 'unknown'),
+    model: String(row.model ?? 'unknown'),
+    status,
+    ok: success !== null ? success === 1 : status >= 200 && status < 300,
+    latencyMs: nullable(row.latency_ms),
+    tokens:
+      num(row.tokens_input) + num(row.tokens_output) + num(row.tokens_cache_read) + num(row.tokens_cache_creation) + num(row.tokens_reasoning),
+  }
+}
+
+/** Lista de columnas para el SELECT: las que no existen en esta version de OmniRoute salen como NULL. */
+function selectColumns(db: SqliteDb): string {
+  const have = new Set(db.prepare('PRAGMA table_info(usage_history)').all().map((c) => String(c.name)))
+  return COLS.map((c) => (have.has(c) ? c : `NULL AS ${c}`)).join(', ')
+}
+
 /** Abre la base en solo lectura, valida con quick_check y lee las filas de uso. Lanza si algo falla. */
-function readDb(sqlite: any, path: string): Rec[] {
+function readDb(sqlite: SqliteModule, path: string): OmnirouteData {
   const db = new sqlite.DatabaseSync(path, { readOnly: true })
   try {
-    const check = db.prepare('PRAGMA quick_check').get() as Record<string, unknown> | undefined
+    const check = db.prepare('PRAGMA quick_check').get()
     if (!check || Object.values(check)[0] !== 'ok') throw new Error('quick_check fallido')
+    const sql = `SELECT ${selectColumns(db)} FROM usage_history ORDER BY id DESC LIMIT ${MAX_ROWS}`
     const recs: Rec[] = []
-    for (const row of db.prepare(QUERY).all()) {
+    const calls: OmniCall[] = []
+    for (const row of db.prepare(sql).all()) {
       const rec = mapRow(row)
       if (rec) recs.push(rec)
+      const call = mapCall(row)
+      if (call) calls.push(call)
     }
-    return recs
+    return { recs: recs.reverse(), calls }
   } finally {
     db.close()
   }
@@ -110,7 +174,7 @@ function brief(e: unknown): string {
 
 /**
  * Lee el uso de OmniRoute (tabla usage_history) de su base SQLite. Nunca lanza:
- * ante un error devuelve recs vacio y status.ok false, o la copia anterior con stale true.
+ * ante un error devuelve datos vacios y status.ok false, o la copia anterior con stale true.
  */
 export function readOmniroute(opts: OmnirouteOpts): Promise<OmnirouteResult> {
   // Llamadas simultaneas comparten una sola lectura: evita copias y borrados cruzados
@@ -122,35 +186,10 @@ export function readOmniroute(opts: OmnirouteOpts): Promise<OmnirouteResult> {
   return run
 }
 
-async function readOnce(opts: OmnirouteOpts): Promise<OmnirouteResult> {
-  const now = opts.now ?? Date.now
-  const ttl = opts.ttlMs ?? DEFAULT_TTL
-  let sqlite: any
-  try {
-    sqlite = await (opts.loadSqlite ?? defaultLoad)()
-    if (!sqlite?.DatabaseSync) throw new Error('sin DatabaseSync')
-  } catch {
-    return { recs: [], status: { ok: false, reason: 'node:sqlite no disponible' } }
-  }
+type CopyOutcome = { data: OmnirouteData } | { reason: string }
 
-  if (opts.dbPath) {
-    try {
-      return { recs: readDb(sqlite, opts.dbPath), status: { ok: true } }
-    } catch (e) {
-      return { recs: [], status: { ok: false, reason: brief(e) } }
-    }
-  }
-
-  if (!CONTAINER_RE.test(opts.container)) {
-    return { recs: [], status: { ok: false, reason: 'nombre de contenedor invalido' } }
-  }
-
-  const key = `${opts.container}|${opts.workDir}`
-  const prev = cache.get(key)
-  if (prev && now() - prev.copiedAt < ttl) {
-    return { recs: prev.recs, status: { ok: true, copiedAt: prev.copiedAt } }
-  }
-
+/** Copia la base del contenedor y la lee. Reintenta si la copia sale danada. */
+async function copyAndRead(opts: OmnirouteOpts, sqlite: SqliteModule): Promise<CopyOutcome> {
   const copy = opts.copy ?? dockerCopy
   const stage = join(opts.workDir, 'omniroute')
   let reason = 'no se pudo leer la base de OmniRoute'
@@ -162,8 +201,7 @@ async function readOnce(opts: OmnirouteOpts): Promise<OmnirouteResult> {
         await copy(`${opts.container}:${REMOTE}`, join(stage, 'storage.sqlite'))
       } catch (e) {
         // Sin Docker o contenedor inexistente: reintentar no ayuda
-        reason = brief(e)
-        break
+        return { reason: brief(e) }
       }
       // -wal y -shm pueden no existir si la base no tiene escrituras pendientes
       for (const s of SUFFIXES.slice(1)) {
@@ -173,15 +211,54 @@ async function readOnce(opts: OmnirouteOpts): Promise<OmnirouteResult> {
           /* opcional */
         }
       }
-      const recs = readDb(sqlite, join(stage, 'storage.sqlite'))
-      const copiedAt = now()
-      cache.set(key, { recs, copiedAt })
-      return { recs, status: { ok: true, copiedAt } }
+      return { data: readDb(sqlite, join(stage, 'storage.sqlite')) }
     } catch (e) {
       // Copia danada o quick_check fallido: se reintenta la copia
       reason = brief(e)
     }
   }
-  if (prev) return { recs: prev.recs, status: { ok: false, reason, stale: true, copiedAt: prev.copiedAt } }
-  return { recs: [], status: { ok: false, reason } }
+  return { reason }
+}
+
+async function readOnce(opts: OmnirouteOpts): Promise<OmnirouteResult> {
+  const now = opts.now ?? Date.now
+  const ttl = opts.ttlMs ?? DEFAULT_TTL
+  let sqlite: SqliteModule
+  try {
+    sqlite = await (opts.loadSqlite ?? defaultLoad)()
+    if (!sqlite?.DatabaseSync) throw new Error('sin DatabaseSync')
+  } catch {
+    return { ...EMPTY, status: { ok: false, reason: 'node:sqlite no disponible' } }
+  }
+
+  if (opts.dbPath) {
+    try {
+      return { ...readDb(sqlite, opts.dbPath), status: { ok: true } }
+    } catch (e) {
+      return { ...EMPTY, status: { ok: false, reason: brief(e) } }
+    }
+  }
+
+  if (!CONTAINER_RE.test(opts.container)) {
+    return { ...EMPTY, status: { ok: false, reason: 'nombre de contenedor invalido' } }
+  }
+
+  const key = `${opts.container}|${opts.workDir}`
+  const prev = cache.get(key)
+  if (prev && now() - prev.copiedAt < ttl) {
+    const { copiedAt, ...held } = prev
+    return { ...held, status: { ok: true, copiedAt } }
+  }
+
+  const out = await copyAndRead(opts, sqlite)
+  if ('data' in out) {
+    const copiedAt = now()
+    cache.set(key, { ...out.data, copiedAt })
+    return { ...out.data, status: { ok: true, copiedAt } }
+  }
+  if (prev) {
+    const { copiedAt, ...held } = prev
+    return { ...held, status: { ok: false, reason: out.reason, stale: true, copiedAt } }
+  }
+  return { ...EMPTY, status: { ok: false, reason: out.reason } }
 }
