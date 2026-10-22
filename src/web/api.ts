@@ -12,6 +12,11 @@ export interface Breakdown {
   cacheRead: number
   output: number
   total: number
+  fresh?: number
+  costUsd?: number
+  costUnpriced?: number
+  cacheSavingsUsd?: number
+  freeSavingsUsd?: number
   /** Pensamiento, parte de `output`. Solo lo traen Codex, Gemini y OmniRoute. */
   reasoning?: number
 }
@@ -50,6 +55,10 @@ export interface SessionRow {
   sub: number
   total: number
   messages: number
+  fresh: number
+  cacheRead: number
+  costUsd: number
+  cacheSavingsUsd: number
 }
 
 export interface ProjectRow {
@@ -58,6 +67,10 @@ export interface ProjectRow {
   sub: number
   total: number
   sessions: number
+  fresh: number
+  cacheRead: number
+  costUsd: number
+  cacheSavingsUsd: number
 }
 
 export type SourceId = 'claude' | 'codex' | 'gemini' | 'omniroute'
@@ -76,6 +89,7 @@ export interface Live {
   lastTs: number | null
   working: boolean
   todayTokens: number
+  todayCostUsd?: number
   /** entrada + escritura de cache + salida */
   todayFresh: number
   todayCacheRead: number
@@ -198,6 +212,16 @@ export interface ManualCheck {
   retryInMs?: number
 }
 
+export type Billing = 'subscription' | 'api'
+
+export interface PriceOverride {
+  input?: number
+  output?: number
+  cacheWrite?: number
+  cacheWrite1h?: number
+  cacheRead?: number
+}
+
 export interface SettingsInfo {
   config: {
     name: string
@@ -206,6 +230,8 @@ export interface SettingsInfo {
     contextLimits: Record<string, number>
     checkUpdates?: boolean
     sources: { codex: boolean; gemini: boolean; omniroute: boolean }
+    billing: Billing
+    pricing: { overrides: Record<string, PriceOverride>; freeProviders: string[] }
   }
   path: string
   demo: boolean
@@ -215,6 +241,7 @@ export interface SettingsInfo {
 export interface ConfigInfo {
   name: string
   demo: boolean
+  billing: Billing
 }
 
 export interface PlanWindow {
@@ -252,6 +279,7 @@ export interface Collision {
 export interface ActiveReport {
   alertAt: number
   todayTokens: number
+  todayCostUsd?: number
   todayFresh: number
   todayCacheRead: number
   chats: ActiveChat[]

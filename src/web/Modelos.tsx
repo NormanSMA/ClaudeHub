@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useApi, type ModelsReport } from './api'
+import { useApi, type Billing, type ModelsReport } from './api'
 import { PALETTE, StackedBars, fillDays } from './charts'
-import { compact, pct } from './format'
+import { billingText, compact, fmtUsd, pct } from './format'
 import { Loading } from './Loading'
 import { OmniBadge } from './OmniBadge'
 
@@ -11,10 +11,11 @@ const MODEL_SORTS: { id: string; label: string; get: (m: ModelRow) => string | n
   { id: 'total', label: 'Tokens', get: (m) => m.total },
   { id: 'input', label: 'Entrada', get: (m) => m.input },
   { id: 'output', label: 'Salida', get: (m) => m.output },
+  { id: 'costUsd', label: 'Costo', get: (m) => m.costUsd ?? 0 },
   { id: 'model', label: 'Nombre', get: (m) => m.model },
 ]
 
-function SortTools({ sortId, desc, onSort, onDesc }: { sortId: string; desc: boolean; onSort: (id: string) => void; onDesc: (desc: boolean) => void }) {
+function SortTools({ sortId, desc, onSort, onDesc, billing }: { sortId: string; desc: boolean; onSort: (id: string) => void; onDesc: (desc: boolean) => void; billing: Billing }) {
   return (
     <div className="legend-tools">
       <label htmlFor="model-sort">Ordenar por</label>
@@ -28,7 +29,7 @@ function SortTools({ sortId, desc, onSort, onDesc }: { sortId: string; desc: boo
       >
         {MODEL_SORTS.map((o) => (
           <option key={o.id} value={o.id}>
-            {o.label}
+            {o.id === 'costUsd' ? billingText(billing).label : o.label}
           </option>
         ))}
       </select>
@@ -39,7 +40,7 @@ function SortTools({ sortId, desc, onSort, onDesc }: { sortId: string; desc: boo
   )
 }
 
-function ModelLegendItem({ m, color }: { m: ModelRow; color: string }) {
+function ModelLegendItem({ m, color, billing }: { m: ModelRow; color: string; billing: Billing }) {
   return (
     <li>
       <i style={{ background: color }} />
@@ -50,12 +51,15 @@ function ModelLegendItem({ m, color }: { m: ModelRow; color: string }) {
       <span className="detail">
         {compact(m.input)} entrada · {compact(m.output)} salida
       </span>
+      <span className="model-cost num" title={billingText(billing).title}>
+        {(m.costUsd ?? 0) === 0 && (m.costUnpriced ?? 0) > 0 ? 'sin precio' : fmtUsd(m.costUsd ?? 0)}
+      </span>
       <span className="share">{pct(m.share)}</span>
     </li>
   )
 }
 
-export function ModelosView({ q }: { q: string }) {
+export function ModelosView({ q, billing = 'subscription' }: { q: string; billing?: Billing }) {
   const { data, error } = useApi<ModelsReport>(`/api/models?${q}`)
   const [more, setMore] = useState(false)
   const [sortId, setSortId] = useState('total')
@@ -81,10 +85,18 @@ export function ModelosView({ q }: { q: string }) {
   return (
     <>
       <StackedBars data={rows} series={series} />
-      <SortTools sortId={sortId} desc={desc} onSort={setSortId} onDesc={setDesc} />
-      <ul className="legend">
+      <SortTools sortId={sortId} desc={desc} onSort={setSortId} onDesc={setDesc} billing={billing} />
+      <div className="model-cost-head">
+        <button className="sort" title={billingText(billing).title} onClick={() => {
+          setSortId('costUsd')
+          setDesc(sortId === 'costUsd' ? !desc : true)
+        }}>
+          {billingText(billing).label}
+        </button>
+      </div>
+      <ul className="legend model-legend">
         {shown.map((m) => (
-          <ModelLegendItem key={m.model} m={m} color={color(m.model)} />
+          <ModelLegendItem key={m.model} m={m} color={color(m.model)} billing={billing} />
         ))}
       </ul>
       {ordered.length > 6 && (

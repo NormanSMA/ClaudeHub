@@ -148,7 +148,7 @@ app.get('/api/sessions', (c) =>
 )
 app.get('/api/projects', (c) => c.json(projectsReport(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
 app.get('/api/sources', (c) => c.json(data().sources))
-app.get('/api/config', (c) => c.json({ name: DEMO ? '' : config().name, demo: DEMO }))
+app.get('/api/config', (c) => c.json({ name: DEMO ? '' : config().name, demo: DEMO, billing: DEMO ? 'subscription' : config().billing }))
 
 // Ajustes: lectura y escritura de config.json desde el dashboard.
 app.get('/api/settings', (c) =>

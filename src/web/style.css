@@ -273,6 +273,23 @@ button:focus-visible {
   text-align: right;
   font-weight: 600;
 }
+.model-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 76px 56px;
+}
+.model-legend .name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.model-cost {
+  white-space: nowrap;
+}
+.model-cost-head {
+  margin: 8px 66px -8px 0;
+  text-align: right;
+  color: var(--muted);
+  font-size: 13px;
+}
 
 table {
   width: 100%;
@@ -371,6 +388,46 @@ th {
   }
   .legend .detail {
     display: none;
+  }
+  .model-legend li {
+    grid-template-columns: 10px minmax(0, 1fr) 76px 48px;
+    gap: 6px;
+  }
+  .model-legend .share {
+    width: auto;
+  }
+  .model-cost-head {
+    margin-right: 54px;
+  }
+  .sessions-table,
+  .projects-table {
+    table-layout: fixed;
+  }
+  .sessions-table th:nth-child(2),
+  .sessions-table td:nth-child(2),
+  .sessions-table th:nth-child(3),
+  .sessions-table td:nth-child(3),
+  .sessions-table th:last-child,
+  .sessions-table td:last-child,
+  .projects-table th:nth-child(2),
+  .projects-table td:nth-child(2) {
+    display: none;
+  }
+  .sessions-table th:nth-child(4),
+  .sessions-table th:nth-child(5) {
+    width: 76px;
+  }
+  .projects-table th:nth-child(n + 3) {
+    width: 66px;
+  }
+  .projects-table td:first-child {
+    overflow-wrap: anywhere;
+  }
+  .sessions-table th,
+  .sessions-table td,
+  .projects-table th,
+  .projects-table td {
+    padding: 7px 4px;
   }
   h1 {
     font-size: 21px;
@@ -728,6 +785,57 @@ th[aria-sort='descending'] button {
 }
 .row-limit input[type='number'] {
   width: 130px;
+}
+.pricing-settings {
+  min-width: 0;
+}
+.pricing-label {
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+.price-row {
+  min-width: 0;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+}
+.price-row legend {
+  overflow-wrap: anywhere;
+}
+.price-row select,
+.pricing-settings > select {
+  min-width: 0;
+  max-width: 100%;
+}
+.price-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.price-fields > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.price-fields label {
+  font-size: 13px;
+}
+.price-fields input[type='number'] {
+  width: 100%;
+  min-width: 0;
+}
+.price-row button,
+.add-price {
+  justify-self: start;
+  min-height: 44px;
+}
+.add-price:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .form-actions {
   display: flex;
