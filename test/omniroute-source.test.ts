@@ -47,7 +47,7 @@ describe('readOmniroute con dbPath', () => {
       input: 100,
       cacheRead: 30,
       cacheWrite: 20,
-      output: 60,
+      output: 50,
       model: 'gpt-x',
       project: 'openai',
       session: 'omniroute:openai',
@@ -55,13 +55,27 @@ describe('readOmniroute con dbPath', () => {
       source: 'omniroute',
       ts: Date.parse('2026-05-01T10:00:00.000Z'),
     })
-    expect(total(r)).toBe(210)
+    expect(total(r)).toBe(200)
   })
 
-  it('guarda tokens_reasoning en reasoning sin cambiar output', async () => {
+  it('no suma dos veces el razonamiento que ya viene dentro de la salida', async () => {
     const { recs } = await readOmniroute({ container: 'omniroute', dbPath: dbFile, workDir: newWork() })
-    expect(recs.find((x) => x.id === 'omniroute:1')).toMatchObject({ output: 60, reasoning: 10 })
+    expect(recs.find((x) => x.id === 'omniroute:1')).toMatchObject({ output: 50, reasoning: 10 })
     expect(recs.find((x) => x.id === 'omniroute:3')!.reasoning).toBe(0)
+  })
+
+  it('suma el razonamiento informado aparte cuando supera la salida', async () => {
+    const file = join(dir, 'reasoning-apart.sqlite')
+    const db = new DatabaseSync(file)
+    db.exec(`CREATE TABLE usage_history (
+      id INTEGER PRIMARY KEY, provider TEXT, model TEXT,
+      tokens_input INTEGER, tokens_output INTEGER, tokens_cache_read INTEGER,
+      tokens_cache_creation INTEGER, tokens_reasoning INTEGER, success INTEGER, timestamp TEXT)`)
+    db.prepare('INSERT INTO usage_history VALUES (?,?,?,?,?,?,?,?,?,?)')
+      .run(1, 'openrouter', 'r1', 10, 5, 0, 0, 20, 1, '2026-05-01T10:00:00.000Z')
+    db.close()
+    const { recs } = await readOmniroute({ container: 'omniroute', dbPath: file, workDir: newWork() })
+    expect(recs[0]).toMatchObject({ output: 25, reasoning: 20 })
   })
 
   it('ignora filas con total 0', async () => {

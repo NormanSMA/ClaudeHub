@@ -79,6 +79,14 @@ describe('parseCodex', () => {
     expect(json).not.toContain('TEXTO-SECRETO')
     expect(json).not.toContain('instructions')
   })
+
+  it('sin session_meta usa la sesion de respaldo y no choca con otro rollout', () => {
+    const noMeta = text.split('\n').filter((l) => !l.includes('session_meta')).join('\n')
+    const a = parseCodex(noMeta, 'rollout-a')
+    const b = parseCodex(noMeta, 'rollout-b')
+    expect(a.every((r) => r.session === 'rollout-a')).toBe(true)
+    expect(new Set([...a, ...b].map((r) => r.id)).size).toBe(a.length + b.length)
+  })
 })
 
 describe('parseCodex con campos por tipo en cero', () => {

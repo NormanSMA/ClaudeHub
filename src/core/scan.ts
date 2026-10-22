@@ -165,7 +165,7 @@ export function scan(root = PROJECTS_DIR, useCache = true, extra = root === PROJ
       } else {
         // Codex y Gemini: se parsea el archivo completo cada vez que cambia
         const text = readFileSync(f, 'utf8')
-        const recs = e.source === 'codex' ? parseCodex(text) : parseGemini(text, e.project)
+        const recs = e.source === 'codex' ? parseCodex(text, basename(f, '.jsonl')) : parseGemini(text, e.project)
         next[f] = { mtime: st.mtimeMs, size: st.size, offset: st.size, recs, meta: {} }
       }
       dirty = true
@@ -205,7 +205,11 @@ export function scan(root = PROJECTS_DIR, useCache = true, extra = root === PROJ
     const source = info.get(f)!.source
     counts[source].files++
     counts[source].records += entry.recs.length
-    for (const r of entry.recs) if (!seen.has(r.id)) seen.set(r.id, r)
+    // mismo criterio que parse.ts: ante el mismo id gana el de mayor salida
+    for (const r of entry.recs) {
+      const prev = seen.get(r.id)
+      if (!prev || r.output > prev.output) seen.set(r.id, r)
+    }
     if (source !== 'claude') continue
     if (!f.split(sep).includes('subagents')) sessions.set(basename(f, '.jsonl'), entry.meta)
     const h = entry.meta.limitHit

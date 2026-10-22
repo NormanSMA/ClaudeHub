@@ -128,3 +128,13 @@ describe('scan con varias fuentes', () => {
     expect(sources.codex).toMatchObject({ enabled: true, files: 0, ok: false, reason: 'carpeta no encontrada' })
   })
 })
+
+describe('dedupe global de scan', () => {
+  it('ante el mismo message.id en dos archivos gana el de mayor salida', async () => {
+    const { base, scan } = await setup()
+    writeFileSync(join(base, 'claude', 'C--Proyectos-demo', 's2.jsonl'), claudeLine('msg_a', 9) + '\n')
+    const a = scan().recs.filter((r) => r.id === 'msg_a')
+    expect(a).toHaveLength(1)
+    expect(a[0].output).toBe(9)
+  })
+})
