@@ -187,6 +187,14 @@ export interface UpdateInfo {
   checkedAt: number | null
 }
 
+export type ManualResult = 'checked' | 'failed' | 'disabled' | 'throttled'
+export interface ManualCheck {
+  result: ManualResult
+  info: UpdateInfo
+  /** solo con `throttled`: espera antes de reintentar */
+  retryInMs?: number
+}
+
 export interface SettingsInfo {
   config: {
     name: string

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useApi, type SettingsInfo } from './api'
 import { int } from './format'
+import { normVersion, useUpdateCheck } from './update'
 
 const PRESETS = [
   { value: '', label: 'Automático (estimado)' },
@@ -171,7 +172,48 @@ export function SettingsView() {
       <p className="foot">
         Se guarda en {data.path}. Límite máximo aceptado: {int(10_000_000)} tokens.
       </p>
+      <AboutSettings />
     </form>
+  )
+}
+
+function AboutSettings() {
+  const { state, info, check } = useUpdateCheck()
+  const messages = {
+    idle: 'Busca actualizaciones para comprobar si hay una versión nueva.',
+    checking: 'Buscando actualizaciones...',
+    'up-to-date': 'ClaudeHub está actualizado.',
+    'update-available': `Hay una versión nueva: v${normVersion(info?.latest)}.`,
+    error: 'No se pudo comprobar la actualización. Inténtalo de nuevo.',
+    disabled: 'Activa "Buscar versiones nuevas" y guarda los cambios para buscar actualizaciones.',
+    throttled: 'Espera un minuto antes de buscar actualizaciones de nuevo.',
+  }
+
+  return (
+    <section className="about-card" aria-labelledby="about-title">
+      <h3 id="about-title">Acerca de</h3>
+      <p className="about-version">ClaudeHub{info ? ` v${normVersion(info.current)}` : ' · Cargando versión...'}</p>
+      <p className="about-checked">
+        Última comprobación: {info?.checkedAt != null ? new Date(info.checkedAt).toLocaleString('es') : 'nunca'}
+      </p>
+      <button type="button" className="update-check" disabled={state === 'checking'} onClick={check} aria-busy={state === 'checking'}>
+        {state === 'checking' && <span className="update-spinner" aria-hidden="true" />}
+        Buscar actualización
+      </button>
+      <p className="about-status" role="status">{messages[state]}</p>
+      {state === 'update-available' && info && (
+        <div className="about-release">
+          {info.notes.length > 0 && (
+            <ul>
+              {info.notes.slice(0, 3).map((note, index) => <li key={index}>{note}</li>)}
+            </ul>
+          )}
+          {info.url?.startsWith('https://') && (
+            <a className="update-check" href={info.url} target="_blank" rel="noopener noreferrer">Descargar</a>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

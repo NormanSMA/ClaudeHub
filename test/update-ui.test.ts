@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { UpdateInfo } from '../src/web/api'
-import { balloonText, loadDismissed, normVersion, saveDismissed, shouldShow } from '../src/web/update'
+import type { ManualCheck, UpdateInfo } from '../src/web/api'
+import { balloonText, checkState, loadDismissed, normVersion, saveDismissed, shouldShow } from '../src/web/update'
 
 const info = (over: Partial<UpdateInfo> = {}): UpdateInfo => ({
   enabled: true,
@@ -15,6 +15,38 @@ const info = (over: Partial<UpdateInfo> = {}): UpdateInfo => ({
 })
 
 afterEach(() => vi.unstubAllGlobals())
+
+describe('checkState', () => {
+  const result = (value: ManualCheck['result'], over: Partial<UpdateInfo> = {}): ManualCheck => ({
+    result: value,
+    info: info(over),
+  })
+
+  it('espera antes de la comprobación manual', () => {
+    expect(checkState(null, false, false)).toBe('idle')
+  })
+  it('prioriza la comprobación en curso sobre errores y resultados anteriores', () => {
+    expect(checkState(null, true, false)).toBe('checking')
+    expect(checkState(result('checked'), true, true)).toBe('checking')
+  })
+  it('indica que la versión está actualizada', () => {
+    expect(checkState(result('checked', { available: false }), false, false)).toBe('up-to-date')
+  })
+  it('indica una actualización disponible', () => {
+    expect(checkState(result('checked'), false, false)).toBe('update-available')
+  })
+  it('indica errores del servidor y de red', () => {
+    expect(checkState(result('failed'), false, false)).toBe('error')
+    expect(checkState(null, false, true)).toBe('error')
+    expect(checkState(result('checked'), false, true)).toBe('error')
+  })
+  it('indica que la búsqueda está desactivada aunque exista una versión guardada', () => {
+    expect(checkState(result('disabled', { enabled: false }), false, false)).toBe('disabled')
+  })
+  it('indica la espera aunque exista una actualización guardada', () => {
+    expect(checkState({ ...result('throttled'), retryInMs: 30_000 }, false, false)).toBe('throttled')
+  })
+})
 
 describe('shouldShow', () => {
   it('muestra una version nueva no descartada', () => {

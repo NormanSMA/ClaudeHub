@@ -438,6 +438,16 @@ export function App() {
         {tab === 'proyectos' && <ProyectosView q={qs} />}
         {tab === 'ajustes' && <SettingsView />}
       </section>
+      <DashboardFooter />
     </main>
+  )
+}
+
+function DashboardFooter() {
+  const { data } = useApi<{ current: string }>('/api/update', 30 * 60_000)
+  return (
+    <footer className="dashboard-footer">
+      {data && <span className="version-badge" aria-label={`Versión de ClaudeHub: ${data.current}`}>v{data.current}</span>}
+    </footer>
   )
 }
