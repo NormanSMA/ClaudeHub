@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ActiveList, PlanLimits } from './Active'
-import { useApi, type ActiveReport } from './api'
+import { useApi, type ActiveReport, type ConfigInfo, type Live } from './api'
 import { TodayCount } from './TodayCount'
 import { CodexBadge, LevelBadge, Mascot } from './Mascot'
 import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type MascotState } from './mascotState'
 import { balloonText, useUpdateNotice } from './update'
+import { SpeechBubble } from './SpeechBubble'
+import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine } from './mascotSpeech'
 import './style.css'
 import './overlay.css'
 
@@ -16,22 +18,39 @@ interface HubBridge {
   hide(): void
   openExternal?(url: string): void
 }
-const hub = (window as unknown as { hub?: HubBridge }).hub
+const hub = typeof window === 'undefined' ? undefined : (window as unknown as { hub?: HubBridge }).hub
 
 const COLLAPSED_W = 68
 const BALLOON_W = 220
 const EXPANDED_W = 360
 
+export function isPetting(times: number[], now: number): boolean {
+  return times.filter((time) => time <= now && now - time <= 1_500).length >= 3
+}
+
+export function clickAction(clicks: number, wasDragged: boolean): 'none' | 'toggle' | 'dashboard' {
+  if (wasDragged || clicks < 1) return 'none'
+  return clicks >= 2 ? 'dashboard' : 'toggle'
+}
+
 function Overlay() {
   const [open, setOpen] = useState(location.hash === '#open')
   const { data } = useApi<ActiveReport>('/api/active', 4_000)
+  const { data: cfg } = useApi<ConfigInfo>('/api/config', 60_000)
+  const { data: live } = useApi<Live>('/api/live', 5_000)
+  const [line, setLine] = useState<SpeechLine | null>(null)
+  const [talking, setTalking] = useState(false)
+  const [petted, setPetted] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const dragged = useRef(false)
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const petTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const passes = useRef<number[]>([])
 
   const chats = data?.chats ?? []
   const alertAt = data?.alertAt ?? 0.85
-  const mood: MascotState = pickMascotState(data)
+  const mood: MascotState = petted ? 'happy' : pickMascotState(data)
   const codex = codexBusy(data)
   const level = levelFrom(data)
   const exhaust = exhaustText(level)
@@ -39,11 +58,39 @@ function Overlay() {
   const levelHint = level ? [levelText(level), level.label, exhaust].filter(Boolean).join(' · ') : null
   const { info: update, dismiss } = useUpdateNotice()
   const notice = update !== null && !open
+  // un globo a la vez: el aviso de version nueva tiene prioridad sobre el bocadillo
+  const speaking = !open && !notice && cfg?.mascot?.talk !== false && line !== null
+
+  useEffect(() => {
+    if (open || notice || document.hidden || !cfg || !data || !live) return
+    const result = pickLine({
+      mascot: cfg.mascot ?? { talk: true, talkCooldownMin: 10 },
+      chats: data.chats,
+      level: data.level,
+      todayFresh: live.todayFresh,
+      todayCostUsd: live.todayCostUsd,
+    }, loadSpeechMemory(), Date.now())
+    saveSpeechMemory(result.memory)
+    if (cfg.mascot?.talk === false) setLine(null)
+    else if (result.line) setLine(result.line)
+  }, [open, notice, cfg, data, live])
+
+  useEffect(() => () => {
+    if (clickTimer.current !== null) clearTimeout(clickTimer.current)
+    if (petTimer.current !== null) clearTimeout(petTimer.current)
+  }, [])
 
   // al ocultarse la ventana (por ejemplo al abrir el dashboard) el panel se cierra: reaparece colapsada
   useEffect(() => {
     const onVisibility = () => {
-      if (document.hidden) setOpen(false)
+      if (document.hidden) {
+        setOpen(false)
+        setLine(null)
+        passes.current = []
+        drag.current = null
+        if (clickTimer.current !== null) clearTimeout(clickTimer.current)
+        clickTimer.current = null
+      }
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
@@ -52,15 +99,17 @@ function Overlay() {
   useEffect(() => {
     const el = root.current
     if (!el) return
-    const width = open ? EXPANDED_W : notice ? BALLOON_W : COLLAPSED_W
+    const width = open ? EXPANDED_W : notice || speaking ? BALLOON_W : COLLAPSED_W
     const send = () => hub?.resize(width, Math.ceil(el.getBoundingClientRect().height))
     send()
     const ro = new ResizeObserver(send)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [open, notice])
+  }, [open, notice, speaking])
 
   const down = (e: PointerEvent) => {
+    if (e.button !== 0) return
+    passes.current = []
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     drag.current = { x: e.screenX, y: e.screenY, moved: false }
     dragged.current = false
@@ -73,6 +122,8 @@ function Overlay() {
     if (!d.moved && Math.hypot(dx, dy) < 4) return
     d.moved = true
     dragged.current = true
+    if (clickTimer.current !== null) clearTimeout(clickTimer.current)
+    clickTimer.current = null
     d.x = e.screenX
     d.y = e.screenY
     hub?.dragBy(dx, dy)
@@ -80,13 +131,42 @@ function Overlay() {
   const end = () => {
     drag.current = null
   }
-  // onClick cubre mouse y teclado (Enter y Espacio); se ignora el que sigue a un arrastre
-  const toggle = () => {
-    if (dragged.current) {
-      dragged.current = false
+  const pet = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || e.buttons !== 0 || drag.current) {
+      passes.current = []
       return
     }
-    setOpen((o) => !o)
+    const now = Date.now()
+    passes.current = [...passes.current.filter((time) => now - time <= 1_500), now]
+    if (!isPetting(passes.current, now)) return
+    passes.current = []
+    setPetted(true)
+    if (petTimer.current !== null) clearTimeout(petTimer.current)
+    petTimer.current = setTimeout(() => {
+      setPetted(false)
+      petTimer.current = null
+    }, 3_000)
+  }
+
+  // El segundo clic cancela la apertura pendiente del panel.
+  const toggle = (e: MouseEvent) => {
+    const action = clickAction(e.detail === 0 || clickTimer.current === null ? 1 : 2, dragged.current)
+    dragged.current = false
+    if (clickTimer.current !== null) clearTimeout(clickTimer.current)
+    clickTimer.current = null
+    if (action === 'dashboard') hub?.openDashboard()
+    else if (action === 'toggle') {
+      if (e.detail === 0) {
+        setLine(null)
+        setOpen((o) => !o)
+        return
+      }
+      clickTimer.current = setTimeout(() => {
+        clickTimer.current = null
+        setLine(null)
+        setOpen((o) => !o)
+      }, 250)
+    }
   }
 
   return (
@@ -142,18 +222,27 @@ function Overlay() {
           </div>
         </section>
       )}
+      {speaking && (
+        <SpeechBubble key={line.id} text={line.text} onTyping={setTalking} onDone={() => setLine(null)} />
+      )}
       <button
         className="mascot-btn"
+        onPointerEnter={pet}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={end}
-        onPointerCancel={end}
+        onPointerCancel={() => {
+          end()
+          dragged.current = true
+          if (clickTimer.current !== null) clearTimeout(clickTimer.current)
+          clickTimer.current = null
+        }}
         onClick={toggle}
         title={levelHint ?? undefined}
         aria-label={levelHint ? `Mascota de ClaudeHub. ${levelHint}` : 'Mascota de ClaudeHub'}
         aria-expanded={open}
       >
-        <Mascot state={mood} size={44} level={level?.level} announce={notice} />
+        <Mascot state={mood} size={44} level={level?.level} announce={notice} talking={speaking && talking} />
         {level && <LevelBadge level={level.level} />}
         {codex && <CodexBadge />}
         {chats.length > 0 && <span className={`badge ${mood === 'alert' ? 'bad' : ''}`}>{chats.length}</span>}
@@ -162,4 +251,7 @@ function Overlay() {
   )
 }
 
-createRoot(document.getElementById('root')!).render(<Overlay />)
+if (typeof document !== 'undefined') {
+  const container = document.getElementById('root')
+  if (container) createRoot(container).render(<Overlay />)
+}

@@ -153,6 +153,7 @@ function openRelease(url) {
 let tray = null
 let win = null
 let overlay = null
+let ghostMode = false
 // true mientras la app se cierra: evita reabrir la mascota al cerrarse las ventanas (eso cancelaba la salida)
 let quitting = false
 
@@ -237,6 +238,12 @@ function savePos() {
   }
 }
 
+function applyGhostMode() {
+  if (!overlay) return
+  overlay.setIgnoreMouseEvents(ghostMode, { forward: true })
+  overlay.setOpacity(ghostMode ? 0.35 : 1)
+}
+
 function showOverlay() {
   if (overlay) {
     overlay.show()
@@ -264,6 +271,7 @@ function showOverlay() {
     return { action: 'deny' }
   })
   overlay.setAlwaysOnTop(true, 'screen-saver')
+  applyGhostMode()
   overlay.loadURL(`${URL}/overlay.html`)
   overlay.on('closed', () => {
     overlay = null
@@ -376,6 +384,16 @@ function refreshMenu() {
         type: 'checkbox',
         checked: !!overlay && overlay.isVisible(),
         click: (item) => (item.checked ? showOverlay() : overlay && overlay.hide()),
+      },
+      {
+        label: 'Modo fantasma',
+        type: 'checkbox',
+        checked: ghostMode,
+        click: (item) => {
+          ghostMode = item.checked
+          applyGhostMode()
+          refreshMenu()
+        },
       },
       { type: 'separator' },
       {

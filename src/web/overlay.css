@@ -155,3 +155,22 @@ body.overlay-body {
 .overlay {
   max-width: 360px;
 }
+
+/* El bocadillo comparte BALLOON_W con el aviso de actualización. */
+.overlay .speech-bubble {
+  position: relative;
+  inset: auto;
+  transform: none;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+.overlay .speech-bubble::after {
+  top: auto;
+  left: auto;
+  right: 26px;
+  bottom: -7px;
+}
