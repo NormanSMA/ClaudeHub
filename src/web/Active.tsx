@@ -1,4 +1,5 @@
-import type { ActiveChat, PlanReport, PlanWindow } from './api'
+import { useEffect, useState } from 'react'
+import type { ActiveChat, ActiveReport, PlanReport, PlanWindow } from './api'
 import { compact, pct } from './format'
 
 export function ctxColor(p: number, alertAt = 0.85): string {
@@ -66,31 +67,76 @@ export function SubagentTree({ chat }: { chat: ActiveChat }) {
   )
 }
 
-export function ActiveList({ chats, alertAt = 0.85, dense = false }: { chats: ActiveChat[]; alertAt?: number; dense?: boolean }) {
+function CompactAction({ chat }: { chat: ActiveChat }) {
+  const [copied, setCopied] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 2_000)
+    return () => clearTimeout(timer)
+  }, [copied])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText('/compact')
+      setError(false)
+      setCopied(true)
+    } catch {
+      setError(true)
+    }
+  }
+
+  return (
+    <div className="compact-action">
+      <button type="button" className="compact-btn" onClick={copy} disabled={copied} aria-live="polite">
+        {copied ? 'Copiado' : 'Copiar /compact'}
+      </button>
+      <span className="active-meta" role="status">
+        {error ? 'No se pudo copiar' : ''}
+      </span>
+      {chat.cacheReadPerM != null && (
+        <div className="active-meta">~${((chat.context.used * chat.cacheReadPerM) / 1_000_000).toFixed(2)} por turno</div>
+      )}
+    </div>
+  )
+}
+
+export function ActiveList({ chats, agents = [], alertAt = 0.85, dense = false }: {
+  chats: ActiveChat[]
+  agents?: ActiveReport['agents']
+  alertAt?: number
+  dense?: boolean
+}) {
   if (!chats.length) return <div className="empty">Sin chats activos en los ultimos minutos</div>
   return (
     <ul className={`active ${dense ? 'dense' : ''}`}>
-      {chats.map((c) => (
-        <li key={c.session}>
-          <div className="active-head">
-            <i className={`live-dot ${c.working ? 'on' : ''}`} title={c.working ? 'Trabajando ahora' : 'En pausa'} />
-            <span className="active-title" title={c.title}>
-              {c.title}
-            </span>
-          </div>
-          <div className="active-meta">
-            {c.project} · {c.model} · {ago(c.lastTs)}
-            {c.activeSubagents > 0 && <b> · {c.activeSubagents} subagente{c.activeSubagents > 1 ? 's' : ''}</b>}
-          </div>
-          <ContextBar chat={c} alertAt={alertAt} />
-          {!dense && (
-            <div className="active-meta">
-              Sesion: {compact(c.tokens.total)} tokens (orquestador {compact(c.tokens.orchestrator)}, subagentes {compact(c.tokens.subagents)})
+      {chats.map((c) => {
+        const waiting = agents.some((a) => a.session === c.session && a.state === 'waiting')
+        const state = waiting ? 'waiting' : c.working ? 'on' : 'paused'
+        return (
+          <li key={c.session}>
+            <div className="active-head">
+              <i className={`live-dot ${state}`} title={waiting ? 'Esperando permiso o respuesta' : c.working ? 'Trabajando ahora' : 'En pausa'} />
+              <span className="active-title" title={c.title}>
+                {c.title}
+              </span>
             </div>
-          )}
-          {!dense && <SubagentTree chat={c} />}
-        </li>
-      ))}
+            <div className="active-meta">
+              {c.project} · {c.model} · {ago(c.lastTs)}
+              {c.activeSubagents > 0 && <b> · {c.activeSubagents} subagente{c.activeSubagents > 1 ? 's' : ''}</b>}
+            </div>
+            <ContextBar chat={c} alertAt={alertAt} />
+            {c.context.pct >= 0.8 && <CompactAction chat={c} />}
+            {!dense && (
+              <div className="active-meta">
+                Sesion: {compact(c.tokens.total)} tokens (orquestador {compact(c.tokens.orchestrator)}, subagentes {compact(c.tokens.subagents)})
+              </div>
+            )}
+            {!dense && <SubagentTree chat={c} />}
+          </li>
+        )
+      })}
     </ul>
   )
 }
