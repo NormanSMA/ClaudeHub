@@ -1,7 +1,7 @@
 import { config } from './config'
 import { modelName } from './models'
 import { recordedWindows } from './windows'
-import { sourceOf, total, type Range, type Rec, type SessionMeta, type Source } from './types'
+import { fresh, sourceOf, total, type Range, type Rec, type SessionMeta, type Source } from './types'
 
 export type Metas = Map<string, SessionMeta>
 
@@ -55,13 +55,14 @@ export function filterRange<T extends { ts: number }>(recs: T[], range: Range, n
 const sum = (recs: Rec[]) => recs.reduce((a, r) => a + total(r), 0)
 
 export function breakdown(recs: Rec[]) {
-  const b = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0 }
+  const b = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, reasoning: 0, total: 0, fresh: 0 }
   for (const r of recs) {
     b.input += r.input
     b.cacheWrite += r.cacheWrite
     b.cacheRead += r.cacheRead
     b.output += r.output
     b.reasoning += r.reasoning ?? 0
+    b.fresh += fresh(r)
   }
   b.total = b.input + b.cacheWrite + b.cacheRead + b.output
   return b
@@ -168,12 +169,14 @@ export function rolesReport(all: Rec[], range: Range, now = Date.now()) {
 
 export function sessionsReport(all: Rec[], metas: Metas, range: Range, limit = 100, now = Date.now()) {
   const recs = filterRange(all, range, now)
-  const map = new Map<string, { project: string; first: number; last: number; orch: number; sub: number; messages: number }>()
+  const map = new Map<string, { project: string; first: number; last: number; orch: number; sub: number; messages: number; fresh: number; cacheRead: number }>()
   for (const r of recs) {
-    const s = map.get(r.session) ?? { project: r.project, first: r.ts, last: r.ts, orch: 0, sub: 0, messages: 0 }
+    const s = map.get(r.session) ?? { project: r.project, first: r.ts, last: r.ts, orch: 0, sub: 0, messages: 0, fresh: 0, cacheRead: 0 }
     s.first = Math.min(s.first, r.ts)
     s.last = Math.max(s.last, r.ts)
     s.messages++
+    s.fresh += fresh(r)
+    s.cacheRead += r.cacheRead
     if (r.role === 'orchestrator') {
       s.orch += total(r)
       s.project = r.project
@@ -194,16 +197,26 @@ export function sessionsReport(all: Rec[], metas: Metas, range: Range, limit = 1
 
 export function projectsReport(all: Rec[], range: Range, now = Date.now()) {
   const recs = filterRange(all, range, now)
-  const map = new Map<string, { orch: number; sub: number; sessions: Set<string> }>()
+  const map = new Map<string, { orch: number; sub: number; fresh: number; cacheRead: number; sessions: Set<string> }>()
   for (const r of recs) {
-    const p = map.get(r.project) ?? { orch: 0, sub: 0, sessions: new Set<string>() }
+    const p = map.get(r.project) ?? { orch: 0, sub: 0, fresh: 0, cacheRead: 0, sessions: new Set<string>() }
     if (r.role === 'orchestrator') p.orch += total(r)
     else p.sub += total(r)
+    p.fresh += fresh(r)
+    p.cacheRead += r.cacheRead
     p.sessions.add(r.session)
     map.set(r.project, p)
   }
   return [...map.entries()]
-    .map(([project, p]) => ({ project, orch: p.orch, sub: p.sub, total: p.orch + p.sub, sessions: p.sessions.size }))
+    .map(([project, p]) => ({
+      project,
+      orch: p.orch,
+      sub: p.sub,
+      total: p.orch + p.sub,
+      fresh: p.fresh,
+      cacheRead: p.cacheRead,
+      sessions: p.sessions.size,
+    }))
     .sort((a, b) => b.total - a.total)
 }
 
@@ -211,10 +224,13 @@ export function live(all: Rec[], now = Date.now()) {
   let last = 0
   for (const r of all) if (r.ts > last) last = r.ts
   const today = filterRange(all, '7d', now).filter((r) => dayKey(r.ts) === dayKey(now))
+  const tokens = breakdown(today)
   return {
     lastTs: last || null,
     working: last > 0 && now - last < 60_000,
     todayTokens: sum(today),
+    todayFresh: tokens.fresh,
+    todayCacheRead: tokens.cacheRead,
     todayMessages: today.length,
   }
 }
@@ -224,10 +240,10 @@ const SUBAGENT_LIVE_MS = 2 * 60_000
 const FIVE_HOURS_MS = 5 * 3_600_000
 const MAX_SUBAGENTS = 10
 
-/** Tokens por minuto de Claude dentro de la ventana que termina en `now`. */
-export function burnRate(recs: Rec[], now: number, windowMs = 15 * 60_000): number {
+/** Tokens por minuto de Claude dentro de la ventana que termina en `now`. `count` elige que tokens cuentan. */
+export function burnRate(recs: Rec[], now: number, windowMs = 15 * 60_000, count: (r: Rec) => number = total): number {
   let tokens = 0
-  for (const r of recs) if (sourceOf(r) === 'claude' && r.ts > now - windowMs && r.ts <= now) tokens += total(r)
+  for (const r of recs) if (sourceOf(r) === 'claude' && r.ts > now - windowMs && r.ts <= now) tokens += count(r)
   return tokens / (windowMs / 60_000)
 }
 

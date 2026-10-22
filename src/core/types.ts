@@ -56,6 +56,9 @@ export type Range = 'all' | '30d' | '7d' | { from: number; to: number }
 export const total = (r: Pick<Rec, 'input' | 'cacheWrite' | 'cacheRead' | 'output'>) =>
   r.input + r.cacheWrite + r.cacheRead + r.output
 
+/** Tokens nuevos: todo menos la lectura de cache. */
+export const fresh = (r: Pick<Rec, 'input' | 'cacheWrite' | 'output'>) => r.input + r.cacheWrite + r.output
+
 export type LevelId = 1 | 2 | 3 | 4 | 5
 
 export const LEVEL_LABELS = ['Eco', 'Flujo', 'Ritmo Alto', 'Crítico', 'Límite'] as const
