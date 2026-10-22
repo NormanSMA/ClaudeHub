@@ -389,9 +389,19 @@ OmniRoute corre en un contenedor Docker y su API de uso pide sesión del panel, 
 2. Abre la copia con `node:sqlite` en solo lectura, la valida con `PRAGMA quick_check` y lee solo la tabla `usage_history`.
 3. Si la copia sale dañada, reintenta. Si falla, conserva la lectura anterior y marca la fuente como desactualizada.
 
-Está apagada por defecto. Actívala con `sources.omniroute: true`. Sin Docker o sin el contenedor, la fuente queda con error y el resto sigue funcionando.
+Está apagada por defecto. Actívala en **Ajustes > Fuentes** o con `sources.omniroute: true`. Sin Docker o sin el contenedor `omniroute`, la fuente queda con error y el resto sigue funcionando.
 
 Si montas la base en tu disco, fija `omniroute.dbPath` con la ruta de `storage.sqlite` y ClaudeHub la abre directo, sin `docker cp`.
+
+#### Etiqueta de OmniRoute en Modelos
+
+En la pestaña **Modelos**, cada modelo que pasó por OmniRoute lleva una etiqueta pequeña con el logo de OmniRoute. Un modelo usado directo y vía OmniRoute es una sola fila. Al pasar el mouse por la etiqueta, o con un lector de pantalla, se ve el detalle de lo que pasó por OmniRoute: llamadas, tasa de éxito, errores 429, 403 y 5xx, p95 de latencia, tokens y proveedores. Los fallos salen de `usage_history`: código HTTP, éxito, latencia y código de error.
+
+Los modelos con llamadas aparecen también con 0 tokens.
+
+En el selector de fuentes, OmniRoute muestra su logo de 12 px. Apagada, muestra "apagada" y el título "Actívala en Ajustes". Activa o apaga Codex, Gemini y OmniRoute en **Ajustes > Fuentes**. Guarda los cambios para actualizar el chip. El modo demo no guarda cambios.
+
+El logo es el glifo de [OmniRoute](https://github.com/diegosouzapw/OmniRoute), de sus autores y con licencia MIT. ClaudeHub lo recrea como un componente SVG, sin copiar sus archivos.
 
 ## Estados por hooks
 
@@ -568,7 +578,7 @@ Solo responde en `127.0.0.1`. Rechaza con `403` cualquier petición cuyo `Host` 
 | Ruta | Devuelve |
 |---|---|
 | `GET /api/summary` | Totales, días activos, hora pico, modelo favorito y mapa de calor. |
-| `GET /api/models` | Serie diaria por modelo y tabla de modelos. |
+| `GET /api/models` | Serie diaria por modelo y tabla de modelos. Cada modelo puede traer `via`, lo que pasó por OmniRoute. |
 | `GET /api/roles` | Orquestador contra subagentes y tipos de agente. Solo Claude. |
 | `GET /api/sessions` | Chats con título, proyecto, fechas y tokens. |
 | `GET /api/projects` | Tokens por proyecto. |

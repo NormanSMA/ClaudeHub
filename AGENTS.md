@@ -39,7 +39,7 @@ curl "http://127.0.0.1:4317/api/active"
 | Ruta | Responde a |
 |---|---|
 | `/api/summary` | Cuántos tokens, mensajes y sesiones hubo. Modelo favorito y hora pico. |
-| `/api/models` | Qué modelos se usaron y cuánto. |
+| `/api/models` | Qué modelos se usaron y cuánto. Cada modelo puede traer `via`: lo que pasó por OmniRoute (ver Otras fuentes). |
 | `/api/roles` | Cuánto gastó el orquestador y cuánto los subagentes. |
 | `/api/sessions` | Qué chats gastaron más, con su título. |
 | `/api/projects` | Qué proyectos gastaron más. |
@@ -96,6 +96,12 @@ Solo se leen campos de uso. Nunca se leen textos de conversaciones.
 | OmniRoute | Tabla `usage_history` de `storage.sqlite` en su contenedor Docker | `sources.omniroute`, apagada por defecto |
 
 OmniRoute se lee en solo lectura. ClaudeHub ejecuta `docker cp` cada 60 segundos y abre la copia con `node:sqlite`. Opciones: `omniroute.container` (por defecto `omniroute`) y `omniroute.dbPath` (ruta directa a `storage.sqlite`, sin `docker cp`). Sin Docker, la fuente queda con error y el resto sigue.
+
+De `usage_history` salen los tokens (con el nombre del modelo sin el proveedor, así el mismo modelo usado directo y vía OmniRoute es una sola fila) y las llamadas, también las fallidas: código HTTP, éxito, latencia y código de error. No se leen cuerpos, claves ni cuentas.
+
+`/api/models` agrega a cada modelo el campo opcional `via` cuando `?source` es `all` u `omniroute`. Trae `calls`, `ok`, `successRate`, `e429`, `e403`, `e5xx`, `p95Ms` (solo llamadas exitosas), `tokens` y `providers`. Los modelos con llamadas aparecen también con 0 tokens. El dashboard muestra una etiqueta con el logo de OmniRoute.
+
+El selector de fuentes muestra OmniRoute con su logo de 12 px. Apagada, muestra "apagada" y el título "Actívala en Ajustes". En **Ajustes > Fuentes**, activa o apaga Codex, Gemini y OmniRoute. Guarda los cambios para actualizar el chip. OmniRoute necesita Docker y el contenedor `omniroute`, salvo que configures `omniroute.dbPath`.
 
 Los límites de Codex salen del `rate_limits` de sus rollouts. Valen mientras no venza la ventana.
 

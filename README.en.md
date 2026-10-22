@@ -301,7 +301,7 @@ The launcher outputs nothing, because a `SessionStart` hook's output is added to
 
 ## Real context limit
 
-Claude Code logs don't say what the context window is for each model. By default ClaudeHub **estimates** it (the numbers have an asterisk).
+Claude Code logs don't say what the context window is for each model. By default ClaudeHub **estimates** it (the numbers are marked with `*`).
 
 To use the **real** value, enable ClaudeHub's status line. Claude Code passes that script the window size of each session, and ClaudeHub saves and uses it.
 
@@ -389,9 +389,19 @@ OmniRoute runs in a Docker container and its usage API requires a panel session,
 2. It opens the copy with `node:sqlite` read-only, validates it with `PRAGMA quick_check`, and reads only the `usage_history` table.
 3. If the copy comes out damaged, it retries. If it fails, it keeps the previous reading and marks the source as stale.
 
-It is off by default. Turn it on with `sources.omniroute: true`. Without Docker or without the container, the source shows an error and the rest keeps working.
+It is off by default. Turn it on under **Ajustes > Fuentes** (Settings > Sources) or with `sources.omniroute: true`. Without Docker or the `omniroute` container, the source shows an error and the rest keeps working.
 
 If you mount the database on your disk, set `omniroute.dbPath` to the path of `storage.sqlite` and ClaudeHub opens it directly, without `docker cp`.
+
+#### OmniRoute label in Models
+
+In the **Models** tab, each model that went through OmniRoute carries a small label with the OmniRoute logo. A model used directly and through OmniRoute is a single row. Hover over the label, or use a screen reader, to see the detail of what went through OmniRoute: calls, success rate, 429, 403, and 5xx errors, p95 latency, tokens, and providers. Failures come from `usage_history`: HTTP code, success, latency, and error code.
+
+Models with calls also appear with 0 tokens.
+
+In the source selector, OmniRoute displays its 12 px logo. When off, it displays "apagada" (off) and the title "Actívala en Ajustes" (Enable it in Settings). Toggle Codex, Gemini, and OmniRoute under **Ajustes > Fuentes**. Save changes to update the chip. Demo mode does not save changes.
+
+The logo is the glyph of [OmniRoute](https://github.com/diegosouzapw/OmniRoute), by its authors and under the MIT license. ClaudeHub recreates it as an SVG component, without copying their files.
 
 ## Hook states
 
@@ -568,7 +578,7 @@ Only responds on `127.0.0.1`. Rejects with `403` any request whose `Host` is not
 | Route | Returns |
 |---|---|
 | `GET /api/summary` | Totals, active days, peak hour, favorite model, and heatmap. |
-| `GET /api/models` | Daily series by model and model table. |
+| `GET /api/models` | Daily series by model and model table. Each model may carry `via`, what went through OmniRoute. |
 | `GET /api/roles` | Orchestrator vs subagents and agent types. Claude only. |
 | `GET /api/sessions` | Chats with title, project, dates, and tokens. |
 | `GET /api/projects` | Tokens per project. |
