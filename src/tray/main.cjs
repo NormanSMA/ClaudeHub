@@ -1,7 +1,7 @@
 // ClaudeHub (Windows, macOS y Linux): bandeja, mascota flotante y alertas de contexto.
 // Arranca el servidor local si no esta activo.
 const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, shell, screen, ipcMain, utilityProcess } = require('electron')
-const { spawn } = require('node:child_process')
+const { spawn, execFile } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -84,6 +84,20 @@ const AUTOSTART_FILE = path.join(os.homedir(), '.config', 'autostart', 'claudehu
 /** Inicio automatico. Windows y macOS usan el del sistema; Linux no lo tiene y usa un .desktop de autostart. */
 function autostartEnabled() {
   return IS_LINUX ? fs.existsSync(AUTOSTART_FILE) : app.getLoginItemSettings().openAtLogin
+}
+
+/**
+ * Windows: si el inicio automatico de 'ClaudeHub' apunta a otro ejecutable (por ejemplo, el electron.exe de una
+ * prueba en desarrollo), lo vuelve a apuntar a la app empaquetada. Si no hay entrada (apagado), no la crea.
+ * Se lee el registro directamente: getLoginItemSettings solo lista las entradas del ejecutable actual.
+ */
+function fixStaleLoginItem() {
+  if (!app.isPackaged || process.platform !== 'win32') return
+  const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+  execFile('reg', ['query', key, '/v', 'ClaudeHub'], { windowsHide: true, timeout: 5000 }, (err, stdout) => {
+    if (err || !/ClaudeHub\s+REG_SZ/i.test(stdout)) return // sin entrada: el usuario lo apago
+    if (!stdout.toLowerCase().includes(process.execPath.toLowerCase())) app.setLoginItemSettings({ openAtLogin: true, args: loginArgs() })
+  })
 }
 
 function setAutostart(on) {
@@ -412,7 +426,10 @@ function refreshMenu() {
 // segunda instancia: sale de inmediato, sin tocar tray.pid ni crear otra bandeja
 if (!app.requestSingleInstanceLock()) app.exit(0)
 
-app.setAppUserModelId('ClaudeHub')
+// En desarrollo (electron.exe) se usa otro identificador. Si compartiera 'ClaudeHub', Windows mezclaria su
+// acceso del menu Inicio con el de la app empaquetada y la barra de tareas mostraria el icono de Electron.
+// El identificador tambien nombra la entrada de inicio automatico de Windows.
+app.setAppUserModelId(app.isPackaged ? 'ClaudeHub' : 'ClaudeHub.Dev')
 app.on('second-instance', (e, argv) => {
   // el lanzador automatico usa --background: si ya corre, no hace nada
   if (!argv.includes('--background') && !win) showOverlay()
@@ -466,6 +483,7 @@ app.whenReady().then(async () => {
     setAutostart(true)
     fs.writeFileSync(SETUP_FILE, JSON.stringify({ loginItem: true }))
   }
+  if (!SMOKE) fixStaleLoginItem()
   await ensureServer()
   tray = new Tray(trayIcon())
   tray.on('click', showOverlay)

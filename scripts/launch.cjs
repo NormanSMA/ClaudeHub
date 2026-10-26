@@ -27,8 +27,15 @@ function running() {
   }
 }
 
+// En Windows, si existe la app empaquetada (pnpm dist), se prefiere: muestra su propio icono en la barra de tareas
+const PACKAGED = path.join(ROOT, 'release', 'win-unpacked', 'ClaudeHub.exe')
+
 if (!running()) {
   try {
+    if (process.platform === 'win32' && fs.existsSync(PACKAGED)) {
+      spawn(PACKAGED, ['--background'], { detached: true, stdio: 'ignore' }).unref()
+      process.exit(0)
+    }
     const electron = require(path.join(ROOT, 'node_modules', 'electron'))
     // Sin windowsHide: esa opcion le pide a Windows ocultar la PRIMERA ventana que la app muestre,
     // y esa es el dashboard. Electron es una app grafica: no abre ninguna consola que haya que ocultar.
