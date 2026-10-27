@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ActiveList } from '../src/web/Active'
+import { ActiveList } from '../src/web/components/Active'
 import type { ActiveChat, AgentLive } from '../src/web/api'
 
 const chat: ActiveChat & { cacheReadPerM?: number | null } = {

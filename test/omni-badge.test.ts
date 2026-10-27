@@ -2,8 +2,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, it, expect } from 'vitest'
 import { msText } from '../src/web/format'
-import { OmniBadge, viaDetail } from '../src/web/OmniBadge'
-import { OmniLogo } from '../src/web/OmniLogo'
+import { OmniBadge, viaDetail } from '../src/web/components/OmniBadge'
+import { OmniLogo } from '../src/web/components/OmniLogo'
 import type { ModelVia } from '../src/web/api'
 
 // Datos sinteticos

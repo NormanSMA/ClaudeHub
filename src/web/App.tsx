@@ -1,9 +1,9 @@
-import { levelFrom, pickMascotState } from './mascotState'
+import { levelFrom, pickMascotState } from './mascot/mascotState'
 import { cloneElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { AnimatedNumber } from './AnimatedNumber'
-import { AgentesView } from './Agentes'
-import { Loading } from './Loading'
-import { ModelosView } from './Modelos'
+import { AnimatedNumber } from './components/AnimatedNumber'
+import { AgentesView } from './views/Agentes'
+import { Loading } from './components/Loading'
+import { ModelosView } from './views/Modelos'
 import {
   useApi,
   useLiveStatus,
@@ -18,15 +18,15 @@ import {
   type SourcesReport,
   type Summary,
 } from './api'
-import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './charts'
+import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './components/charts'
 import { billingText, compact, dateLabel, fmtUsd, hourLabel, int, pct } from './format'
-import { Mascot, type MascotState } from './Mascot'
-import { SpeechBubble } from './SpeechBubble'
-import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine, type SpeechMemory } from './mascotSpeech'
-import { SettingsView } from './Settings'
-import { TodayCount } from './TodayCount'
-import { SourceChips, loadSource, saveSource, type SourceFilter } from './SourceChips'
-import { useSort } from './sort'
+import { Mascot, type MascotState } from './mascot/Mascot'
+import { SpeechBubble } from './mascot/SpeechBubble'
+import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine, type SpeechMemory } from './mascot/mascotSpeech'
+import { SettingsView } from './views/Ajustes'
+import { TodayCount } from './components/TodayCount'
+import { SourceChips, loadSource, saveSource, type SourceFilter } from './components/SourceChips'
+import { useSort } from './components/sort'
 import { balloonText, useUpdateNotice } from './update'
 
 type Tab = 'agentes' | 'resumen' | 'modelos' | 'sesiones' | 'proyectos' | 'ajustes'

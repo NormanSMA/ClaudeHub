@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { TodayCount, todayText } from '../src/web/TodayCount'
+import { TodayCount, todayText } from '../src/web/components/TodayCount'
 
 const real = { todayTokens: 45_150_893, todayFresh: 1_049_557, todayCacheRead: 44_101_336 }
 

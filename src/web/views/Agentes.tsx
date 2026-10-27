@@ -1,6 +1,6 @@
-import { ActiveList, PlanLimits, ctxColor, untilText } from './Active'
-import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId, type TokenLevel } from './api'
-import { compact, minutesText, pct } from './format'
+import { ActiveList, PlanLimits, ctxColor, untilText } from '../components/Active'
+import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId, type TokenLevel } from '../api'
+import { compact, minutesText, pct } from '../format'
 
 const SOURCE_NAME: Record<SourceId, string> = {
   claude: 'Claude',

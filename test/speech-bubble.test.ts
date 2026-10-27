@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Mascot } from '../src/web/Mascot'
-import { SpeechBubble, typedText } from '../src/web/SpeechBubble'
+import { Mascot } from '../src/web/mascot/Mascot'
+import { SpeechBubble, typedText } from '../src/web/mascot/SpeechBubble'
 
 afterEach(() => vi.unstubAllGlobals())
 

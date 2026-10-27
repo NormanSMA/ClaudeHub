@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categorySegments } from '../src/web/charts'
+import { categorySegments } from '../src/web/components/charts'
 
 const sum = (t: Parameters<typeof categorySegments>[0]) => categorySegments(t).reduce((a, s) => a + s.value, 0)
 const get = (t: Parameters<typeof categorySegments>[0], key: string) => categorySegments(t).find((s) => s.key === key)!.value

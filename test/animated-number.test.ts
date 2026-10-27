@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { AnimatedNumber, animateNumber, interpolate } from '../src/web/AnimatedNumber'
+import { AnimatedNumber, animateNumber, interpolate } from '../src/web/components/AnimatedNumber'
 
 describe('AnimatedNumber', () => {
   let motion: MediaQueryList

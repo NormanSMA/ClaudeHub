@@ -1,5 +1,5 @@
-import type { MascotConfig } from './api'
-import { compact, fmtUsd } from './format'
+import type { MascotConfig } from '../api'
+import { compact, fmtUsd } from '../format'
 
 export interface SpeechInput {
   mascot: MascotConfig
