@@ -202,12 +202,41 @@ body.overlay-body {
   height: 30px;
   flex: none;
 }
-.island-tool {
+/* compacta: chats | Chispa | dato rotativo */
+.island-compact .island-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 6px;
+}
+.island-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.island-metric {
+  justify-self: end;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted, var(--text));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.island-metric > span {
+  display: inline-block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .island-metric > span {
+    animation: island-metric-in 320ms ease-out;
+  }
+}
+@keyframes island-metric-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 .island-level {
   margin-left: auto;
@@ -243,7 +272,8 @@ body.overlay-body {
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
-  max-height: calc(100vh - 44px);
+  /* tope fijo: 220 px de ventana menos cabecera, margen, relleno y borde */
+  max-height: 176px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
