@@ -1530,4 +1530,43 @@ button.primary:disabled {
   html:not([data-anim='off']) .arc-gauge-value {
     transition: stroke-dasharray 700ms ease-out;
   }
+  html:not([data-anim='off']) .arc-needle {
+    transition: transform 700ms cubic-bezier(.22, 1, .36, 1);
+  }
+  @keyframes cadra-dot {
+    from { opacity: 0; transform: scale(0); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  html:not([data-anim='off']) .sparkline-dot {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cadra-dot 260ms ease-out 620ms backwards;
+  }
+  @keyframes cadra-reveal {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+  html:not([data-anim='off']) .area-reveal {
+    animation: cadra-reveal 900ms cubic-bezier(.22, 1, .36, 1) backwards;
+  }
 }
+
+.sparkline { display: block; margin-top: 6px; overflow: visible; }
+.arc-gauge { display: block; width: 100%; max-width: 120px; margin: 4px 0; }
+.arc-needle { transform-box: view-box; }
+.area-chart { position: relative; margin: 8px 0 4px; }
+.area-chart svg { display: block; width: 100%; height: auto; touch-action: none; }
+.area-axis { fill: var(--muted); font-size: 10px; }
+.area-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.area-tip span { opacity: 0.7; }
