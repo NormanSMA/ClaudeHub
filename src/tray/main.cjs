@@ -1,5 +1,6 @@
 // ClaudeHub (Windows, macOS y Linux): bandeja, mascota flotante y alertas de contexto.
 // Arranca el servidor local si no esta activo.
+// @ts-check
 const { app, Tray, Menu, BrowserWindow, Notification, nativeImage, shell, screen, ipcMain, utilityProcess } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const fs = require('node:fs')
@@ -35,6 +36,7 @@ const GRID = [
   '.ooo.oooo.ooo.',
   '.oo..o..o..oo.',
 ]
+/** @type {Record<string, number[]>} */
 const RGB = { o: [217, 119, 87], l: [240, 164, 136], s: [243, 195, 168], e: [31, 30, 29] }
 
 function trayIcon() {
@@ -61,6 +63,11 @@ function trayIcon() {
   return nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: IS_MAC ? 2 : 1 })
 }
 
+/**
+ * El llamador fija la forma de la respuesta con una conversion de tipo.
+ * @param {string} p
+ * @returns {Promise<unknown>}
+ */
 async function getJson(p) {
   const r = await fetch(`${URL}${p}`)
   if (!r.ok) throw new Error(String(r.status))
@@ -100,6 +107,7 @@ function fixStaleLoginItem() {
   })
 }
 
+/** @param {boolean} on */
 function setAutostart(on) {
   if (!IS_LINUX) {
     app.setLoginItemSettings({ openAtLogin: on, args: loginArgs() })
@@ -113,6 +121,7 @@ function setAutostart(on) {
     }
     return
   }
+  /** @param {string} s */
   const quote = (s) => `"${s.replace(/"/g, '\\"')}"`
   const exe = process.env.APPIMAGE || process.execPath
   fs.mkdirSync(path.dirname(AUTOSTART_FILE), { recursive: true })
@@ -130,6 +139,7 @@ function setAutostart(on) {
   )
 }
 
+/** @type {import('electron').UtilityProcess | import('node:child_process').ChildProcess | null} */
 let server = null
 async function ensureServer() {
   if (await serverUp()) return
@@ -150,7 +160,10 @@ async function ensureServer() {
 
 const RELEASES_PREFIX = 'https://github.com/NormanSMA/ClaudeHub/releases/'
 
-/** Solo abre paginas de releases de ClaudeHub. Compara la URL ya normalizada (sin "..", sin otro host). */
+/**
+ * Solo abre paginas de releases de ClaudeHub. Compara la URL ya normalizada (sin "..", sin otro host).
+ * @param {unknown} url
+ */
 function openRelease(url) {
   if (typeof url !== 'string' || url.length > 300) return false
   let parsed
@@ -164,8 +177,11 @@ function openRelease(url) {
   return true
 }
 
+/** @type {import('electron').Tray | null} */
 let tray = null
+/** @type {import('electron').BrowserWindow | null} */
 let win = null
+/** @type {import('electron').BrowserWindow | null} */
 let overlay = null
 let ghostMode = false
 // true mientras la app se cierra: evita reabrir la mascota al cerrarse las ventanas (eso cancelaba la salida)
@@ -225,6 +241,7 @@ function placeDashboard() {
 }
 
 /* ---------- mascota flotante ---------- */
+/** @returns {{ right: number, bottom: number } | null} */
 function savedPos() {
   try {
     return JSON.parse(fs.readFileSync(POS_FILE, 'utf8'))
@@ -233,6 +250,10 @@ function savedPos() {
   }
 }
 
+/**
+ * @param {import('electron').Rectangle} b
+ * @returns {import('electron').Rectangle}
+ */
 function clampToScreen(b) {
   const wa = screen.getDisplayMatching(b).workArea
   return {
@@ -316,15 +337,23 @@ ipcMain.on('hub:hide', () => {
 })
 
 /* ---------- tooltip y alertas ---------- */
+// Campos de /api/active que lee la bandeja
+/** @typedef {{ working: boolean, session: string, title: string, context: { pct: number, used: number, limit: number } }} ActiveChat */
+/** @typedef {{ chats: ActiveChat[], alertAt: number, todayTokens: number, plan: import('../core/plan').PlanReport | null }} ActiveReply */
+
+/** @type {Set<string>} */
 const alerted = new Set()
 
+/** @param {number} m */
 function tokensText(m) {
   return m >= 1e9 ? (m / 1e9).toFixed(2) + 'B' : m >= 1e6 ? (m / 1e6).toFixed(1) + 'M' : m >= 1e3 ? Math.round(m / 1e3) + 'k' : String(m)
 }
 
 // Una alerta por ventana del plan: la clave incluye la hora de reinicio, asi vuelve a avisar en la siguiente ventana.
+/** @type {Set<string>} */
 const alertedPlan = new Set()
 
+/** @param {number} resetsAt */
 function untilText(resetsAt) {
   const min = Math.max(0, Math.round((resetsAt - Date.now()) / 60000))
   if (min < 60) return `${min} min`
@@ -332,6 +361,10 @@ function untilText(resetsAt) {
   return h < 24 ? `${h} h ${min % 60} min` : `${Math.floor(h / 24)} d ${h % 24} h`
 }
 
+/**
+ * @param {import('../core/plan').PlanReport | null} plan
+ * @param {number} alertAt
+ */
 function alertPlan(plan, alertAt) {
   if (!plan) return
   if (plan.blocked) {
@@ -342,10 +375,12 @@ function alertPlan(plan, alertAt) {
       new Notification({ title: `Llegaste a tu limite ${name}`, body: `Se restablece en ${untilText(plan.blocked.resetsAt)}.`, silent: true }).show()
     }
   }
-  for (const [key, w, name] of [
+  /** @type {[string, import('../core/plan').PlanWindow | null, string][]} */
+  const windows = [
     ['5h', plan.fiveHour, 'limite de 5 horas'],
     ['7d', plan.sevenDay, 'limite semanal'],
-  ]) {
+  ]
+  for (const [key, w, name] of windows) {
     if (!w) continue
     const id = `${key}-${w.resetsAt}`
     if (w.pct / 100 >= alertAt && !alertedPlan.has(id)) {
@@ -362,8 +397,9 @@ function alertPlan(plan, alertAt) {
 }
 
 async function poll() {
+  if (!tray) return
   try {
-    const { chats, alertAt, todayTokens, plan } = await getJson('/api/active')
+    const { chats, alertAt, todayTokens, plan } = /** @type {ActiveReply} */ (await getJson('/api/active'))
     const working = chats.some((c) => c.working)
     const limit5 = plan && plan.fiveHour ? `, limite de 5 h al ${Math.round(plan.fiveHour.pct)}%` : ''
     tray.setToolTip(`ClaudeHub - hoy ${tokensText(todayTokens)} tokens, ${chats.length} chats activos${limit5}${working ? ' (trabajando)' : ''}`)
@@ -434,15 +470,24 @@ app.on('second-instance', (e, argv) => {
   // el lanzador automatico usa --background: si ya corre, no hace nada
   if (!argv.includes('--background') && !win) showOverlay()
 })
-app.on('window-all-closed', (e) => e.preventDefault())
+// el tipo de Electron no declara el evento, pero en ejecucion llega con preventDefault
+app.on('window-all-closed', /** @param {{ preventDefault: () => void }} [e] */ (e) => e && e.preventDefault())
+
+/**
+ * @typedef {{ platform: string, arch: string, electron: string, server?: boolean, sessions?: number,
+ *   trayCreated?: boolean, overlayVisible?: boolean, dashboardVisible?: boolean, overlayHiddenAfter?: boolean,
+ *   error?: string, ok?: boolean }} SmokeResult
+ */
 
 /** Prueba de humo (CI): arranca todo, abre el dashboard y comprueba que las ventanas se ven. Sale con 0 si todo esta bien. */
 async function runSmoke() {
+  /** @param {number} ms */
   const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+  /** @type {SmokeResult} */
   const result = { platform: process.platform, arch: process.arch, electron: process.versions.electron }
   try {
     result.server = await serverUp()
-    result.sessions = (await getJson('/api/summary?range=all')).sessions
+    result.sessions = /** @type {{ sessions: number }} */ (await getJson('/api/summary?range=all')).sessions
     await wait(2000)
     result.trayCreated = !!tray && !tray.isDestroyed()
     result.overlayVisible = !!overlay && overlay.isVisible()
@@ -454,9 +499,9 @@ async function runSmoke() {
     result.dashboardVisible = !!win && win.isVisible()
     result.overlayHiddenAfter = !!overlay && !overlay.isVisible()
   } catch (e) {
-    result.error = String(e && e.message ? e.message : e)
+    result.error = e instanceof Error ? e.message : String(e)
   }
-  result.ok = !!(result.server && result.sessions >= 0 && result.trayCreated && result.overlayVisible && result.dashboardVisible && result.overlayHiddenAfter)
+  result.ok = !!(result.server && (result.sessions ?? -1) >= 0 && result.trayCreated && result.overlayVisible && result.dashboardVisible && result.overlayHiddenAfter)
   const out = process.env.CLAUDEHUB_SMOKE_OUT || path.join(DATA_DIR, 'smoke.json')
   try {
     fs.writeFileSync(out, JSON.stringify(result, null, 2))

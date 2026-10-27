@@ -8,25 +8,31 @@
 // Cada reset acepta una fecha ISO o milisegundos desde 1970.
 // Una ventana ausente conserva la guardada mientras no haya expirado (igual que statusline.cjs).
 
+// @ts-check
 const fs = require('node:fs')
-const os = require('node:os')
 const path = require('node:path')
+const { dataDir } = require('./lib/paths.cjs')
 
-// Misma logica que src/core/paths.ts
-function dataDir() {
-  if (process.env.CLAUDEHUB_DATA) return process.env.CLAUDEHUB_DATA
-  if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ClaudeHub')
-  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'ClaudeHub')
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'ClaudeHub')
-}
+/**
+ * @typedef {import('../src/shared/files').RateLimitsFile} RateLimitsFile
+ * @typedef {import('../src/shared/files').RateWindow} RateWindow
+ */
 
 const PLAN_FILE = process.env.CLAUDEHUB_PLAN || path.join(dataDir(), 'rate-limits.json')
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
   process.stderr.write('write-limits: ' + message + '\n')
   process.exit(1)
 }
 
+/**
+ * @param {string} file
+ * @param {unknown} data
+ */
 function writeJson(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = file + '.' + process.pid + '.tmp'
@@ -34,6 +40,11 @@ function writeJson(file, data) {
   fs.renameSync(tmp, file)
 }
 
+/**
+ * Lee un JSON de la carpeta de datos. El llamador fija la forma esperada con una conversion de tipo.
+ * @param {string} file
+ * @returns {unknown}
+ */
 function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8')) || {}
@@ -44,7 +55,12 @@ function readJson(file) {
 
 const FLAGS = new Set(['--five', '--five-reset', '--seven', '--seven-reset'])
 
+/**
+ * @param {string[]} argv
+ * @returns {Record<string, string>}
+ */
 function parseArgs(argv) {
+  /** @type {Record<string, string>} */
   const out = {}
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i]
@@ -55,6 +71,10 @@ function parseArgs(argv) {
   return out
 }
 
+/**
+ * @param {string | undefined} text
+ * @param {string} name
+ */
 function parsePct(text, name) {
   if (typeof text !== 'string' || text.trim() === '') fail(name + ' vacio')
   const n = Number(text)
@@ -62,6 +82,10 @@ function parsePct(text, name) {
   return n
 }
 
+/**
+ * @param {string | undefined} text
+ * @param {string} name
+ */
 function parseReset(text, name) {
   if (typeof text !== 'string' || text.trim() === '') fail(name + ' vacio')
   const raw = text.trim()
@@ -70,7 +94,12 @@ function parseReset(text, name) {
   return ms
 }
 
-/** Convierte un par de argumentos a { pct, resetsAt en ms }, o null si la ventana no se indico. */
+/**
+ * Convierte un par de argumentos a { pct, resetsAt en ms }, o null si la ventana no se indico.
+ * @param {Record<string, string>} args
+ * @param {string} key
+ * @returns {RateWindow | null}
+ */
 function windowFrom(args, key) {
   const pct = args[key]
   const reset = args[key + '-reset']
@@ -81,10 +110,11 @@ function windowFrom(args, key) {
 
 const args = parseArgs(process.argv.slice(2))
 const now = Date.now()
-const prev = readJson(PLAN_FILE)
+const prev = /** @type {Partial<RateLimitsFile>} */ (readJson(PLAN_FILE))
+/** @type {RateLimitsFile} */
 const next = { fiveHour: windowFrom(args, 'five'), sevenDay: windowFrom(args, 'seven'), updatedAt: now }
 // una ventana ausente conserva la anterior mientras no haya expirado
-for (const k of ['fiveHour', 'sevenDay']) {
+for (const k of /** @type {const} */ (['fiveHour', 'sevenDay'])) {
   if (!next[k] && prev[k] && prev[k].resetsAt > now) next[k] = prev[k]
 }
 if (!next.fiveHour && !next.sevenDay) fail('indica al menos una ventana (--five/--five-reset o --seven/--seven-reset)')
@@ -92,8 +122,9 @@ if (!next.fiveHour && !next.sevenDay) fail('indica al menos una ventana (--five/
 try {
   writeJson(PLAN_FILE, next)
 } catch (err) {
-  fail('no se pudo escribir ' + PLAN_FILE + ': ' + (err && err.message))
+  fail('no se pudo escribir ' + PLAN_FILE + ': ' + (err instanceof Error ? err.message : String(err)))
 }
 
+/** @param {RateWindow | null} w */
 const show = (w) => (w ? Math.round(w.pct) + '% (reinicia ' + new Date(w.resetsAt).toISOString() + ')' : 'sin datos')
 process.stdout.write('Limites guardados. 5h: ' + show(next.fiveHour) + ' | 7d: ' + show(next.sevenDay) + '\n')

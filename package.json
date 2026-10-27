@@ -75,6 +75,7 @@
       "dist-server/**",
       "src/tray/**",
       "scripts/statusline.cjs",
+      "scripts/lib/**",
       "package.json"
     ],
     "extraMetadata": {

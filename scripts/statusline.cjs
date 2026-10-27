@@ -11,17 +11,18 @@
 // Uso en ~/.claude/settings.json:
 //   "statusLine": { "type": "command", "command": "node \"<ruta>/scripts/statusline.cjs\"" }
 
+// @ts-check
 const fs = require('node:fs')
-const os = require('node:os')
 const path = require('node:path')
+const { dataDir } = require('./lib/paths.cjs')
 
-// Misma logica que src/core/paths.ts
-function dataDir() {
-  if (process.env.CLAUDEHUB_DATA) return process.env.CLAUDEHUB_DATA
-  if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ClaudeHub')
-  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'ClaudeHub')
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'ClaudeHub')
-}
+/**
+ * @typedef {import('../src/shared/files').RateLimitsFile} RateLimitsFile
+ * @typedef {import('../src/shared/files').RateWindow} RateWindow
+ * @typedef {import('../src/shared/files').ContextWindowsFile} ContextWindowsFile
+ * @typedef {import('../src/shared/files').ClaudeRateWindow} ClaudeRateWindow
+ * @typedef {import('../src/shared/files').StatusLineInput} StatusLineInput
+ */
 
 const FILE = process.env.CLAUDEHUB_WINDOWS || path.join(dataDir(), 'context-windows.json')
 const PLAN_FILE = process.env.CLAUDEHUB_PLAN || path.join(dataDir(), 'rate-limits.json')
@@ -30,6 +31,10 @@ const MAX_AGE_MS = 30 * 86_400_000
 const REFRESH_MS = 10 * 60_000
 const PLAN_REFRESH_MS = 60_000
 
+/**
+ * @param {string} file
+ * @param {unknown} data
+ */
 function writeJson(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = file + '.' + process.pid + '.tmp'
@@ -37,6 +42,11 @@ function writeJson(file, data) {
   fs.renameSync(tmp, file)
 }
 
+/**
+ * Lee un JSON de la carpeta de datos. El llamador fija la forma esperada con una conversion de tipo.
+ * @param {string} file
+ * @returns {unknown}
+ */
 function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8')) || {}
@@ -45,8 +55,13 @@ function readJson(file) {
   }
 }
 
+/**
+ * @param {string} sessionId
+ * @param {number} size
+ * @param {string | undefined} model
+ */
 function record(sessionId, size, model) {
-  const data = readJson(FILE)
+  const data = /** @type {ContextWindowsFile} */ (readJson(FILE))
   const now = Date.now()
   const prev = data[sessionId]
   // evita escribir en cada refresco: solo si cambia el tamano o pasaron 10 minutos
@@ -59,38 +74,48 @@ function record(sessionId, size, model) {
   writeJson(FILE, Object.fromEntries(entries))
 }
 
-/** Convierte una ventana de Claude Code ({ used_percentage, resets_at en segundos }) a { pct, resetsAt en ms }. */
+/**
+ * Convierte una ventana de Claude Code ({ used_percentage, resets_at en segundos }) a { pct, resetsAt en ms }.
+ * @param {ClaudeRateWindow | undefined} w
+ * @returns {RateWindow | null}
+ */
 function planWindow(w) {
   if (!w || typeof w.used_percentage !== 'number' || typeof w.resets_at !== 'number') return null
   if (!Number.isFinite(w.used_percentage) || !Number.isFinite(w.resets_at)) return null
   return { pct: Math.min(100, Math.max(0, w.used_percentage)), resetsAt: Math.round(w.resets_at * 1000) }
 }
 
+/** @param {NonNullable<StatusLineInput['rate_limits']>} limits */
 function recordPlan(limits) {
   const now = Date.now()
-  const prev = readJson(PLAN_FILE)
+  const prev = /** @type {Partial<RateLimitsFile>} */ (readJson(PLAN_FILE))
+  /** @type {RateLimitsFile} */
   const next = { fiveHour: planWindow(limits.five_hour), sevenDay: planWindow(limits.seven_day), updatedAt: now }
   // una ventana ausente en esta llamada conserva la anterior mientras no haya expirado
-  for (const k of ['fiveHour', 'sevenDay']) {
+  for (const k of /** @type {const} */ (['fiveHour', 'sevenDay'])) {
     if (!next[k] && prev[k] && prev[k].resetsAt > now) next[k] = prev[k]
   }
   if (!next.fiveHour && !next.sevenDay) return
+  /** @param {RateWindow | null | undefined} a @param {RateWindow | null | undefined} b */
   const same = (a, b) => (!a && !b) || (a && b && a.pct === b.pct && a.resetsAt === b.resetsAt)
   // evita escribir en cada refresco: solo si cambia algo o pasaron 60 segundos
   if (same(next.fiveHour, prev.fiveHour) && same(next.sevenDay, prev.sevenDay) && now - (prev.updatedAt || 0) < PLAN_REFRESH_MS) return
   writeJson(PLAN_FILE, next)
 }
 
+/** @param {number} n */
 function compact(n) {
   return n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n)
 }
 
+/** @param {number} pct */
 const color = (pct) => (pct >= 85 ? '31' : pct >= 60 ? '33' : '32')
 
 let input = ''
 process.stdin.setEncoding('utf8')
 process.stdin.on('data', (d) => (input += d))
 process.stdin.on('end', () => {
+  /** @type {StatusLineInput} */
   let j = {}
   try {
     j = JSON.parse(input)
