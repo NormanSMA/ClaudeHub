@@ -34,6 +34,7 @@
     "build": "vite build",
     "build:server": "esbuild src/server/index.ts --bundle --platform=node --format=cjs --target=node22 --log-level=error --outfile=dist-server/server.cjs",
     "build:app": "pnpm build && pnpm build:server",
+    "build:extensions": "node scripts/build-extensions.cjs",
     "start": "tsx src/server/index.ts",
     "demo": "cross-env CLAUDEHUB_DEMO=1 tsx src/server/index.ts",
     "tray": "electron .",

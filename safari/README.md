@@ -30,7 +30,7 @@ Con un perfil gratuito de desarrollo la app caduca a los 7 dias y hay que recomp
 
 ## Estructura
 
-- `extension/`: la extension web (Manifest V3, JavaScript sin dependencias).
+- `extension/`: la extension web (Manifest V3, JavaScript sin dependencias). Tambien alimenta las extensiones de Chrome, Edge, Brave y Firefox: ver [`extensions/README.md`](../extensions/README.md).
 - `ClaudeHub/`: proyecto de Xcode generado con `xcrun safari-web-extension-converter extension`.
 
 ## Servidor
