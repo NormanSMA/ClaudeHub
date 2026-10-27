@@ -265,7 +265,7 @@ function clampToScreen(b) {
 
 /** @type {'corner' | 'island'} */
 let overlayMode = 'corner'
-const ISLAND_COMPACT = { width: 168, height: 38 }
+const ISLAND_COMPACT = { width: 180, height: 38 }
 /** @type {ReturnType<typeof setInterval> | null} */
 let cursorTimer = null
 

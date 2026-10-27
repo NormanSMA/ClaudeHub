@@ -4,6 +4,7 @@ import { ActiveList, PlanLimits } from './components/Active'
 import { useApi, type ActiveReport, type ConfigInfo, type Live, type OverlayMode, type SettingsInfo } from './api'
 import { ChispaCanvas, type ChispaEmote } from './mascot/ChispaCanvas'
 import { TodayCount } from './components/TodayCount'
+import { compact, fmtUsd } from './format'
 import { CodexBadge, LevelBadge, Mascot } from './mascot/Mascot'
 import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type MascotState } from './mascot/mascotState'
 import { balloonText, useUpdateNotice } from './update'
@@ -254,17 +255,40 @@ function Overlay() {
   )
 }
 
-const ISLAND_COMPACT = { w: 168, h: 38 }
+const ISLAND_COMPACT = { w: 180, h: 38 }
+// alto maximo: la lista se desplaza dentro; el alto real sale del contenido
 const ISLAND_EXPANDED = { w: 460, h: 220 }
-const COLLAPSE_MS = 4_000
+// margen breve para que un roce del borde no cierre la isla
+const COLLAPSE_MS = 350
+const ROTATE_MS = 5_000
 const CANVAS_SIZE = 30
+
+interface IslandMetric {
+  id: string
+  text: string
+  title: string
+}
+
+/** Datos que rotan en la isla compacta: nivel, costo de hoy y velocidad. */
+export function islandMetrics(data: ActiveReport | null | undefined): IslandMetric[] {
+  const level = levelFrom(data)
+  const out: IslandMetric[] = []
+  if (level) out.push({ id: 'level', text: `N${level.level} ${Math.round(level.pct)}%`, title: `Nivel de consumo: ${level.label}` })
+  const cost = data?.todayCostUsd
+  if (typeof cost === 'number' && Number.isFinite(cost)) out.push({ id: 'cost', text: fmtUsd(cost), title: 'Costo de hoy (equivalente en API)' })
+  const burn = level ? data?.level?.burnPerMin : undefined
+  if (typeof burn === 'number' && Number.isFinite(burn)) out.push({ id: 'burn', text: `${compact(burn)}/min`, title: 'Tokens por minuto, ultimos 15 minutos' })
+  return out
+}
 
 function IslandOverlay() {
   const { data } = useApi<ActiveReport>('/api/active', 4_000)
   const [expanded, setExpanded] = useState(false)
   const [emote, setEmote] = useState<{ name: ChispaEmote; id: number } | null>(null)
+  const [turn, setTurn] = useState(0)
   const cursorRef = useRef<{ x: number; y: number } | null>(null)
   const canvasBox = useRef<HTMLDivElement>(null)
+  const body = useRef<HTMLDivElement>(null)
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const clicks = useRef<number[]>([])
   const emoteId = useRef(0)
@@ -277,7 +301,8 @@ function IslandOverlay() {
   // solo la herramienta en curso: tras PostToolUse el nombre queda anotado
   const toolOf = (session?: string) =>
     data?.agents?.find((a) => a.state === 'tool' && a.tool && (session === undefined || a.session === session))?.tool ?? null
-  const tool = toolOf()
+  const metrics = islandMetrics(data)
+  const metric = metrics.length > 0 ? metrics[turn % metrics.length] : null
 
   const play = (name: ChispaEmote) => setEmote({ name, id: ++emoteId.current })
   const clearCollapse = () => {
@@ -292,10 +317,25 @@ function IslandOverlay() {
     })
   }
 
+  // compacta: tamano fijo. Expandida: alto del contenido, con tope
   useEffect(() => {
-    const size = expanded ? ISLAND_EXPANDED : ISLAND_COMPACT
-    hub?.resize(size.w, size.h)
+    const el = body.current
+    if (!expanded || !el) {
+      hub?.resize(ISLAND_COMPACT.w, ISLAND_COMPACT.h)
+      return
+    }
+    // relleno vertical (2 x 4 px) y borde inferior (1 px) de .island
+    const send = () => hub?.resize(ISLAND_EXPANDED.w, Math.min(ISLAND_EXPANDED.h, Math.ceil(el.getBoundingClientRect().height) + 9))
+    send()
+    const ro = new ResizeObserver(send)
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [expanded])
+
+  useEffect(() => {
+    const id = setInterval(() => setTurn((t) => t + 1), ROTATE_MS)
+    return () => clearInterval(id)
+  }, [])
 
   // el cursor llega relativo a la ventana; se pasa relativo al canvas
   useEffect(() => {
@@ -350,51 +390,65 @@ function IslandOverlay() {
       onPointerLeave={leave}
       onClick={click}
     >
-      <div className="island-head">
-        <div ref={canvasBox} className="island-chispa">
-          <ChispaCanvas width={CANVAS_SIZE} height={CANVAS_SIZE} cursorRef={cursorRef} emote={emote} sleeping={mood === 'sleeping'} />
-        </div>
-        {expanded ? (
-          <>
-            <strong>{chats.length} {chats.length === 1 ? 'chat activo' : 'chats activos'}</strong>
-            {level && <span className="island-level">{[levelText(level), level.label].join(' · ')}</span>}
-            <button
-              type="button"
-              className="island-action"
-              title="Abrir dashboard"
-              aria-label="Abrir dashboard"
-              onClick={(e) => {
-                e.stopPropagation()
-                hub?.openDashboard()
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="3" />
-                <path d="M3 9h18M9 9v12" />
+      <div ref={body}>
+        <div className="island-head">
+          {/* Chispa ocupa siempre la misma posicion entre hermanos: no se remonta al expandir */}
+          {!expanded && (
+            <span className="island-count" title={`${chats.length} ${chats.length === 1 ? 'chat activo' : 'chats activos'}`}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M4 5h16v11H9l-5 4z" />
               </svg>
-            </button>
-          </>
-        ) : (
-          <span className="island-tool">{tool ?? (chats.length > 0 ? `${chats.length} chats` : 'En reposo')}</span>
+              {chats.length}
+            </span>
+          )}
+          <div ref={canvasBox} className="island-chispa">
+            <ChispaCanvas width={CANVAS_SIZE} height={CANVAS_SIZE} cursorRef={cursorRef} emote={emote} sleeping={mood === 'sleeping'} />
+          </div>
+          {!expanded && (
+            <span className="island-metric" title={metric?.title}>
+              {metric && <span key={metric.id}>{metric.text}</span>}
+            </span>
+          )}
+          {expanded && (
+            <>
+              <strong>{chats.length} {chats.length === 1 ? 'chat activo' : 'chats activos'}</strong>
+              {level && <span className="island-level">{[levelText(level), level.label].join(' · ')}</span>}
+              <button
+                type="button"
+                className="island-action"
+                title="Abrir dashboard"
+                aria-label="Abrir dashboard"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  hub?.openDashboard()
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <path d="M3 9h18M9 9v12" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+        {expanded && (
+          <ul className="island-rows">
+            {chats.length === 0 && <li className="island-empty">Sin chats activos</li>}
+            {chats.map((c) => {
+              const chatTool = toolOf(c.session)
+              const pct = Math.round(c.context.pct * 100)
+              return (
+                <li key={c.session} className="island-row">
+                  <span className={`island-dot ${c.working ? 'on' : ''}`} aria-hidden="true" />
+                  <span className="island-title">{c.title}</span>
+                  <span className="island-meta">{chatTool ?? c.project}</span>
+                  <span className={`island-pct ${c.context.pct >= alertAt ? 'bad' : ''}`}>{pct}%</span>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </div>
-      {expanded && (
-        <ul className="island-rows">
-          {chats.length === 0 && <li className="island-empty">Sin chats activos</li>}
-          {chats.map((c) => {
-            const chatTool = toolOf(c.session)
-            const pct = Math.round(c.context.pct * 100)
-            return (
-              <li key={c.session} className="island-row">
-                <span className={`island-dot ${c.working ? 'on' : ''}`} aria-hidden="true" />
-                <span className="island-title">{c.title}</span>
-                <span className="island-meta">{chatTool ?? c.project}</span>
-                <span className={`island-pct ${c.context.pct >= alertAt ? 'bad' : ''}`}>{pct}%</span>
-              </li>
-            )
-          })}
-        </ul>
-      )}
     </div>
   )
 }
