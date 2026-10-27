@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ResumenView } from '../src/web/App'
-import { ModelosView } from '../src/web/Modelos'
+import { ResumenView } from '../src/web/views/Resumen'
+import { ModelosView } from '../src/web/views/Modelos'
 import { useApi, type Summary } from '../src/web/api'
 import { compact, fmtUsd, int } from '../src/web/format'
 
