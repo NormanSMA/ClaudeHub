@@ -61,18 +61,48 @@ function chatCard(c, alertAt) {
   return card
 }
 
+function animOn() {
+  try {
+    return localStorage.getItem('animations') !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function applyAnim(on) {
+  document.documentElement.toggleAttribute('data-anim-off', !on)
+  try {
+    localStorage.setItem('animations', on ? 'on' : 'off')
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
+let first = true
+
 async function render() {
   const root = $('root')
   try {
     const d = await fetchActive()
-    $('today').textContent = `Hoy ${fmt(d.todayTokens)}`
+    const hasFresh = typeof d.todayFresh === 'number'
+    $('today').textContent = hasFresh ? `Hoy ${fmt(d.todayFresh)} nuevos` : `Hoy ${fmt(d.todayTokens)}`
+    $('today').title = hasFresh
+      ? `Nuevos (entrada + escritura de cache + salida): ${d.todayFresh}\nLectura de cache: ${d.todayCacheRead ?? 0}\nTotal: ${d.todayTokens}`
+      : ''
     root.replaceChildren(planCard(d), ...d.chats.map((c) => chatCard(c, d.alertAt)))
+    if (first) root.classList.add('enter')
+    first = false
     if (d.chats.length === 0) root.append(el('p', 'muted err', 'No hay chats activos.'))
   } catch {
     $('today').textContent = ''
     root.replaceChildren(el('p', 'muted err', 'No hay conexion con ClaudeHub. Abre la bandeja o ejecuta pnpm start.'))
   }
 }
+
+const animBox = $('anim')
+animBox.checked = animOn()
+applyAnim(animBox.checked)
+animBox.addEventListener('change', () => applyAnim(animBox.checked))
 
 render()
 setInterval(render, 5000)

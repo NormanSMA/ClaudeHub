@@ -32,13 +32,13 @@ describe('AnimatedNumber', () => {
     expect(html).toBe('$12.50')
   })
 
-  it.each([1234.56789, 0, -100.125])('alcanza el valor final exacto %s en 400 ms', (value) => {
+  it.each([1234.56789, 0, -100.125])('alcanza el valor final exacto %s en 650 ms', (value) => {
     const update = vi.fn()
     animateNumber(25, value, update)
-    vi.advanceTimersByTime(192)
-    expect(update.mock.lastCall?.[0]).toBe(interpolate(25, value, 192))
+    vi.advanceTimersByTime(304)
+    expect(update.mock.lastCall?.[0]).toBe(interpolate(25, value, 304))
     expect(update.mock.lastCall?.[0]).not.toBe(value)
-    vi.advanceTimersByTime(208)
+    vi.advanceTimersByTime(352)
     expect(update.mock.lastCall?.[0]).toBe(value)
     expect(vi.getTimerCount()).toBe(0)
     expect(listeners.size).toBe(0)
@@ -57,7 +57,7 @@ describe('AnimatedNumber', () => {
     const update = vi.fn()
     animateNumber(0, 100, update)
     vi.advanceTimersByTime(160)
-    expect(update.mock.lastCall?.[0]).toBe(40)
+    expect(update.mock.lastCall?.[0]).toBe(interpolate(0, 100, 160))
     Object.assign(motion, { matches: true })
     for (const listener of [...listeners]) listener()
     expect(update.mock.lastCall?.[0]).toBe(100)
@@ -77,7 +77,7 @@ describe('AnimatedNumber', () => {
     animateNumber(shown, 200, update)
     vi.advanceTimersByTime(16)
     expect(update.mock.lastCall?.[0]).toBe(interpolate(shown, 200, 16))
-    vi.advanceTimersByTime(384)
+    vi.advanceTimersByTime(640)
     expect(update.mock.lastCall?.[0]).toBe(200)
   })
 
@@ -102,7 +102,7 @@ describe('AnimatedNumber', () => {
 
   it.each([[0, 100], [100, 0], [-30, 50], [10, 10]])('interpola monótonamente desde %s hasta %s', (from, to) => {
     let previous = from
-    for (let elapsed = 0; elapsed <= 400; elapsed += 5) {
+    for (let elapsed = 0; elapsed <= 650; elapsed += 5) {
       const value = interpolate(from, to, elapsed)
       expect(value).toBeGreaterThanOrEqual(Math.min(from, to))
       expect(value).toBeLessThanOrEqual(Math.max(from, to))

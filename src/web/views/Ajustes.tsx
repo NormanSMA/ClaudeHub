@@ -1,7 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useApi, type Billing, type PriceOverride, type SettingsInfo } from '../api'
 import { int } from '../format'
+import { animationsOn, setAnimations } from '../components/AnimatedNumber'
 import { normVersion, useUpdateCheck } from '../update'
+
+function AnimationsToggle() {
+  const [on, setOn] = useState(animationsOn)
+  return (
+    <div className="field">
+      <label htmlFor="s-anim">
+        <input id="s-anim" type="checkbox" checked={on} onChange={(e) => { setAnimations(e.target.checked); setOn(e.target.checked) }} /> Animaciones
+      </label>
+      <small>Se guarda en este navegador y se aplica al instante. El movimiento reducido del sistema las apaga siempre.</small>
+    </div>
+  )
+}
 
 const PRESETS = [
   { value: '', label: 'Automático (estimado)' },
@@ -158,6 +171,8 @@ export function SettingsView() {
         </label>
         <small>Consulta la última versión publicada en GitHub al iniciar y cada 6 horas. Apagado, no hay llamadas a la red.</small>
       </div>
+
+      <AnimationsToggle />
 
       <SourceSettings sources={form.sources} onChange={(sources) => setForm({ ...form, sources })} />
 

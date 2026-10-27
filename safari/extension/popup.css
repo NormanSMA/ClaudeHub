@@ -24,3 +24,13 @@ main { padding: 0 8px; display: grid; gap: 8px; }
 .bar > i.ok { background: var(--ok); } .bar > i.warn { background: var(--warn); } .bar > i.danger { background: var(--danger); }
 .sa { color: var(--blue); }
 .err { padding: 12px; }
+footer .anim { color: var(--muted); display: flex; gap: 4px; align-items: center; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-anim-off]) main.enter .card { animation: rise 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  html:not([data-anim-off]) main.enter .card:nth-child(2) { animation-delay: 55ms; }
+  html:not([data-anim-off]) main.enter .card:nth-child(3) { animation-delay: 110ms; }
+  html:not([data-anim-off]) main.enter .card:nth-child(n + 4) { animation-delay: 165ms; }
+  html:not([data-anim-off]) main.enter .bar > i { transform-origin: left; animation: grow 600ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+}

@@ -1,5 +1,7 @@
 import { levelFrom, pickMascotState } from './mascot/mascotState'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { animationsOn, setAnimations } from './components/AnimatedNumber'
 import { AgentesView } from './views/Agentes'
 import { ModelosView } from './views/Modelos'
 import { ProyectosView } from './views/Proyectos'
@@ -41,7 +43,7 @@ const RANGES: { id: RangeId; label: string }[] = [
   { id: 'custom', label: 'Fechas' },
 ]
 
-function useTheme(): [string, () => void] {
+function useTheme(): [string, (origin?: { x: number; y: number }) => void] {
   const [theme, setTheme] = useState<string>(() => {
     const forced = new URLSearchParams(location.search).get('theme')
     if (forced === 'dark' || forced === 'light') return forced
@@ -61,7 +63,47 @@ function useTheme(): [string, () => void] {
     }
   }, [theme])
   const next = theme === 'auto' ? 'light' : theme === 'light' ? 'dark' : 'auto'
-  return [theme, () => setTheme(next)]
+  const change = (origin?: { x: number; y: number }) => {
+    const root = document.documentElement
+    const animate =
+      typeof document.startViewTransition === 'function' &&
+      animationsOn() &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!animate) {
+      setTheme(next)
+      return
+    }
+    root.style.setProperty('--vt-x', `${origin?.x ?? window.innerWidth - 40}px`)
+    root.style.setProperty('--vt-y', `${origin?.y ?? 24}px`)
+    document.startViewTransition(() => flushSync(() => setTheme(next)))
+  }
+  return [theme, change]
+}
+
+/** Barra de pestañas con una pildora que se desliza hasta la pestaña activa. */
+function AnimatedTabs<T extends string>({ items, active, onSelect }: { items: { id: T; label: string }[]; active: T; onSelect: (id: T) => void }) {
+  const navRef = useRef<HTMLElement | null>(null)
+  const [pill, setPill] = useState({ left: 0, width: 0 })
+  useLayoutEffect(() => {
+    const measure = () => {
+      const btn = navRef.current?.querySelector<HTMLButtonElement>('button.on')
+      if (btn) setPill({ left: btn.offsetLeft, width: btn.offsetWidth })
+    }
+    measure()
+    void document.fonts?.ready.then(measure)
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [active])
+  return (
+    <nav ref={navRef} className="tabs tabs-sliding" aria-label="Secciones">
+      <span className="tab-pill-indicator" style={{ transform: `translateX(${pill.left}px)`, width: pill.width }} aria-hidden="true" />
+      {items.map((t) => (
+        <button key={t.id} className={active === t.id ? 'on' : ''} onClick={() => onSelect(t.id)}>
+          {t.label}
+        </button>
+      ))}
+    </nav>
+  )
 }
 
 /** Arma la query del API: ?range=... o ?from=...&to=... (fechas locales, ambas incluidas). */
@@ -166,6 +208,7 @@ export function App() {
   }
   const { data: sources } = useApi<SourcesReport>('/api/sources')
   const [theme, cycleTheme] = useTheme()
+  useEffect(() => setAnimations(animationsOn()), [])
   const liveStatus = useLiveStatus()
   const { data: live } = useApi<Live>('/api/live', 5_000)
   const { data: act } = useApi<ActiveReport>('/api/active', 5_000)
@@ -191,7 +234,14 @@ export function App() {
           <span className="live-dot" aria-hidden="true" />
           {liveStatus === 'live' ? 'En vivo' : 'Sondeo'}
         </span>
-        <button className="link" onClick={cycleTheme} title="Cambiar tema">
+        <button
+          className="link"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            cycleTheme({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+          }}
+          title="Cambiar tema"
+        >
           Tema: {theme === 'auto' ? 'auto' : theme === 'light' ? 'claro' : 'oscuro'}
         </button>
       </header>
@@ -221,13 +271,7 @@ export function App() {
       )}
       <section className="card">
         <div className="bar">
-          <nav className="tabs" aria-label="Secciones">
-            {TABS.map((t) => (
-              <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>
-                {t.label}
-              </button>
-            ))}
-          </nav>
+          <AnimatedTabs items={TABS} active={tab} onSelect={setTab} />
           {tab !== 'agentes' && tab !== 'ajustes' && (
             <div className="tabs ranges" aria-label="Rango">
               {RANGES.map((r) => (

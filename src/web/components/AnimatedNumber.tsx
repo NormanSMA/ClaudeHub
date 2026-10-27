@@ -1,18 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
 
-const DURATION = 400
+const DURATION = 650
+
+const ANIM_KEY = 'animations'
+
+/** Interruptor propio de las animaciones; se suma a prefers-reduced-motion. */
+export function animationsOn(): boolean {
+  try {
+    return localStorage.getItem(ANIM_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+export function setAnimations(on: boolean): void {
+  if (typeof document !== 'undefined') {
+    if (on) document.documentElement.removeAttribute('data-anim')
+    else document.documentElement.setAttribute('data-anim', 'off')
+  }
+  try {
+    localStorage.setItem(ANIM_KEY, on ? 'on' : 'off')
+  } catch {
+    /* sin almacenamiento */
+  }
+}
 
 /** Interpola sin sobrepasar los extremos y conserva el valor final exacto. */
 export function interpolate(from: number, to: number, elapsed: number): number {
   if (elapsed <= 0) return from
   if (elapsed >= DURATION) return to
-  return from + (to - from) * (elapsed / DURATION)
+  const eased = 1 - Math.pow(2, -10 * (elapsed / DURATION))
+  return from + (to - from) * eased
 }
 
 /** Devuelve la cancelación del contador y de su escucha de movimiento reducido. */
 export function animateNumber(from: number, to: number, update: (value: number) => void): () => void {
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
-  if (motion.matches || from === to) {
+  if (motion.matches || from === to || !animationsOn()) {
     update(to)
     return () => {}
   }

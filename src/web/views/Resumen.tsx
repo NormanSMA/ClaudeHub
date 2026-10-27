@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { AnimatedNumber } from '../components/AnimatedNumber'
-import { CategoryBar, Heatmap } from '../components/charts'
+import { CategoryBar, Heatmap, Sparkline } from '../components/charts'
 import { Loading } from '../components/Loading'
 import { useApi, type Billing, type Summary } from '../api'
 import { billingText, compact, fmtUsd, hourLabel, int, pct } from '../format'
@@ -47,6 +47,7 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
             </div>
           </div>
           <div className="stat-sub">{compact(t.total)} tokens totales</div>
+          <Sparkline values={data.heatmap.slice(-30).map((d) => d.tokens)} />
         </div>
         <Stat
           label="Sesiones y mensajes"
