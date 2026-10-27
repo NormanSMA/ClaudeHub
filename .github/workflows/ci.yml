@@ -105,3 +105,12 @@ jobs:
           cat "$CLAUDEHUB_SMOKE_OUT"
           node -e "const r=require(process.env.CLAUDEHUB_SMOKE_OUT); if(!r.ok){console.error('La prueba de humo fallo'); process.exit(1)}"
           exit $code
+
+  safari-xcode:
+    name: safari-xcode
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar la extension de Safari sin firmar
+        run: |
+          xcodebuild -project safari/ClaudeHub/ClaudeHub.xcodeproj -scheme ClaudeHub -configuration Debug             -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build

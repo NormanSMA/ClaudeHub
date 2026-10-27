@@ -11,8 +11,9 @@ Captura del modo demo (datos ficticios), probada en Safari con macOS 27 en Apple
 
 ## Requisitos
 
-- macOS con Safari 17 o superior y Xcode.
+- macOS 14 (Sonoma) o superior, con Safari 17 o superior, y Xcode.
 - ClaudeHub corriendo: `pnpm tray` o `pnpm start`.
+- Puerto 4317 fijo. Con `pnpm demo` el servidor escucha en 4318: para probar la extension con datos ficticios usa `CLAUDEHUB_DEMO=1 PORT=4317 pnpm start`.
 
 ## Compilar e instalar
 
@@ -34,4 +35,4 @@ Con un perfil gratuito de desarrollo la app caduca a los 7 dias y hay que recomp
 
 ## Servidor
 
-La API solo responde con cabeceras CORS a origenes `safari-web-extension://` y solo en `GET`. El servidor sigue escuchando unicamente en `127.0.0.1`.
+La API solo responde con cabeceras CORS a origenes `safari-web-extension://`, solo en `GET` y solo en `/api/active`. Los demas endpoints no reciben CORS. El servidor sigue escuchando unicamente en `127.0.0.1`.
