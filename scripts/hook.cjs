@@ -8,15 +8,24 @@
 //
 // Uso: node hook.cjs [claude|codex]   (el JSON del evento llega por stdin)
 
+// @ts-check
 const fs = require('node:fs')
-const os = require('node:os')
 const path = require('node:path')
+const { dataDir } = require('./lib/paths.cjs')
+
+/**
+ * @typedef {import('../src/shared/files').EventLine} EventLine
+ * @typedef {import('../src/shared/files').HookInput} HookInput
+ * @typedef {import('../src/shared/files').HookSource} HookSource
+ * @typedef {import('../src/shared/files').HookStateName} HookStateName
+ */
 
 const MAX_LINE = 512
 const MAX_FILE = 256 * 1024
 const MAX_WAIT_MS = 800
 
 // Mapa evento a estado. Un evento desconocido no se anota.
+/** @type {Record<string, HookStateName>} */
 const STATES = {
   SessionStart: 'starting',
   UserPromptSubmit: 'thinking',
@@ -30,24 +39,26 @@ const STATES = {
   SessionEnd: 'idle',
 }
 
-// Misma logica que src/core/paths.ts
-function dataDir() {
-  if (process.env.CLAUDEHUB_DATA) return process.env.CLAUDEHUB_DATA
-  if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'ClaudeHub')
-  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'ClaudeHub')
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'ClaudeHub')
-}
-
-/** Devuelve el texto recortado a n caracteres, o '' si no es texto. */
+/**
+ * Devuelve el texto recortado a n caracteres, o '' si no es texto.
+ * @param {unknown} value
+ * @param {number} n
+ */
 function clip(value, n) {
   return typeof value === 'string' ? value.slice(0, n) : ''
 }
 
-/** Arma la linea de evento y la acorta hasta que no pase de 512 bytes. */
+/**
+ * Arma la linea de evento y la acorta hasta que no pase de 512 bytes.
+ * @param {HookSource} source
+ * @param {HookInput} j
+ * @returns {string | null}
+ */
 function buildLine(source, j) {
   const event = clip(j.hook_event_name, 40)
   const state = Object.prototype.hasOwnProperty.call(STATES, event) ? STATES[event] : null
   if (!state) return null
+  /** @type {EventLine} */
   const rec = {
     v: 1,
     ts: Date.now(),
@@ -68,6 +79,10 @@ function buildLine(source, j) {
   return Buffer.byteLength(line) + 1 > MAX_LINE ? null : line + '\n'
 }
 
+/**
+ * @param {HookSource} source
+ * @param {string} input
+ */
 function record(source, input) {
   const j = JSON.parse(input)
   if (!j || typeof j !== 'object') return
