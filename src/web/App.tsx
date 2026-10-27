@@ -80,14 +80,20 @@ function useTheme(): [string, (origin?: { x: number; y: number }) => void] {
   return [theme, change]
 }
 
-/** Barra de pestañas con una pildora que se desliza hasta la pestaña activa. */
+/** Barra de pestañas: la pildora se estira hacia la pestaña nueva y una segunda sigue al puntero. */
 function AnimatedTabs<T extends string>({ items, active, onSelect }: { items: { id: T; label: string }[]; active: T; onSelect: (id: T) => void }) {
   const navRef = useRef<HTMLElement | null>(null)
-  const [pill, setPill] = useState({ left: 0, width: 0 })
+  const [pill, setPill] = useState({ left: 0, right: 0, width: 0, dir: 'right' })
+  const [hover, setHover] = useState<{ left: number; width: number } | null>(null)
+  const prev = useRef(0)
   useLayoutEffect(() => {
     const measure = () => {
       const btn = navRef.current?.querySelector<HTMLButtonElement>('button.on')
-      if (btn) setPill({ left: btn.offsetLeft, width: btn.offsetWidth })
+      if (!btn) return
+      const moved = btn.offsetLeft - prev.current
+      prev.current = btn.offsetLeft
+      const nav = navRef.current!
+      setPill((o) => ({ left: btn.offsetLeft, right: nav.clientWidth - btn.offsetLeft - btn.offsetWidth, width: btn.offsetWidth, dir: moved > 0 ? 'right' : moved < 0 ? 'left' : o.dir }))
     }
     measure()
     void document.fonts?.ready.then(measure)
@@ -95,10 +101,16 @@ function AnimatedTabs<T extends string>({ items, active, onSelect }: { items: { 
     return () => window.removeEventListener('resize', measure)
   }, [active])
   return (
-    <nav ref={navRef} className="tabs tabs-sliding" aria-label="Secciones">
-      <span className="tab-pill-indicator" style={{ transform: `translateX(${pill.left}px)`, width: pill.width }} aria-hidden="true" />
+    <nav ref={navRef} className="tabs tabs-sliding" aria-label="Secciones" onMouseLeave={() => setHover(null)}>
+      <span className="tab-pill-hover" style={{ transform: `translateX(${hover?.left ?? pill.left}px)`, width: hover?.width ?? pill.width, opacity: hover ? 1 : 0 }} aria-hidden="true" />
+      <span className={`tab-pill-indicator to-${pill.dir}`} style={{ left: pill.left, right: pill.right }} aria-hidden="true" />
       {items.map((t) => (
-        <button key={t.id} className={active === t.id ? 'on' : ''} onClick={() => onSelect(t.id)}>
+        <button
+          key={t.id}
+          className={active === t.id ? 'on' : ''}
+          onClick={() => onSelect(t.id)}
+          onMouseEnter={(e) => setHover({ left: e.currentTarget.offsetLeft, width: e.currentTarget.offsetWidth })}
+        >
           {t.label}
         </button>
       ))}
