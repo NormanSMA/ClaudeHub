@@ -24,6 +24,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # electronDist apunta a node_modules/electron/dist; con la cache de pnpm puede faltar el binario
+      - name: Binario de Electron
+        run: node node_modules/electron/install.js
+
       # sin --publish never, electron-builder intentaria publicar con el token del runner
       - run: pnpm dist --publish never
 
