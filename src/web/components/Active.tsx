@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { ActiveChat, ActiveReport, PlanReport, PlanWindow } from './api'
-import { compact, pct } from './format'
+import type { ActiveChat, ActiveReport, PlanReport, PlanWindow } from '../api'
+import { compact, pct } from '../format'
 
 export function ctxColor(p: number, alertAt = 0.85): string {
   return p >= alertAt ? 'var(--danger)' : p >= 0.6 ? 'var(--warn)' : 'var(--ok)'

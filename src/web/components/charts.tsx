@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
-import type { Breakdown } from './api'
-import { compact, dayLabel, niceMax } from './format'
+import type { Breakdown } from '../api'
+import { compact, dayLabel, niceMax } from '../format'
 
 export const PALETTE = ['#D97757', '#5b8def', '#e3c99b', '#8fb4f2', '#a8553a', '#b8b0a4', '#6fa58a', '#c98bb9']
 

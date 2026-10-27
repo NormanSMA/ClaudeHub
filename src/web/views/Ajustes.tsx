@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useApi, type Billing, type PriceOverride, type SettingsInfo } from './api'
-import { int } from './format'
-import { normVersion, useUpdateCheck } from './update'
+import { useApi, type Billing, type PriceOverride, type SettingsInfo } from '../api'
+import { int } from '../format'
+import { normVersion, useUpdateCheck } from '../update'
 
 const PRESETS = [
   { value: '', label: 'Automático (estimado)' },

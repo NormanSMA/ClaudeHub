@@ -1,5 +1,5 @@
-import type { ModelVia } from './api'
-import { compact, msText, pct } from './format'
+import type { ModelVia } from '../api'
+import { compact, msText, pct } from '../format'
 import { OmniLogo } from './OmniLogo'
 import './omni-badge.css'
 

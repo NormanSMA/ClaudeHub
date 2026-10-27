@@ -1,5 +1,5 @@
-import type { SourceId, SourceInfo, SourcesReport } from './api'
-import { int } from './format'
+import type { SourceId, SourceInfo, SourcesReport } from '../api'
+import { int } from '../format'
 import { OmniLogo } from './OmniLogo'
 
 export type SourceFilter = 'all' | SourceId

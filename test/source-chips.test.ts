@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { SourceInfo, SourcesReport } from '../src/web/api'
-import { SourceChips, sourceChipText } from '../src/web/SourceChips'
+import { SourceChips, sourceChipText } from '../src/web/components/SourceChips'
 
 const active: SourceInfo = { enabled: true, ok: true, files: 1, records: 12 }
 

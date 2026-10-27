@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { codexBusy, exhaustText, levelClass, levelFrom, levelText, pickMascotState, type MascotInput } from '../src/web/mascotState'
+import { codexBusy, exhaustText, levelClass, levelFrom, levelText, pickMascotState, type MascotInput } from '../src/web/mascot/mascotState'
 
 const chat = (pct: number, working = false) => ({ working, context: { pct } })
 const claude = { source: 'claude', state: 'tool' }

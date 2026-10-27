@@ -1,4 +1,4 @@
-import { compact, fmtUsd, int } from './format'
+import { compact, fmtUsd, int } from '../format'
 import { AnimatedNumber } from './AnimatedNumber'
 
 export interface TodayTokens {

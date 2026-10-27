@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useApi, type Billing, type ModelsReport } from './api'
-import { PALETTE, StackedBars, fillDays } from './charts'
-import { billingText, compact, fmtUsd, pct } from './format'
-import { Loading } from './Loading'
-import { OmniBadge } from './OmniBadge'
+import { useApi, type Billing, type ModelsReport } from '../api'
+import { PALETTE, StackedBars, fillDays } from '../components/charts'
+import { billingText, compact, fmtUsd, pct } from '../format'
+import { Loading } from '../components/Loading'
+import { OmniBadge } from '../components/OmniBadge'
 
 type ModelRow = ModelsReport['models'][number]
 

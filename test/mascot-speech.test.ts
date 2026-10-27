@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { emptySpeechMemory, loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechInput } from '../src/web/mascotSpeech'
+import { emptySpeechMemory, loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechInput } from '../src/web/mascot/mascotSpeech'
 
 const NOW = new Date(2026, 9, 22, 12).getTime()
 const COOLDOWN = 10 * 60_000
