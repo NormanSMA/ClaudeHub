@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 const DURATION = 650
 
@@ -66,9 +66,18 @@ export function animateNumber(from: number, to: number, update: (value: number) 
 export function AnimatedNumber({ value, format }: { value: number; format: (value: number) => string }) {
   const [shown, setShown] = useState(value)
   const current = useRef(value)
-  useEffect(() => animateNumber(current.current, value, (next) => {
-    current.current = next
-    setShown(next)
-  }), [value])
+  const mounted = useRef(false)
+  // La primera vez cuenta desde cero; despues, desde el valor que se ve.
+  useLayoutEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      current.current = 0
+      setShown(0)
+    }
+    return animateNumber(current.current, value, (next) => {
+      current.current = next
+      setShown(next)
+    })
+  }, [value])
   return format(shown)
 }
