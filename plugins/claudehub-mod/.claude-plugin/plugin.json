@@ -1,0 +1,18 @@
+{
+  "name": "claudehub-mod",
+  "version": "0.1.0",
+  "description": "Mod de ClaudeHub: guarda los limites del plan y la ventana de contexto sin linea de estado, y agrega /chub.",
+  "author": { "name": "NormanSMA" },
+  "homepage": "https://github.com/NormanSMA/ClaudeHub",
+  "repository": "https://github.com/NormanSMA/ClaudeHub",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "showBand": {
+      "type": "boolean",
+      "title": "Banda del plan",
+      "description": "Muestra el porcentaje del limite de 5 horas sobre el prompt.",
+      "default": false
+    }
+  }
+}

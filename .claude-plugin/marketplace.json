@@ -1,0 +1,12 @@
+{
+  "name": "claudehub",
+  "owner": { "name": "NormanSMA" },
+  "metadata": { "description": "Mods de Claude Code para ClaudeHub, el monitor local de tokens." },
+  "plugins": [
+    {
+      "name": "claudehub-mod",
+      "source": "./plugins/claudehub-mod",
+      "description": "Guarda los limites del plan y la ventana de contexto para ClaudeHub y agrega /chub."
+    }
+  ]
+}
