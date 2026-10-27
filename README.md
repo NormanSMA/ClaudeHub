@@ -206,6 +206,10 @@ pnpm build
 
 Para generar tu propio instalador: `pnpm dist`. El resultado queda en `release/`.
 
+### Extensión de navegador
+
+Hay una extensión con la insignia de límites y los chats activos para [Safari](safari/README.md), y para Chrome, Edge, Brave y Firefox (`pnpm build:extensions`): ver [`extensions/README.md`](extensions/README.md).
+
 ## Instalar con una IA
 
 Copia este texto y pégalo en Claude Code, o en cualquier agente de IA con acceso a tu terminal.
