@@ -84,11 +84,26 @@ function withOmniroute(base: ScanResult): ScanResult {
   return { ...base, recs, sources: { ...base.sources, omniroute: stat } }
 }
 
+// El vigilante entrega las rutas que cambiaron y scan solo revisa esas.
+// Un escaneo completo cada 60 s cubre avisos perdidos; sin vigilancia completa, todos son completos.
+const FULL_SCAN_EVERY_MS = 60_000
+const changedPaths = new Set<string>()
+let lastFullScan = 0
+let allWatched = (): boolean => false
+
+function scanNow(): ScanResult {
+  const full = !allWatched() || Date.now() - lastFullScan >= FULL_SCAN_EVERY_MS
+  const changed = full ? undefined : [...changedPaths]
+  changedPaths.clear()
+  if (full) lastFullScan = Date.now()
+  return scan(PROJECTS_DIR, true, { changed })
+}
+
 let cached: { at: number; data: ScanResult } | null = null
 function data(): ScanResult {
   refreshOmniroute()
   if (!cached || Date.now() - cached.at > 4_000) {
-    cached = { at: Date.now(), data: DEMO ? demoData() : withOmniroute(scan()) }
+    cached = { at: Date.now(), data: DEMO ? demoData() : withOmniroute(scanNow()) }
   }
   return cached.data
 }
@@ -295,15 +310,18 @@ if (!DEMO) {
     const full = resolve(file)
     return basename(full) === 'cache.json' || basename(full) === 'update.json' || full.endsWith('.tmp') || full === omniDir || full.startsWith(omniDir + sep)
   }
+  const watchDirs = [PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir()]
   const watcher = createWatcher(
-    [PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir()],
-    () => {
+    watchDirs,
+    (files) => {
+      for (const f of files) changedPaths.add(f)
       cached = null
       reports.clear()
       hub.broadcast('changed')
     },
     { ignore },
   )
+  allWatched = () => watcher.watching().length === watchDirs.length
   process.on('exit', () => {
     watcher.close()
     hub.close()

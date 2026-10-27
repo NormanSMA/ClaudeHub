@@ -26,7 +26,7 @@ describe('createWatcher', () => {
   it('una rafaga de escrituras produce un solo aviso con el ultimo archivo', async () => {
     const dir = mkdtempSync(join(root, 'burst-'))
     const calls: string[] = []
-    open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 150 }))
+    open.push(createWatcher([dir], (files) => calls.push(...files), { debounceMs: 150 }))
     await armed()
     for (let i = 0; i < 5; i++) writeFileSync(join(dir, 'a.jsonl'), `linea ${i}\n`)
     await until(() => calls.length > 0)
@@ -38,7 +38,7 @@ describe('createWatcher', () => {
   it('un archivo .txt no avisa', async () => {
     const dir = mkdtempSync(join(root, 'txt-'))
     const calls: string[] = []
-    open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 100 }))
+    open.push(createWatcher([dir], (files) => calls.push(...files), { debounceMs: 100 }))
     writeFileSync(join(dir, 'nota.txt'), 'hola')
     await sleep(500)
     expect(calls).toHaveLength(0)
@@ -47,7 +47,7 @@ describe('createWatcher', () => {
   it('un archivo ignorado no avisa y otro si', async () => {
     const dir = mkdtempSync(join(root, 'ign-'))
     const calls: string[] = []
-    open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 100, ignore: (f) => f.endsWith('cache.json') }))
+    open.push(createWatcher([dir], (files) => calls.push(...files), { debounceMs: 100, ignore: (f) => f.endsWith('cache.json') }))
     writeFileSync(join(dir, 'cache.json'), '{}')
     await sleep(500)
     expect(calls).toHaveLength(0)
@@ -61,7 +61,7 @@ describe('createWatcher', () => {
     const dir = mkdtempSync(join(root, 'rec-'))
     mkdirSync(join(dir, 'sub'))
     const calls: string[] = []
-    open.push(createWatcher([dir], (f) => calls.push(f), { debounceMs: 100 }))
+    open.push(createWatcher([dir], (files) => calls.push(...files), { debounceMs: 100 }))
     await armed()
     writeFileSync(join(dir, 'sub', 'b.json'), '{}')
     await until(() => calls.length > 0)
@@ -73,7 +73,7 @@ describe('createWatcher', () => {
     const dir = join(root, 'tarde')
     const errors: unknown[] = []
     const calls: string[] = []
-    const w = createWatcher([dir], (f) => calls.push(f), { debounceMs: 100, retryMs: 100, onError: (e) => errors.push(e) })
+    const w = createWatcher([dir], (files) => calls.push(...files), { debounceMs: 100, retryMs: 100, onError: (e) => errors.push(e) })
     open.push(w)
     expect(w.watching()).toEqual([])
     mkdirSync(dir)
@@ -88,7 +88,7 @@ describe('createWatcher', () => {
   it('close cancela watchers y temporizadores', async () => {
     const dir = mkdtempSync(join(root, 'close-'))
     const calls: string[] = []
-    const w = createWatcher([dir, join(root, 'nunca')], (f) => calls.push(f), { debounceMs: 200, retryMs: 50 })
+    const w = createWatcher([dir, join(root, 'nunca')], (files) => calls.push(...files), { debounceMs: 200, retryMs: 50 })
     expect(w.watching()).toEqual([dir])
     writeFileSync(join(dir, 'd.jsonl'), 'x')
     await sleep(60)

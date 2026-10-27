@@ -17,17 +17,17 @@ export interface Watcher {
 }
 
 /**
- * Vigila carpetas y avisa una sola vez por rafaga de cambios.
+ * Vigila carpetas y avisa una sola vez por rafaga de cambios, con las rutas distintas que cambiaron.
  * Solo cuentan archivos .jsonl, .json y .sqlite. Las carpetas que no existen se reintentan.
  */
-export function createWatcher(dirs: string[], onChange: (file: string) => void, opts: WatcherOptions = {}): Watcher {
+export function createWatcher(dirs: string[], onChange: (files: string[]) => void, opts: WatcherOptions = {}): Watcher {
   const debounceMs = opts.debounceMs ?? 500
   const retryMs = opts.retryMs ?? 60_000
   const active = new Map<string, FSWatcher>()
   let debounce: NodeJS.Timeout | null = null
   let retry: NodeJS.Timeout | null = null
   let closed = false
-  let lastFile = ''
+  const changed = new Set<string>()
 
   const report = (e: unknown): void => {
     try {
@@ -46,11 +46,13 @@ export function createWatcher(dirs: string[], onChange: (file: string) => void, 
   }
 
   const schedule = (file: string): void => {
-    lastFile = file
+    changed.add(file)
     if (debounce) clearTimeout(debounce)
     debounce = setTimeout(() => {
       debounce = null
-      if (!closed) onChange(lastFile)
+      const files = [...changed]
+      changed.clear()
+      if (!closed) onChange(files)
     }, debounceMs)
     debounce.unref()
   }

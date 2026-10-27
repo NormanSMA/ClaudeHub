@@ -23,13 +23,26 @@ function* relevantLines(text: string): Generator<any> {
  * No copia texto de mensajes ni pensamientos.
  */
 export function parseGemini(text: string, project: string): Rec[] {
+  return parseGeminiChunk(text, project, { session: 'unknown' }, new Set())
+}
+
+/** Estado del parser entre lecturas por offset. Los ids vistos salen de los registros ya guardados. */
+export interface GeminiState {
+  session: string
+}
+
+const ID_PREFIX = 'gemini:'
+
+/** Ids de mensaje ya registrados: solo entran mensajes validos, asi que coinciden con los vistos. */
+export const seenGeminiIds = (recs: readonly Rec[]): Set<string> => new Set(recs.map((r) => r.id.slice(ID_PREFIX.length)))
+
+/** Igual que `parseGemini`, pero continua desde `state` y `seen`, y los actualiza al terminar. */
+export function parseGeminiChunk(text: string, project: string, state: GeminiState, seen: Set<string>): Rec[] {
   const recs: Rec[] = []
-  const seen = new Set<string>()
-  let session = 'unknown'
   for (const o of relevantLines(text)) {
     if (!o || typeof o !== 'object') continue
     if (o.type !== 'gemini') {
-      if (typeof o.sessionId === 'string' && o.sessionId) session = o.sessionId
+      if (typeof o.sessionId === 'string' && o.sessionId) state.session = o.sessionId
       continue
     }
     const t = o.tokens
@@ -40,7 +53,7 @@ export function parseGemini(text: string, project: string): Rec[] {
     seen.add(o.id)
     const cached = num(t.cached)
     recs.push({
-      id: `gemini:${o.id}`,
+      id: ID_PREFIX + o.id,
       ts,
       model: typeof o.model === 'string' && o.model ? o.model : 'gemini',
       input: Math.max(0, num(t.input) - cached),
@@ -48,7 +61,7 @@ export function parseGemini(text: string, project: string): Rec[] {
       cacheWrite: 0,
       output: num(t.output) + num(t.thoughts) + num(t.tool),
       reasoning: num(t.thoughts),
-      session,
+      session: state.session,
       project,
       role: 'orchestrator',
       source: 'gemini',
