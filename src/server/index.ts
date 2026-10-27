@@ -13,7 +13,7 @@ import { latestCodexLimits } from '../core/sources/codex-limits'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
 import { dataDir, codexSessionsDir, geminiTmpDir } from '../core/paths'
 import { createEventHub, createWatcher } from './watch'
-import { extensionOrigin } from './cors'
+import { extensionCors } from './cors'
 import { modelName } from '../core/models'
 import { demoOmniroute } from '../core/demo-omniroute'
 import { attachVia } from '../core/omniroute-via'
@@ -150,12 +150,7 @@ app.use('*', async (c, next) => {
   await next()
 })
 // La extension del navegador solo lee /api/active; ningun otro endpoint recibe CORS.
-app.use('/api/active', async (c, next) => {
-  await next()
-  c.res.headers.append('Vary', 'Origin')
-  const origin = extensionOrigin(c.req.header('origin'))
-  if (origin && c.req.method === 'GET') c.res.headers.set('Access-Control-Allow-Origin', origin)
-})
+app.use('/api/active', extensionCors)
 app.get('/api/summary', (c) => c.json(summary(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
 app.get('/api/models', (c) => {
   const source = sourceOfQuery(c)
