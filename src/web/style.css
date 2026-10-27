@@ -1549,6 +1549,18 @@ button.primary:disabled {
   html:not([data-anim='off']) .area-reveal {
     animation: cadra-reveal 900ms cubic-bezier(.22, 1, .36, 1) backwards;
   }
+  /* Las barras de relleno se descubren de izquierda a derecha al entrar. */
+  html:not([data-anim='off']) :is(.catbar-track i, .tree-bar i, .ctx-track i) {
+    animation: cadra-reveal 700ms cubic-bezier(.22, 1, .36, 1) 120ms backwards;
+  }
+  /* El contenido de la pestana nueva aparece con un fundido corto. */
+  @keyframes cadra-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  html:not([data-anim='off']) .view-enter {
+    animation: cadra-fade 260ms cubic-bezier(.22, 1, .36, 1) backwards;
+  }
 }
 
 .sparkline { display: block; margin-top: 6px; overflow: visible; }
