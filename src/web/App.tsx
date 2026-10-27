@@ -1,32 +1,25 @@
 import { levelFrom, pickMascotState } from './mascot/mascotState'
-import { cloneElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { AnimatedNumber } from './components/AnimatedNumber'
+import { useEffect, useRef, useState } from 'react'
 import { AgentesView } from './views/Agentes'
-import { Loading } from './components/Loading'
 import { ModelosView } from './views/Modelos'
+import { ProyectosView } from './views/Proyectos'
+import { ResumenView } from './views/Resumen'
+import { SesionesView } from './views/Sesiones'
 import {
   useApi,
   useLiveStatus,
   type ActiveReport,
-  type Billing,
   type ConfigInfo,
   type Live,
   type ModelsReport,
-  type ProjectRow,
-  type RolesReport,
-  type SessionRow,
   type SourcesReport,
-  type Summary,
 } from './api'
-import { CategoryBar, Heatmap, SplitBar, StackedBars, fillDays } from './components/charts'
-import { billingText, compact, dateLabel, fmtUsd, hourLabel, int, pct } from './format'
 import { Mascot, type MascotState } from './mascot/Mascot'
 import { SpeechBubble } from './mascot/SpeechBubble'
 import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine, type SpeechMemory } from './mascot/mascotSpeech'
 import { SettingsView } from './views/Ajustes'
 import { TodayCount } from './components/TodayCount'
 import { SourceChips, loadSource, saveSource, type SourceFilter } from './components/SourceChips'
-import { useSort } from './components/sort'
 import { balloonText, useUpdateNotice } from './update'
 
 type Tab = 'agentes' | 'resumen' | 'modelos' | 'sesiones' | 'proyectos' | 'ajustes'
@@ -47,279 +40,6 @@ const RANGES: { id: RangeId; label: string }[] = [
   { id: '7d', label: '7d' },
   { id: 'custom', label: 'Fechas' },
 ]
-
-// ~38.9k tokens, la longitud aproximada de "Rebelion en la granja"
-const BOOK_TOKENS = 38_918
-// encima de esto cada turno relee mucho contexto de cache
-const HEAVY_CONTEXT = 600_000
-
-function Stat({ label, value, hint, labelTitle, valueTitle, showHint }: { label: string; value: ReactNode; hint?: string; labelTitle?: string; valueTitle?: string; showHint?: boolean }) {
-  return (
-    <div className="stat" title={hint}>
-      <div className="stat-label" title={labelTitle}>{label}</div>
-      <div className="stat-value" title={valueTitle}>{value}</div>
-      {showHint && <div className="stat-sub">{hint}</div>}
-    </div>
-  )
-}
-
-export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: string; billing: Billing }) {
-  const { data, error } = useApi<Summary>(`/api/summary?${q}`)
-  if (!data) return <Loading error={error} />
-  const t = data.tokens
-  const cost = billingText(billing)
-  return (
-    <>
-      <section className="stats summary-primary" aria-label="Métricas principales">
-        <Stat
-          label={`${cost.label} del rango`}
-          labelTitle={cost.title}
-          value={<AnimatedNumber value={t.costUsd ?? 0} format={fmtUsd} />}
-          hint={`Ahorro por caché ${fmtUsd(t.cacheSavingsUsd ?? 0)}${(t.costUnpriced ?? 0) > 0 ? ` · ${compact(t.costUnpriced ?? 0)} tokens sin precio` : ''}`}
-          showHint
-        />
-        <div className="stat">
-          <div className="stat-label">Tokens nuevos frente a lectura de caché</div>
-          <div className="summary-token-pair">
-            <div title="Entrada + escritura de caché + salida">
-              <div className="stat-value"><AnimatedNumber value={t.fresh ?? t.input + t.cacheWrite + t.output} format={compact} /></div>
-              <div className="stat-sub">Nuevos</div>
-            </div>
-            <div>
-              <div className="stat-value"><AnimatedNumber value={t.cacheRead} format={compact} /></div>
-              <div className="stat-sub">Lectura de caché</div>
-            </div>
-          </div>
-          <div className="stat-sub">{compact(t.total)} tokens totales</div>
-        </div>
-        <Stat
-          label="Sesiones y mensajes"
-          value={<><AnimatedNumber value={data.sessions} format={int} /> sesiones</>}
-          hint={`${int(data.messages)} mensajes · Respuestas del modelo, sin duplicados`}
-          showHint
-        />
-      </section>
-      <section className="stats small summary-secondary" aria-label="Métricas secundarias">
-        <Stat label="Días activos" value={<AnimatedNumber value={data.activeDays} format={int} />} />
-        <Stat label="Hora pico" value={hourLabel(data.peakHour)} />
-        <Stat label="Modelo favorito" value={data.favoriteModel ?? '-'} />
-      </section>
-      <Heatmap days={data.heatmap} />
-      <p className="note">Usaste ~{int(Math.round(t.total / BOOK_TOKENS))}x mas tokens que Rebelion en la granja.</p>
-      <div className="stats two">
-        <Stat
-          label="Eficiencia de cache"
-          value={<AnimatedNumber value={t.cacheRead / Math.max(1, t.input + t.cacheWrite + t.cacheRead)} format={pct} />}
-          hint="Parte de la entrada que se leyo desde cache"
-        />
-        <Stat label="Salida visible" value={<AnimatedNumber value={Math.max(0, t.output - (t.reasoning ?? 0))} format={compact} />} hint="Salida sin pensamiento" />
-      </div>
-      <CategoryBar tokens={t} />
-      <h3 className="section-title">Orquestador vs subagentes (solo Claude)</h3>
-      <RolesView q={qClaude} />
-    </>
-  )
-}
-
-type AgentRow = RolesReport['agents'][number]
-
-function RolesView({ q }: { q: string }) {
-  const { data, error } = useApi<RolesReport>(`/api/roles?${q}`)
-  const agents = useMemo(() => data?.agents ?? [], [data])
-  const { sorted, th } = useSort<AgentRow>(
-    agents,
-    { agent: (a) => a.agent, messages: (a) => a.messages, output: (a) => a.output, total: (a) => a.total },
-    'total',
-  )
-  if (!data) return <Loading error={error} />
-  const rows = fillDays(
-    data.daily.map((d) => ({ day: d.day, values: { Orquestador: d.orchestrator, Subagentes: d.subagent } })),
-    (day) => ({ day, values: {} as Record<string, number> }),
-  )
-  const o = data.orchestrator
-  const s = data.subagent
-  return (
-    <>
-      <div className="stats two">
-        <div className="stat role">
-          <div className="stat-label">
-            <i className="dot" style={{ background: 'var(--accent)' }} /> Orquestador
-          </div>
-          <div className="stat-value"><AnimatedNumber value={o.total} format={compact} /></div>
-          <div className="stat-sub">
-            {pct(o.share)} · {int(o.messages)} mensajes · salida {compact(o.output)}
-          </div>
-        </div>
-        <div className="stat role">
-          <div className="stat-label">
-            <i className="dot" style={{ background: 'var(--blue)' }} /> Subagentes
-          </div>
-          <div className="stat-value"><AnimatedNumber value={s.total} format={compact} /></div>
-          <div className="stat-sub">
-            {pct(s.share)} · {int(s.messages)} mensajes · salida {compact(s.output)}
-          </div>
-        </div>
-      </div>
-      <StackedBars
-        data={rows}
-        series={[
-          { key: 'Orquestador', color: 'var(--accent)' },
-          { key: 'Subagentes', color: 'var(--blue)' },
-        ]}
-      />
-      <h3>Subagentes por tipo</h3>
-      {sorted.length === 0 ? (
-        <div className="empty">No hubo subagentes en este rango</div>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              {th('agent', 'Tipo')}
-              {th('messages', 'Mensajes', true)}
-              {th('output', 'Salida', true)}
-              {th('total', 'Tokens', true)}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((a) => (
-              <tr key={a.agent}>
-                <td>{a.agent}</td>
-                <td className="num">{int(a.messages)}</td>
-                <td className="num">{compact(a.output)}</td>
-                <td className="num">{compact(a.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </>
-  )
-}
-
-function SesionesView({ q, billing }: { q: string; billing: Billing }) {
-  const cost = billingText(billing)
-  const { data, error } = useApi<SessionRow[]>(`/api/sessions?${q}`)
-  const [text, setText] = useState('')
-  const [project, setProject] = useState('')
-  const all = useMemo(() => data ?? [], [data])
-  const projects = useMemo(() => [...new Set(all.map((s) => s.project))].sort((a, b) => a.localeCompare(b, 'es')), [all])
-  const rows = useMemo(() => {
-    const needle = text.trim().toLowerCase()
-    return all.filter(
-      (s) => (!project || s.project === project) && (!needle || (s.title + ' ' + s.project).toLowerCase().includes(needle)),
-    )
-  }, [all, text, project])
-  const { sorted, th } = useSort<SessionRow>(
-    rows,
-    {
-      title: (s) => s.title,
-      last: (s) => s.last,
-      split: (s) => s.sub / (s.total || 1),
-      messages: (s) => s.messages,
-      total: (s) => s.total,
-      costUsd: (s) => s.costUsd,
-    },
-    'total',
-  )
-  if (!data) return <Loading error={error} />
-  return (
-    <>
-      <div className="filters">
-        <input
-          className="search"
-          type="search"
-          placeholder="Buscar por titulo o proyecto"
-          aria-label="Buscar sesiones"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <select aria-label="Filtrar por proyecto" value={project} onChange={(e) => setProject(e.target.value)}>
-          <option value="">Todos los proyectos</option>
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </div>
-      <table className="sessions-table">
-        <thead>
-          <tr>
-            {th('title', 'Chat')}
-            {th('last', 'Ultimo uso')}
-            {th('split', 'Reparto')}
-            {th('messages', 'Mensajes', true)}
-            {th('total', 'Tokens', true)}
-            {cloneElement(th('costUsd', cost.label, true), { title: cost.title })}
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((s) => (
-            <tr key={s.session}>
-              <td className="title" title={`${s.title} - ${s.project} (${s.session.slice(0, 8)})`}>
-                {s.title}
-                <div className="active-meta">
-                  {s.project}
-                  {(s.peakContext ?? 0) > HEAVY_CONTEXT && (
-                    <span className="heavy-tag" title={`Pico de contexto: ${int(s.peakContext ?? 0)} tokens. Cada turno relee todo ese contexto.`}>
-                      Contexto pesado
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td>{dateLabel(s.last)}</td>
-              <td>
-                <SplitBar a={s.orch} b={s.sub} />
-              </td>
-              <td className="num">{int(s.messages)}</td>
-              <td className="num">{compact(s.total)}</td>
-              <td className="num">{fmtUsd(s.costUsd)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {sorted.length === 0 && <div className="empty">Ningun chat coincide con los filtros</div>}
-    </>
-  )
-}
-
-function ProyectosView({ q, billing }: { q: string; billing: Billing }) {
-  const cost = billingText(billing)
-  const { data, error } = useApi<ProjectRow[]>(`/api/projects?${q}`)
-  const all = useMemo(() => data ?? [], [data])
-  const { sorted, th } = useSort<ProjectRow>(
-    all,
-    { project: (p) => p.project, split: (p) => p.sub / (p.total || 1), sessions: (p) => p.sessions, total: (p) => p.total, costUsd: (p) => p.costUsd },
-    'total',
-  )
-  if (!data) return <Loading error={error} />
-  return (
-    <table className="projects-table">
-      <thead>
-        <tr>
-          {th('project', 'Proyecto')}
-          {th('split', 'Reparto')}
-          {th('sessions', 'Sesiones', true)}
-          {th('total', 'Tokens', true)}
-          {cloneElement(th('costUsd', cost.label, true), { title: cost.title })}
-        </tr>
-      </thead>
-      <tbody>
-        {sorted.map((p) => (
-          <tr key={p.project}>
-            <td>{p.project}</td>
-            <td>
-              <SplitBar a={p.orch} b={p.sub} />
-            </td>
-            <td className="num">{int(p.sessions)}</td>
-            <td className="num">{compact(p.total)}</td>
-            <td className="num project-cost"><strong>{fmtUsd(p.costUsd)}</strong></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
 
 function useTheme(): [string, () => void] {
   const [theme, setTheme] = useState<string>(() => {
