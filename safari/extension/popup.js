@@ -90,7 +90,10 @@ async function render() {
       ? `Nuevos (entrada + escritura de cache + salida): ${d.todayFresh}\nLectura de cache: ${d.todayCacheRead ?? 0}\nTotal: ${d.todayTokens}`
       : ''
     root.replaceChildren(planCard(d), ...d.chats.map((c) => chatCard(c, d.alertAt)))
-    if (first) root.classList.add('enter')
+    if (first) {
+      root.classList.add('enter')
+      setTimeout(() => root.classList.remove('enter'), 1000)
+    }
     first = false
     if (d.chats.length === 0) root.append(el('p', 'muted err', 'No hay chats activos.'))
   } catch {

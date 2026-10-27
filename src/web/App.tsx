@@ -93,6 +93,8 @@ function AnimatedTabs<T extends string>({ items, active, onSelect }: { items: { 
       const moved = btn.offsetLeft - prev.current
       prev.current = btn.offsetLeft
       const nav = navRef.current!
+      if (btn.offsetLeft < nav.scrollLeft) nav.scrollLeft = btn.offsetLeft - 6
+      else if (btn.offsetLeft + btn.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = btn.offsetLeft + btn.offsetWidth - nav.clientWidth + 6
       setPill((o) => ({ left: btn.offsetLeft, right: nav.clientWidth - btn.offsetLeft - btn.offsetWidth, width: btn.offsetWidth, dir: moved > 0 ? 'right' : moved < 0 ? 'left' : o.dir }))
     }
     measure()

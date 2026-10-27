@@ -198,6 +198,15 @@ h3 {
   padding: 3px;
   border-radius: 999px;
   flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-sliding::-webkit-scrollbar {
+  display: none;
+}
+.tabs-sliding button {
+  flex: none;
 }
 .tab-pill-indicator,
 .tab-pill-hover {
