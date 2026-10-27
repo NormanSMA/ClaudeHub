@@ -317,12 +317,14 @@ export function App() {
             )}
           </div>
         )}
-        {tab === 'agentes' && <AgentesView />}
-        {tab === 'resumen' && <ResumenView q={qs} qClaude={q} billing={cfg?.billing ?? 'subscription'} />}
-        {tab === 'modelos' && <ModelosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
-        {tab === 'sesiones' && <SesionesView q={qs} billing={cfg?.billing ?? 'subscription'} />}
-        {tab === 'proyectos' && <ProyectosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
-        {tab === 'ajustes' && <SettingsView />}
+        <div key={tab} className="view-enter">
+          {tab === 'agentes' && <AgentesView />}
+          {tab === 'resumen' && <ResumenView q={qs} qClaude={q} billing={cfg?.billing ?? 'subscription'} />}
+          {tab === 'modelos' && <ModelosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
+          {tab === 'sesiones' && <SesionesView q={qs} billing={cfg?.billing ?? 'subscription'} />}
+          {tab === 'proyectos' && <ProyectosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
+          {tab === 'ajustes' && <SettingsView />}
+        </div>
       </section>
       <DashboardFooter />
     </main>
