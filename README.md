@@ -41,10 +41,12 @@ Un monitor local para Windows, macOS y Linux: dashboard web, mascota flotante en
 - [Uso](#uso)
 - [Límite de contexto real](#límite-de-contexto-real)
 - [Límites de tu plan](#límites-de-tu-plan-5-horas-y-semanal)
+- [Mod de Claude Code](#mod-de-claude-code)
 - [Otras fuentes: Codex, Gemini y OmniRoute](#otras-fuentes-codex-gemini-y-omniroute)
 - [Estados por hooks](#estados-por-hooks)
 - [Actualización en vivo](#actualización-en-vivo)
 - [Cómo funciona](#cómo-funciona)
+- [Cómo calcula ClaudeHub tokens y costos](#cómo-calcula-claudehub-tokens-y-costos)
 - [Configuración](#configuración)
 - [API local](#api-local)
 - [Privacidad y seguridad](#privacidad-y-seguridad)
@@ -363,6 +365,29 @@ Ejecuta `/uso` en una sesión de Claude Code. Muestra el porcentaje y la hora de
 
 Los datos se actualizan solo cuando ejecutas `/uso`. Ningún hook puede llamar a `get_usage`.
 
+## Mod de Claude Code
+
+El mod `claudehub-mod` es un plugin opcional de Claude Code. Complementa a `scripts/statusline.cjs` y `scripts/hook.cjs`, que siguen funcionando.
+
+> Estado: su funcionamiento en la app de escritorio de Claude aún está por confirmar. Las pruebas del plugin pasan, pero falta comprobarlo en esa app.
+
+### Instalar el mod
+
+```bash
+claude plugin marketplace add NormanSMA/ClaudeHub
+claude plugin install claudehub-mod@claudehub
+```
+
+Luego ejecuta `/reload-plugins` en Claude Code.
+
+### Qué hace
+
+- Escribe `rate-limits.json` y `context-windows.json` en la carpeta de datos de ClaudeHub, con el mismo formato que la línea de estado. La idea es que sirva en la app de escritorio sin ejecutar `/uso`.
+- Agrega el comando `/chub`: responde una línea con los tokens nuevos, la caché y el costo de hoy. Necesita ClaudeHub en marcha en `127.0.0.1:4317`.
+- Puede mostrar el porcentaje del límite de 5 horas sobre el prompt. Esa banda (`showBand`) viene apagada.
+
+El mod no lee tokens OAuth ni `~/.claude/settings.json`, y solo guarda campos de uso. Lee más en [plugins/claudehub-mod/README.md](plugins/claudehub-mod/README.md).
+
 ## Otras fuentes: Codex, Gemini y OmniRoute
 
 Además de Claude Code, ClaudeHub lee el uso de tres fuentes. La ruta `/api/sources` indica si cada una se pudo leer.
@@ -455,6 +480,8 @@ El servidor vigila `~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/tmp` y 
 
 La interfaz mantiene un sondeo de respaldo. Con el aviso en vivo abierto, el sondeo pasa a un ciclo de 60 segundos como mínimo. Si el aviso falla, vuelve al ciclo normal.
 
+La lectura también es incremental: el servidor relee solo las rutas que cambiaron. Cada 60 segundos hace un escaneo completo de respaldo, por si se perdió un aviso. Sin vigilancia de todas las carpetas, cada lectura es completa.
+
 ### Aviso de límite alcanzado
 
 Esto no necesita la línea de estado. Cuando llegas a un límite, Claude Code lo anota en los registros con la hora exacta de reinicio. ClaudeHub lo lee y muestra un aviso rojo, por ejemplo **Límite de 5 horas alcanzado. Se restablece en 1 h 12 min**, además de una notificación del sistema y la mascota en alerta. Funciona también con la app de escritorio.
@@ -505,6 +532,30 @@ El contexto en uso de un chat es la entrada del último mensaje del orquestador:
 - Las ventanas ocultas dejan de consultar datos.
 - El servidor corre en un proceso aparte, así que no frena la mascota.
 - Medido en una laptop con Windows 11: la bandeja usa entre 300 y 450 MB de RAM y cerca de 0% de CPU en reposo.
+
+## Cómo calcula ClaudeHub tokens y costos
+
+### Tokens
+
+- **Tokens nuevos** = entrada + escritura de caché + salida.
+- **Lectura de caché** se cuenta aparte. Suele pasar del 90 % del total.
+- **Total** = entrada + escritura de caché + lectura de caché + salida. Sigue siendo la suma de las cuatro.
+- **Deduplicación por `message.id`.** Un mensaje que aparece en varias líneas se cuenta una vez.
+- **El día** se corta a medianoche, en la zona horaria local.
+
+### Costo
+
+El costo es un **valor equivalente en API**: lo que costarían esos tokens con las tarifas por token de la API. No es lo que pagas con una suscripción Pro o Max.
+
+- En **Ajustes > Precios** eliges la modalidad. Con suscripción, la cifra se llama **Valor API**. Con API por token, se llama **Costo**.
+- El **ahorro por caché** compara lo que cuesta la lectura de caché con cobrarla como entrada normal. Descuenta el sobrecosto de la escritura de caché.
+- En OmniRoute, los proveedores que marques como gratuitos cuentan con costo 0.
+
+### Precios
+
+Las tarifas vienen en el código, en USD por millón de tokens. Puedes cambiarlas por modelo en **Ajustes > Precios**. Los campos vacíos conservan la tarifa por defecto.
+
+Si un modelo no tiene tarifa, ClaudeHub no inventa un precio. Muestra **sin precio** en Modelos y cuenta esos tokens aparte en Resumen. No los muestra como $0.
 
 ## Configuración
 
@@ -633,37 +684,46 @@ Para reportar una vulnerabilidad, lee [SECURITY.md](SECURITY.md).
 
 ```
 ClaudeHub/
-├─ .github/               CI, plantillas de issues y de pull requests
-├─ build/icon.png         icono de la aplicación
+├─ .claude-plugin/       plugin de Claude Code: catálogo (marketplace.json)
+├─ .github/              CI, plantillas de issues y de pull requests
+├─ build/icon.png        icono de la aplicación
+├─ plugins/claudehub-mod/mod de Claude Code: límites, contexto y /chub
 ├─ scripts/
-│  ├─ commands/uso.md     comando /uso para los límites del plan
-│  ├─ hook.cjs            hook de estados (escribe events.jsonl)
-│  ├─ launch.cjs          lanzador para el hook SessionStart
-│  ├─ statusline.cjs      línea de estado y registro de la ventana real
-│  └─ write-limits.cjs    guarda los límites del plan que usa /uso
+│  ├─ commands/uso.md    comando /uso para los límites del plan
+│  ├─ lib/paths.cjs      carpeta de datos compartida por los scripts
+│  ├─ hook.cjs           hook de estados (escribe events.jsonl)
+│  ├─ launch.cjs         lanzador para el hook SessionStart
+│  ├─ statusline.cjs     línea de estado y registro de la ventana real
+│  └─ write-limits.cjs   guarda los límites del plan que usa /uso
 ├─ src/
-│  ├─ core/               parser, caché, agregación y configuración
-│  │  ├─ parse.ts         lectura incremental y deduplicación
-│  │  ├─ scan.ts          recorrido de logs y caché
-│  │  ├─ sources/         Codex, Gemini y OmniRoute
-│  │  ├─ agents.ts        estados de agentes, atascos, choques y mascota
-│  │  ├─ overview.ts      campos extra de /api/active
-│  │  ├─ aggregate.ts     reportes, rangos y contexto
-│  │  ├─ demo.ts          datos ficticios para el modo demo
-│  │  ├─ config.ts        configuración validada
-│  │  ├─ paths.ts         carpetas de datos por sistema
-│  │  ├─ windows.ts       ventanas de contexto reales
-│  │  ├─ plan.ts          límites del plan (5 horas y semanal)
-│  │  ├─ models.ts        "claude-opus-5-5" -> "Opus 5.5"
-│  │  └─ cli.ts           resumen por terminal
-│  ├─ server/             API local, archivos estáticos y avisos en vivo
-│  │  ├─ index.ts         rutas
-│  │  └─ watch.ts         vigilancia de carpetas y SSE
-│  ├─ tray/               Electron: bandeja, mascota, alertas
-│  └─ web/                React: dashboard, ajustes y mascota
-├─ docs/                  logo y capturas del modo demo
-├─ test/                  pruebas
-├─ AGENTS.md              guía para agentes de IA
+│  ├─ core/              parser, caché, agregación y configuración
+│  │  ├─ parse.ts        lectura incremental y deduplicación
+│  │  ├─ scan.ts         recorrido de logs y caché (completo o solo rutas cambiadas)
+│  │  ├─ sources/        Codex, Gemini y OmniRoute
+│  │  ├─ agents.ts       estados de agentes, atascos, choques y mascota
+│  │  ├─ overview.ts     campos extra de /api/active
+│  │  ├─ aggregate.ts    reportes, rangos y contexto
+│  │  ├─ pricing.ts      tarifas, costo y ahorro por caché
+│  │  ├─ demo.ts         datos ficticios para el modo demo
+│  │  ├─ config.ts       configuración validada
+│  │  ├─ paths.ts        carpetas de datos por sistema
+│  │  ├─ windows.ts      ventanas de contexto reales
+│  │  ├─ plan.ts         límites del plan (5 horas y semanal)
+│  │  ├─ models.ts       "claude-opus-5-5" -> "Opus 5.5"
+│  │  └─ cli.ts          resumen por terminal
+│  ├─ server/            API local, archivos estáticos y avisos en vivo
+│  │  ├─ index.ts        rutas
+│  │  └─ watch.ts        vigilancia de carpetas y SSE
+│  ├─ shared/            formas de los archivos que escriben los scripts
+│  ├─ tray/              Electron: bandeja, mascota, alertas
+│  └─ web/               React: dashboard, ajustes y mascota
+│     ├─ views/          pestañas: Agentes, Resumen, Modelos, Roles, Sesiones, Proyectos y Ajustes
+│     ├─ components/     piezas compartidas: gráficos, chips, chats activos
+│     ├─ mascot/         Chispa: componente, estados y frases
+│     └─ App.tsx y más   base (App.tsx), ventana flotante (overlay.tsx) y avisos en vivo (live.ts)
+├─ docs/                 logo y capturas del modo demo
+├─ test/                 pruebas
+├─ AGENTS.md             guía para agentes de IA
 └─ LICENSE                MIT
 ```
 

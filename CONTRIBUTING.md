@@ -39,6 +39,9 @@ Los tres deben pasar. El CI los corre en Linux, Windows y macOS.
 - **Privacidad primero.** ClaudeHub lee solo campos de uso: modelo, tokens, fechas, sesión y título. No guardes ni muestres el texto de las conversaciones.
 - El servidor escucha solo en `127.0.0.1`. No lo cambies.
 - Si agregas una función, agrega una prueba en `test/`.
+- Si tocas `src/core/parse.ts` o `src/core/aggregate.ts`, agrega una prueba de zona horaria y otra de deduplicación por `message.id`.
+- Si cambias la forma de la caché de escaneo, sube `CACHE_VERSION` en `src/core/scan.ts`.
+- Los `.cjs` de `scripts/` y `src/tray/` llevan `// @ts-check`. `npx tsc --noEmit` los revisa.
 - Las capturas del README salen siempre del modo demo. Nunca subas capturas con tus chats reales.
 - Las pruebas usan una carpeta de datos temporal (`test/setup.ts`). Nunca leen tu `config.json` real.
 - La única llamada de red del servidor es la revisión de versión (`src/core/update.ts`). No agregues otras sin abrir un issue antes.
