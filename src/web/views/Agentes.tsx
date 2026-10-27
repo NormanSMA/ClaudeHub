@@ -1,6 +1,7 @@
 import { ActiveList, PlanLimits, ctxColor, untilText } from '../components/Active'
 import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId, type TokenLevel } from '../api'
 import { compact, minutesText, pct } from '../format'
+import { ArcGauge } from '../components/charts'
 
 const SOURCE_NAME: Record<SourceId, string> = {
   claude: 'Claude',
@@ -76,6 +77,7 @@ function LevelCards({ level }: { level: TokenLevel }) {
           <div className="stat-sub">
             {Math.round(level.pct)}% {basis}
           </div>
+          <ArcGauge pct={level.pct} color="var(--lv)" />
           <div className="level-meter" aria-hidden="true">
             {[1, 2, 3, 4, 5].map((n) => (
               <i key={n} className={n <= level.level ? 'on' : ''} />

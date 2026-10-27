@@ -89,14 +89,43 @@ export function Heatmap({ days }: { days: { day: string; tokens: number }[] }) {
   const level = (v: number) => (v <= 0 ? 0 : v <= cuts[0] ? 1 : v <= cuts[1] ? 2 : v <= cuts[2] ? 3 : 4)
   return (
     <div className="heatmap" role="img" aria-label="Actividad por dia">
-      {days.map((d) => (
+      {days.map((d, i) => (
         <span
           key={d.day}
           className={`cell l${d.day > todayKey ? 'x' : level(d.tokens)}`}
+          style={{ '--cell-delay': `${(Math.floor(i / 7) + i % 7) * 18}ms` } as CSSProperties}
           title={`${dayLabel(d.day)}: ${compact(d.tokens)} tokens`}
         />
       ))}
     </div>
+  )
+}
+
+export function Sparkline({ values, width = 96, height = 28 }: { values: number[]; width?: number; height?: number }) {
+  if (values.length < 2) return null
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const points = values.map((value, i) => {
+    const x = 2 + i / (values.length - 1) * (width - 4)
+    const y = max === min ? height / 2 : 2 + (1 - (value - min) / (max - min)) * (height - 4)
+    return `${x},${y}`
+  }).join(' ')
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <polyline className="sparkline-line" points={points} pathLength={1}
+        fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function ArcGauge({ pct, color }: { pct: number; color: string }) {
+  const value = Math.min(100, Math.max(0, pct))
+  return (
+    <svg viewBox="0 0 100 56" role="img" aria-label={`Nivel ${Math.round(pct)}%`}>
+      <path d="M 6 50 A 44 44 0 0 1 94 50" fill="none" stroke="var(--stat)" strokeWidth={8} strokeLinecap="round" />
+      <path className="arc-gauge-value" d="M 6 50 A 44 44 0 0 1 94 50" fill="none" stroke={color}
+        strokeWidth={8} strokeLinecap="round" pathLength={100} strokeDasharray={`${value} 100`} />
+    </svg>
   )
 }
 
