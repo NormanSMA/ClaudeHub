@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties, type PointerEvent } from 'react'
 import type { Breakdown } from '../api'
 import { compact, dayLabel, niceMax } from '../format'
 
@@ -101,30 +101,99 @@ export function Heatmap({ days }: { days: { day: string; tokens: number }[] }) {
   )
 }
 
+/** Curva suave por los puntos: control horizontal en el punto medio de cada tramo. */
+function smoothPath(pts: { x: number; y: number }[]): string {
+  return pts.reduce((d, p, i) => {
+    if (i === 0) return `M ${p.x},${p.y}`
+    const q = pts[i - 1]
+    const cx = (q.x + p.x) / 2
+    return `${d} C ${cx},${q.y} ${cx},${p.y} ${p.x},${p.y}`
+  }, '')
+}
+
 export function Sparkline({ values, width = 96, height = 28 }: { values: number[]; width?: number; height?: number }) {
   if (values.length < 2) return null
   const min = Math.min(...values)
   const max = Math.max(...values)
-  const points = values.map((value, i) => {
-    const x = 2 + i / (values.length - 1) * (width - 4)
-    const y = max === min ? height / 2 : 2 + (1 - (value - min) / (max - min)) * (height - 4)
-    return `${x},${y}`
-  }).join(' ')
+  const pts = values.map((value, i) => ({
+    x: 3 + (i / (values.length - 1)) * (width - 6),
+    y: max === min ? height / 2 : 3 + (1 - (value - min) / (max - min)) * (height - 6),
+  }))
+  const last = pts[pts.length - 1]
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-      <polyline className="sparkline-line" points={points} pathLength={1}
-        fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <svg className="sparkline" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <path className="sparkline-line" d={smoothPath(pts)} pathLength={1} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <circle className="sparkline-dot" cx={last.x} cy={last.y} r={3} fill="var(--accent)" />
     </svg>
+  )
+}
+
+/** Area suave de tokens por dia con cursor vertical y globo al pasar el puntero. */
+export function TokenAreaChart({ days }: { days: { day: string; tokens: number }[] }) {
+  const [hover, setHover] = useState<number | null>(null)
+  if (days.length < 2) return null
+  const W = 640
+  const H = 150
+  const padX = 8
+  const top = 12
+  const bottom = 22
+  const max = Math.max(...days.map((d) => d.tokens), 1)
+  const pts = days.map((d, i) => ({
+    x: padX + (i / (days.length - 1)) * (W - padX * 2),
+    y: top + (1 - d.tokens / max) * (H - top - bottom),
+  }))
+  const line = smoothPath(pts)
+  const area = `${line} L ${pts[pts.length - 1].x},${H - bottom} L ${pts[0].x},${H - bottom} Z`
+  const move = (e: PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const f = (e.clientX - r.left) / r.width
+    setHover(Math.min(days.length - 1, Math.max(0, Math.round(((f * W - padX) / (W - padX * 2)) * (days.length - 1)))))
+  }
+  const h = hover === null ? null : { p: pts[hover], d: days[hover] }
+  const tipLeft = h ? Math.min(78, Math.max(22, (h.p.x / W) * 100)) : 0
+  return (
+    <div className="area-chart">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Tokens por dia" onPointerMove={move} onPointerLeave={() => setHover(null)}>
+        <defs>
+          <linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1={padX} x2={W - padX} y1={H - bottom} y2={H - bottom} stroke="var(--line)" />
+        <g className="area-reveal">
+          <path d={area} fill="url(#area-fill)" />
+          <path d={line} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </g>
+        <text x={padX} y={H - 6} className="area-axis">{dayLabel(days[0].day)}</text>
+        <text x={W - padX} y={H - 6} textAnchor="end" className="area-axis">{dayLabel(days[days.length - 1].day)}</text>
+        {h && (
+          <g className="area-scrub">
+            <line x1={h.p.x} x2={h.p.x} y1={top} y2={H - bottom} stroke="var(--muted)" strokeDasharray="3 3" />
+            <circle cx={h.p.x} cy={h.p.y} r={4.5} fill="var(--bg)" stroke="var(--accent)" strokeWidth={2} />
+          </g>
+        )}
+      </svg>
+      {h && (
+        <div className="area-tip" style={{ left: `${tipLeft}%` }}>
+          <b>{compact(h.d.tokens)}</b> <span>{dayLabel(h.d.day)}</span>
+        </div>
+      )}
+    </div>
   )
 }
 
 export function ArcGauge({ pct, color }: { pct: number; color: string }) {
   const value = Math.min(100, Math.max(0, pct))
   return (
-    <svg viewBox="0 0 100 56" role="img" aria-label={`Nivel ${Math.round(pct)}%`}>
-      <path d="M 6 50 A 44 44 0 0 1 94 50" fill="none" stroke="var(--stat)" strokeWidth={8} strokeLinecap="round" />
+    <svg className="arc-gauge" viewBox="0 0 100 56" role="img" aria-label={`Nivel ${Math.round(pct)}%`}>
+      <path d="M 6 50 A 44 44 0 0 1 94 50" fill="none" stroke="var(--line)" strokeWidth={8} strokeLinecap="round" />
       <path className="arc-gauge-value" d="M 6 50 A 44 44 0 0 1 94 50" fill="none" stroke={color}
         strokeWidth={8} strokeLinecap="round" pathLength={100} strokeDasharray={`${value} 100`} />
+      <g className="arc-needle" style={{ transform: `translate(50px, 50px) rotate(${-90 + (value / 100) * 180}deg)` }}>
+        <line x1={0} y1={0} x2={0} y2={-32} stroke="var(--text)" strokeWidth={2} strokeLinecap="round" />
+        <circle cx={0} cy={0} r={3.5} fill="var(--text)" />
+      </g>
     </svg>
   )
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { AnimatedNumber } from '../components/AnimatedNumber'
-import { CategoryBar, Heatmap, Sparkline } from '../components/charts'
+import { CategoryBar, Heatmap, Sparkline, TokenAreaChart } from '../components/charts'
 import { Loading } from '../components/Loading'
 import { useApi, type Billing, type Summary } from '../api'
 import { billingText, compact, fmtUsd, hourLabel, int, pct } from '../format'
@@ -24,6 +24,8 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
   if (!data) return <Loading error={error} />
   const t = data.tokens
   const cost = billingText(billing)
+  const now = new Date()
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   return (
     <>
       <section className="stats summary-primary" aria-label="Métricas principales">
@@ -62,6 +64,7 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
         <Stat label="Modelo favorito" value={data.favoriteModel ?? '-'} />
       </section>
       <Heatmap days={data.heatmap} />
+      <TokenAreaChart days={data.heatmap.filter((d) => d.day <= todayKey)} />
       <p className="note">Usaste ~{int(Math.round(t.total / BOOK_TOKENS))}x mas tokens que Rebelion en la granja.</p>
       <div className="stats two">
         <Stat
