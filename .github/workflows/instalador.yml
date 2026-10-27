@@ -1,0 +1,42 @@
+name: Instalador de Windows
+
+# Manual: construye ClaudeHub-Setup-<version>.exe en un runner limpio.
+# En equipos con Smart App Control, Windows bloquea el instalador sin firma durante el build.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # sin --publish never, electron-builder intentaria publicar con el token del runner
+      - run: pnpm dist --publish never
+
+      - name: SHA-256
+        shell: bash
+        run: sha256sum release/*.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 14
