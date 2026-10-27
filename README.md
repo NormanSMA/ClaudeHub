@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/chispa.svg" alt="Chispa, la mascota de ClaudeHub" width="140" />
+<img src="docs/chispa-saludo.svg" alt="Chispa, la mascota de ClaudeHub, saluda" width="170" />
 
 # ClaudeHub
 
@@ -132,6 +132,15 @@ Lee AGENTS.md para más detalles.
 | [AGENTS.md](AGENTS.md) | Agentes de IA que instalan o consultan ClaudeHub. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribuir. Verifica con `npx tsc --noEmit && pnpm test && pnpm build`. |
 | [SECURITY.md](SECURITY.md) | Reportar vulnerabilidades. |
+
+## Colaboradores
+
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/NormanSMA"><img src="https://github.com/NormanSMA.png?size=100" width="72" alt="" /><br /><sub><b>Norman Martínez</b></sub></a><br /><sub>Autor</sub></td>
+    <td align="center"><a href="https://github.com/kisnner26"><img src="https://github.com/kisnner26.png?size=100" width="72" alt="" /><br /><sub><b>Kisnner Obando</b></sub></a><br /><sub>Prueba en macOS y extensión de Safari</sub></td>
+  </tr>
+</table>
 
 ## Licencia
 

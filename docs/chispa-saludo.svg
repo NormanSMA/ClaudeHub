@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 17 13" width="340" height="260" shape-rendering="crispEdges" role="img" aria-label="Chispa, la mascota de ClaudeHub, saluda">
+  <title>Chispa saluda</title>
+  <style>
+    .cuerpo { animation: bote 2.4s ease-in-out infinite; }
+    .brazo { transform-box: fill-box; transform-origin: 0% 100%; animation: saludo 1.6s ease-in-out infinite; }
+    .ojos { transform-box: fill-box; transform-origin: center; animation: parpadeo 4s infinite; }
+    .chispa { transform-box: fill-box; transform-origin: center; animation: brillo 1.6s ease-in-out infinite; }
+    @keyframes bote { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.4px); } }
+    @keyframes saludo {
+      0%, 100% { transform: rotate(0deg); }
+      20% { transform: rotate(28deg); }
+      40% { transform: rotate(-6deg); }
+      60% { transform: rotate(28deg); }
+      80% { transform: rotate(0deg); }
+    }
+    @keyframes parpadeo { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.15); } }
+    @keyframes brillo { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.8); } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <g class="cuerpo">
+    <g class="brazo" fill="#D97757">
+      <rect x="12" y="6" width="1" height="2"/>
+      <rect x="13" y="4" width="1" height="3"/>
+      <rect x="13" y="2" width="2" height="2"/>
+    </g>
+    <g fill="#D97757">
+      <rect x="7" y="3" width="1" height="1"/>
+      <rect x="3" y="4" width="8" height="1"/>
+      <rect x="2" y="5" width="10" height="5"/>
+      <rect x="1" y="10" width="3" height="1"/><rect x="5" y="10" width="4" height="1"/><rect x="10" y="10" width="3" height="1"/>
+      <rect x="1" y="11" width="2" height="1"/><rect x="5" y="11" width="1" height="1"/><rect x="8" y="11" width="1" height="1"/><rect x="11" y="11" width="2" height="1"/>
+    </g>
+    <g fill="#F0A488"><rect x="3" y="8" width="1" height="1"/><rect x="10" y="8" width="1" height="1"/></g>
+    <g class="chispa" fill="#F3C3A8">
+      <rect x="6" y="0" width="2" height="1"/><rect x="5" y="1" width="4" height="1"/><rect x="6" y="2" width="2" height="1"/>
+    </g>
+    <g class="ojos" fill="#1F1E1D"><rect x="4" y="6" width="1" height="2"/><rect x="9" y="6" width="1" height="2"/></g>
+  </g>
+</svg>
