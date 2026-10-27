@@ -263,8 +263,42 @@ function clampToScreen(b) {
   }
 }
 
+/** @type {'corner' | 'island'} */
+let overlayMode = 'corner'
+const ISLAND_COMPACT = { width: 168, height: 38 }
+/** @type {ReturnType<typeof setInterval> | null} */
+let cursorTimer = null
+
+/**
+ * Centro superior del area de trabajo.
+ * @param {number} w
+ * @param {number} h
+ * @returns {import('electron').Rectangle}
+ */
+function islandBounds(w, h) {
+  const wa = screen.getPrimaryDisplay().workArea
+  return { x: wa.x + Math.round((wa.width - w) / 2), y: wa.y, width: w, height: h }
+}
+
+function stopCursor() {
+  if (cursorTimer !== null) clearInterval(cursorTimer)
+  cursorTimer = null
+}
+
+/** Envia el cursor a la ventana cada 50 ms. Solo en modo isla y con la ventana visible. */
+function syncCursor() {
+  stopCursor()
+  if (overlayMode !== 'island' || !overlay || !overlay.isVisible()) return
+  cursorTimer = setInterval(() => {
+    if (!overlay || overlay.isDestroyed() || !overlay.isVisible()) return stopCursor()
+    const p = screen.getCursorScreenPoint()
+    const b = overlay.getBounds()
+    overlay.webContents.send('hub:cursor', p.x - b.x, p.y - b.y)
+  }, 50)
+}
+
 function savePos() {
-  if (!overlay) return
+  if (!overlay || overlayMode === 'island') return
   const b = overlay.getBounds()
   try {
     fs.writeFileSync(POS_FILE, JSON.stringify({ right: b.x + b.width, bottom: b.y + b.height }))
@@ -308,15 +342,31 @@ function showOverlay() {
   overlay.setAlwaysOnTop(true, 'screen-saver')
   applyGhostMode()
   overlay.loadURL(`${URL}/overlay.html`)
+  overlay.on('show', syncCursor)
+  overlay.on('hide', stopCursor)
   overlay.on('closed', () => {
     overlay = null
+    stopCursor()
     refreshMenu()
   })
   refreshMenu()
 }
 
+ipcMain.on('hub:mode', (e, mode) => {
+  if (mode !== 'corner' && mode !== 'island') return
+  overlayMode = mode
+  if (overlay) {
+    if (mode === 'island') overlay.setBounds(islandBounds(ISLAND_COMPACT.width, ISLAND_COMPACT.height))
+    else {
+      const wa = screen.getPrimaryDisplay().workArea
+      const pos = savedPos() || { right: wa.x + wa.width - 16, bottom: wa.y + wa.height - 16 }
+      overlay.setBounds(clampToScreen({ x: pos.right - 68, y: pos.bottom - 64, width: 68, height: 64 }))
+    }
+  }
+  syncCursor()
+})
 ipcMain.on('hub:drag', (e, dx, dy) => {
-  if (!overlay) return
+  if (!overlay || overlayMode === 'island') return
   const b = overlay.getBounds()
   overlay.setBounds(clampToScreen({ ...b, x: b.x + Math.round(dx), y: b.y + Math.round(dy) }))
   savePos()
@@ -326,6 +376,11 @@ ipcMain.on('hub:resize', (e, width, height) => {
   const b = overlay.getBounds()
   const w = Math.round(width)
   const h = Math.round(height)
+  if (overlayMode === 'island') {
+    // conserva el centro superior
+    overlay.setBounds(islandBounds(w, h))
+    return
+  }
   // conserva la esquina inferior derecha, donde esta la mascota
   overlay.setBounds(clampToScreen({ x: b.x + b.width - w, y: b.y + b.height - h, width: w, height: h }))
 })

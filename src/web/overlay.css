@@ -174,3 +174,102 @@ body.overlay-body {
   right: 26px;
   bottom: -7px;
 }
+
+/* modo isla: ventana pegada al borde superior central */
+.island {
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  padding: 4px 10px;
+  overflow: hidden;
+  cursor: default;
+}
+.island-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  font: 500 12px/1 Inter, sans-serif;
+}
+.island-chispa {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.island-tool {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted, var(--text));
+}
+.island-level {
+  margin-left: auto;
+  font-size: 11px;
+}
+.island-rows {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.island-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 2px;
+  border-top: 1px solid var(--line);
+  font: 12px/1.2 Inter, sans-serif;
+}
+.island-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.island-dot.on {
+  background: var(--accent);
+}
+.island-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.island-meta {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.island-pct {
+  min-width: 34px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.island-pct.bad {
+  color: var(--danger);
+}
+.island-empty {
+  padding: 8px 2px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .island * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -218,6 +218,8 @@ export interface ManualCheck {
 
 export type Billing = 'subscription' | 'api'
 
+export type OverlayMode = 'corner' | 'island'
+
 export interface MascotConfig {
   talk: boolean
   talkCooldownMin: number
@@ -241,6 +243,7 @@ export interface SettingsInfo {
     sources: { codex: boolean; gemini: boolean; omniroute: boolean }
     billing: Billing
     mascot: MascotConfig
+    overlayMode?: OverlayMode
     pricing: { overrides: Record<string, PriceOverride>; freeProviders: string[] }
   }
   path: string
