@@ -14,7 +14,7 @@ export interface CodexRateLimits {
   secondary: CodexWindow
 }
 
-interface Usage {
+export interface Usage {
   input: number
   cached: number
   cacheWrite: number
@@ -60,35 +60,56 @@ function* relevantLines(text: string, needles: readonly string[]): Generator<any
 const WANTED = ['session_meta', 'turn_context', 'token_count'] as const
 
 /**
+ * Estado del parser entre lecturas por offset. Es JSON puro para vivir en la cache.
+ * `last` guarda el ultimo acumulado por sesion; la clave lleva prefijo para que un id
+ * como `__proto__` no toque el prototipo del objeto.
+ */
+export interface CodexState {
+  session: string
+  project: string
+  model: string
+  last: Record<string, Usage>
+}
+
+export const initCodexState = (fallbackSession = 'unknown'): CodexState => ({
+  session: fallbackSession,
+  project: 'unknown',
+  model: 'codex',
+  last: {},
+})
+
+/**
  * Convierte un rollout de Codex en registros. Un registro por cada subida del acumulado
  * `total_token_usage.total_tokens`, con el incremento por campo. No copia texto de mensajes.
  * `fallbackSession` (el nombre del archivo) evita que dos rollouts sin `session_meta`
  * compartan ids `codex:unknown:<total>` y se descarten como repetidos.
  */
 export function parseCodex(text: string, fallbackSession = 'unknown'): Rec[] {
+  return parseCodexChunk(text, initCodexState(fallbackSession))
+}
+
+/** Igual que `parseCodex`, pero continua desde `state` y lo actualiza al terminar. */
+export function parseCodexChunk(text: string, state: CodexState): Rec[] {
   const recs: Rec[] = []
-  const last = new Map<string, Usage>()
-  let session = fallbackSession
-  let project = 'unknown'
-  let model = 'codex'
   for (const o of relevantLines(text, WANTED)) {
     const p = o?.payload
     if (o?.type === 'session_meta') {
-      if (typeof p?.id === 'string') session = p.id
-      if (typeof p?.cwd === 'string') project = projectFromCwd(p.cwd)
+      if (typeof p?.id === 'string') state.session = p.id
+      if (typeof p?.cwd === 'string') state.project = projectFromCwd(p.cwd)
       continue
     }
     if (o?.type === 'turn_context') {
-      if (typeof p?.model === 'string' && p.model) model = p.model
+      if (typeof p?.model === 'string' && p.model) state.model = p.model
       continue
     }
     if (o?.type !== 'event_msg' || p?.type !== 'token_count') continue
     const cur = readUsage(p.info?.total_token_usage)
     const ts = Date.parse(o.timestamp)
     if (!cur || Number.isNaN(ts)) continue
-    const prev = last.get(session) ?? ZERO
+    const { session, project, model } = state
+    const prev = state.last[`s:${session}`] ?? ZERO
     if (cur.total <= prev.total) continue
-    last.set(session, cur)
+    state.last[`s:${session}`] = cur
     const dInput = Math.max(0, cur.input - cur.cached - (prev.input - prev.cached))
     const dCache = Math.max(0, cur.cached - prev.cached)
     const dWrite = Math.max(0, cur.cacheWrite - prev.cacheWrite)
