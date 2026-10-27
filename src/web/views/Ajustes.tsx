@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useApi, type Billing, type PriceOverride, type SettingsInfo } from '../api'
+import { useApi, type Billing, type OverlayMode, type PriceOverride, type SettingsInfo } from '../api'
 import { int } from '../format'
 import { animationsOn, setAnimations } from '../components/AnimatedNumber'
 import { normVersion, useUpdateCheck } from '../update'
@@ -46,6 +46,7 @@ interface Form {
   sources: SettingsInfo['config']['sources']
   mascot: SettingsInfo['config']['mascot']
   billing: Billing
+  overlayMode: OverlayMode
   freeProviders: string
   prices: PriceRow[]
 }
@@ -75,6 +76,7 @@ export function SettingsView() {
       sources: { ...c.sources },
       mascot: { talk: c.mascot?.talk ?? true, talkCooldownMin: c.mascot?.talkCooldownMin ?? 10 },
       billing: c.billing ?? 'subscription',
+      overlayMode: c.overlayMode ?? 'corner',
       freeProviders: (c.pricing?.freeProviders ?? []).join(', '),
       prices: Object.entries(c.pricing?.overrides ?? {}).map(([model, price]) => ({
         id: nextPriceId.current++,
@@ -122,6 +124,7 @@ export function SettingsView() {
           sources: form.sources,
           mascot: form.mascot,
           billing: form.billing,
+          overlayMode: form.overlayMode,
           pricing: {
             freeProviders: [...new Set(form.freeProviders.split(',').map((p) => p.trim()).filter(Boolean))],
             overrides: Object.fromEntries(form.prices.map((row) => [
@@ -183,6 +186,11 @@ export function SettingsView() {
         </label>
         <label htmlFor="s-talk-cooldown">Minutos entre frases</label>
         <input id="s-talk-cooldown" type="number" min={1} max={240} step={1} disabled={!form.mascot.talk} value={form.mascot.talkCooldownMin} onChange={(e) => setForm({ ...form, mascot: { ...form.mascot, talkCooldownMin: Number(e.target.value) } })} />
+        <label htmlFor="s-overlay-mode">Posición de la mascota</label>
+        <select id="s-overlay-mode" value={form.overlayMode} onChange={(e) => setForm({ ...form, overlayMode: e.target.value as OverlayMode })}>
+          <option value="corner">Esquina</option>
+          <option value="island">Isla superior</option>
+        </select>
       </fieldset>
 
       <fieldset className="field pricing-settings">

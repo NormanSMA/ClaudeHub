@@ -200,7 +200,8 @@ Archivo `config.json` en la carpeta de datos de ClaudeHub (Windows `%APPDATA%\Cl
 ```json
 { "name": "Ada", "contextLimits": { "Opus 5": 1000000 }, "activeMinutes": 20, "alertAt": 0.85,
   "sources": { "codex": true, "gemini": true, "omniroute": false },
-  "omniroute": { "container": "omniroute", "dbPath": "" }, "checkUpdates": true }
+  "omniroute": { "container": "omniroute", "dbPath": "" }, "checkUpdates": true,
+  "overlayMode": "corner" }
 ```
 
 `checkUpdates` (por defecto `true`) revisa GitHub Releases al iniciar y cada 6 horas. Es un GET sin datos de uso. Con `false` no hay ninguna petición. El modo demo nunca usa la red.

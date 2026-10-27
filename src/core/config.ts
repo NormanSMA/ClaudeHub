@@ -23,6 +23,8 @@ export interface HubConfig {
   /** Modalidad de facturacion. */
   billing: 'subscription' | 'api'
   mascot: { talk: boolean; talkCooldownMin: number }
+  /** Posicion de la mascota flotante: esquina inferior derecha o isla en el borde superior central */
+  overlayMode: 'corner' | 'island'
 }
 
 export const DEFAULTS: HubConfig = {
@@ -36,6 +38,7 @@ export const DEFAULTS: HubConfig = {
   pricing: { overrides: {}, freeProviders: [] },
   billing: 'subscription',
   mascot: { talk: true, talkCooldownMin: 10 },
+  overlayMode: 'corner',
 }
 const FILE = process.env.CLAUDEHUB_CONFIG ?? join(dataDir(), 'config.json')
 
@@ -103,6 +106,7 @@ export function sanitize(raw: unknown): HubConfig {
       talk: flag(mascot.talk, DEFAULTS.mascot.talk),
       talkCooldownMin: Math.round(clamp(mascot.talkCooldownMin, 1, 240, DEFAULTS.mascot.talkCooldownMin)),
     },
+    overlayMode: r.overlayMode === 'island' || r.overlayMode === 'corner' ? r.overlayMode : DEFAULTS.overlayMode,
   }
 }
 

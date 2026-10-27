@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ActiveList, PlanLimits } from './components/Active'
-import { useApi, type ActiveReport, type ConfigInfo, type Live } from './api'
+import { useApi, type ActiveReport, type ConfigInfo, type Live, type OverlayMode, type SettingsInfo } from './api'
+import { ChispaCanvas, type ChispaEmote } from './mascot/ChispaCanvas'
 import { TodayCount } from './components/TodayCount'
 import { CodexBadge, LevelBadge, Mascot } from './mascot/Mascot'
 import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type MascotState } from './mascot/mascotState'
@@ -17,6 +18,8 @@ interface HubBridge {
   openDashboard(): void
   hide(): void
   openExternal?(url: string): void
+  setMode?(mode: OverlayMode): void
+  onCursor?(cb: (x: number, y: number) => void): () => void
 }
 const hub = typeof window === 'undefined' ? undefined : (window as unknown as { hub?: HubBridge }).hub
 
@@ -251,7 +254,145 @@ function Overlay() {
   )
 }
 
+const ISLAND_COMPACT = { w: 168, h: 38 }
+const ISLAND_EXPANDED = { w: 460, h: 220 }
+const COLLAPSE_MS = 4_000
+const CANVAS_SIZE = 30
+
+function IslandOverlay() {
+  const { data } = useApi<ActiveReport>('/api/active', 4_000)
+  const [expanded, setExpanded] = useState(false)
+  const [emote, setEmote] = useState<{ name: ChispaEmote; id: number } | null>(null)
+  const cursorRef = useRef<{ x: number; y: number } | null>(null)
+  const canvasBox = useRef<HTMLDivElement>(null)
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clicks = useRef<number[]>([])
+  const emoteId = useRef(0)
+  const lastMood = useRef<MascotState | null>(null)
+
+  const chats = data?.chats ?? []
+  const alertAt = data?.alertAt ?? 0.85
+  const mood = pickMascotState(data)
+  const level = levelFrom(data)
+  const tool = data?.agents?.find((a) => a.tool)?.tool ?? null
+
+  const play = (name: ChispaEmote) => setEmote({ name, id: ++emoteId.current })
+  const clearCollapse = () => {
+    if (collapseTimer.current !== null) clearTimeout(collapseTimer.current)
+    collapseTimer.current = null
+  }
+  const expand = () => {
+    clearCollapse()
+    setExpanded((was) => {
+      if (!was) play('greeting')
+      return true
+    })
+  }
+
+  useEffect(() => {
+    const size = expanded ? ISLAND_EXPANDED : ISLAND_COMPACT
+    hub?.resize(size.w, size.h)
+  }, [expanded])
+
+  // el cursor llega relativo a la ventana; se pasa relativo al canvas
+  useEffect(() => {
+    if (!hub?.onCursor) return
+    return hub.onCursor((x, y) => {
+      const r = canvasBox.current?.getBoundingClientRect()
+      cursorRef.current = r ? { x: x - r.left, y: y - r.top } : { x, y }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (lastMood.current !== null && lastMood.current !== 'happy' && mood === 'happy') play('happyJump')
+    lastMood.current = mood
+  }, [mood])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (!document.hidden) return
+      clearCollapse()
+      setExpanded(false)
+      clicks.current = []
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      clearCollapse()
+    }
+  }, [])
+
+  const click = () => {
+    const now = Date.now()
+    clicks.current = [...clicks.current.filter((t) => now - t <= 900), now]
+    if (clicks.current.length >= 3) {
+      clicks.current = []
+      play('dizzy')
+    } else play('squish')
+    expand()
+  }
+
+  const leave = () => {
+    clearCollapse()
+    collapseTimer.current = setTimeout(() => {
+      collapseTimer.current = null
+      setExpanded(false)
+    }, COLLAPSE_MS)
+  }
+
+  return (
+    <div
+      className={`island ${expanded ? 'island-expanded' : 'island-compact'}`}
+      onPointerEnter={expand}
+      onPointerLeave={leave}
+      onClick={click}
+    >
+      <div className="island-head">
+        <div ref={canvasBox} className="island-chispa">
+          <ChispaCanvas width={CANVAS_SIZE} height={CANVAS_SIZE} cursorRef={cursorRef} emote={emote} sleeping={mood === 'sleeping'} />
+        </div>
+        {expanded ? (
+          <>
+            <strong>{chats.length} {chats.length === 1 ? 'chat activo' : 'chats activos'}</strong>
+            {level && <span className="island-level">{[levelText(level), level.label].join(' · ')}</span>}
+          </>
+        ) : (
+          <span className="island-tool">{tool ?? (chats.length > 0 ? `${chats.length} chats` : 'En reposo')}</span>
+        )}
+      </div>
+      {expanded && (
+        <ul className="island-rows">
+          {chats.length === 0 && <li className="island-empty">Sin chats activos</li>}
+          {chats.map((c) => {
+            const chatTool = data?.agents?.find((a) => a.session === c.session)?.tool
+            const pct = Math.round(c.context.pct * 100)
+            return (
+              <li key={c.session} className="island-row">
+                <span className={`island-dot ${c.working ? 'on' : ''}`} aria-hidden="true" />
+                <span className="island-title">{c.title}</span>
+                <span className="island-meta">{chatTool ?? c.project}</span>
+                <span className={`island-pct ${c.context.pct >= alertAt ? 'bad' : ''}`}>{pct}%</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/** Lee la posicion de la mascota de los ajustes, avisa a Electron y elige la vista. */
+function Root() {
+  const { data, error } = useApi<SettingsInfo>('/api/settings', 30_000)
+  const mode: OverlayMode | null = data ? (data.config.overlayMode ?? 'corner') : error ? 'corner' : null
+  useEffect(() => {
+    if (mode) hub?.setMode?.(mode)
+  }, [mode])
+  if (mode === null) return null
+  return mode === 'island' ? <IslandOverlay /> : <Overlay />
+}
+
 if (typeof document !== 'undefined') {
   const container = document.getElementById('root')
-  if (container) createRoot(container).render(<Overlay />)
+  if (container) createRoot(container).render(<Root />)
 }

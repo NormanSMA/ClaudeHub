@@ -10,4 +10,17 @@ contextBridge.exposeInMainWorld('hub', {
   hide: () => ipcRenderer.send('hub:hide'),
   /** @param {string} url */
   openExternal: (url) => ipcRenderer.send('hub:openExternal', url),
+  /** @param {'corner' | 'island'} mode */
+  setMode: (mode) => ipcRenderer.send('hub:mode', mode),
+  /**
+   * Posicion del cursor relativa a la ventana, cada 50 ms (solo en modo isla).
+   * @param {(x: number, y: number) => void} cb
+   * @returns {() => void}
+   */
+  onCursor: (cb) => {
+    /** @param {unknown} e @param {number} x @param {number} y */
+    const handler = (e, x, y) => cb(x, y)
+    ipcRenderer.on('hub:cursor', handler)
+    return () => ipcRenderer.removeListener('hub:cursor', handler)
+  },
 })

@@ -63,6 +63,13 @@ describe('configuracion', () => {
     expect(JSON.parse(readFileSync(file, 'utf8')).mascot).toEqual(mascot)
   })
 
+  it('valida la posicion de la mascota', () => {
+    expect(sanitize({}).overlayMode).toBe('corner')
+    expect(sanitize({ overlayMode: 'island' }).overlayMode).toBe('island')
+    expect(sanitize({ overlayMode: 'otro' }).overlayMode).toBe('corner')
+    expect(sanitize({ overlayMode: 5 }).overlayMode).toBe('corner')
+  })
+
   it('valida la modalidad de facturacion', () => {
     expect(sanitize({}).billing).toBe('subscription')
     expect(sanitize({ billing: 'api' }).billing).toBe('api')
