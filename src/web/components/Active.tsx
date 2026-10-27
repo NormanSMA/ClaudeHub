@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ActiveChat, ActiveReport, PlanReport, PlanWindow } from '../api'
 import { compact, pct } from '../format'
+import { AnimatedNumber } from './AnimatedNumber'
 
 export function ctxColor(p: number, alertAt = 0.85): string {
   return p >= alertAt ? 'var(--danger)' : p >= 0.6 ? 'var(--warn)' : 'var(--ok)'
@@ -23,7 +24,7 @@ export function ContextBar({ chat, alertAt = 0.85 }: { chat: ActiveChat; alertAt
           {compact(c.used)} / {compact(c.limit)}
           {c.estimated ? '*' : ''}
         </span>
-        <span>{pct(c.pct)}</span>
+        <span><AnimatedNumber value={c.pct} format={pct} /></span>
       </div>
     </div>
   )
@@ -158,7 +159,7 @@ function PlanRow({ label, w, alertAt, dense }: { label: string; w: PlanWindow; a
       <div className="plan-head">
         <span className="plan-label">{label}</span>
         <span className="plan-pct" style={{ color: ctxColor(p, alertAt) }}>
-          {Math.round(w.pct)}%
+          <AnimatedNumber value={w.pct} format={(v) => `${Math.round(v)}%`} />
         </span>
       </div>
       <div className="ctx-track">

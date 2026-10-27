@@ -1562,6 +1562,32 @@ button.primary:disabled {
   html:not([data-anim='off']) :is(.catbar-track i, .tree-bar i, .ctx-track i) {
     animation: cadra-reveal 700ms cubic-bezier(.22, 1, .36, 1) 120ms backwards;
   }
+  /* Agentes: filas de limites, agentes y chats entran en cascada. */
+  @keyframes cadra-slide {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: none; }
+  }
+  html:not([data-anim='off']) .view-enter :is(.plan-row, .agents-now > li, .active > li) {
+    animation: cadra-slide 380ms cubic-bezier(.22, 1, .36, 1) backwards;
+    animation-delay: 240ms;
+  }
+  html:not([data-anim='off']) .view-enter :is(.plan-row, .agents-now > li, .active > li):nth-child(1) { animation-delay: 120ms; }
+  html:not([data-anim='off']) .view-enter :is(.plan-row, .agents-now > li, .active > li):nth-child(2) { animation-delay: 180ms; }
+  html:not([data-anim='off']) .view-enter :is(.plan-row, .agents-now > li, .active > li):nth-child(3) { animation-delay: 240ms; }
+  html:not([data-anim='off']) .view-enter :is(.plan-row, .agents-now > li, .active > li):nth-child(n + 4) { animation-delay: 300ms; }
+  @keyframes cadra-seg {
+    from { opacity: 0; transform: scaleY(.3); }
+    to { opacity: 1; transform: none; }
+  }
+  html:not([data-anim='off']) .level-meter i.on {
+    transform-origin: bottom;
+    animation: cadra-seg 320ms cubic-bezier(.22, 1, .36, 1) backwards;
+  }
+  html:not([data-anim='off']) .level-meter i:nth-child(1) { animation-delay: 300ms; }
+  html:not([data-anim='off']) .level-meter i:nth-child(2) { animation-delay: 360ms; }
+  html:not([data-anim='off']) .level-meter i:nth-child(3) { animation-delay: 420ms; }
+  html:not([data-anim='off']) .level-meter i:nth-child(4) { animation-delay: 480ms; }
+  html:not([data-anim='off']) .level-meter i:nth-child(5) { animation-delay: 540ms; }
   /* El contenido de la pestana nueva aparece con un fundido corto. */
   @keyframes cadra-fade {
     from { opacity: 0; transform: translateY(6px); }

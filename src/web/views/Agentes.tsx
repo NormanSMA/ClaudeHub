@@ -2,6 +2,7 @@ import { ActiveList, PlanLimits, ctxColor, untilText } from '../components/Activ
 import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId, type TokenLevel } from '../api'
 import { compact, minutesText, pct } from '../format'
 import { ArcGauge } from '../components/charts'
+import { AnimatedNumber } from '../components/AnimatedNumber'
 
 const SOURCE_NAME: Record<SourceId, string> = {
   claude: 'Claude',
@@ -41,7 +42,7 @@ function CodexRow({ label, w, alertAt }: { label: string; w: { pct: number; rese
       <div className="plan-head">
         <span className="plan-label">{label}</span>
         <span className="plan-pct" style={{ color: ctxColor(p, alertAt) }}>
-          {Math.round(w.pct)}%
+          <AnimatedNumber value={w.pct} format={(v) => `${Math.round(v)}%`} />
         </span>
       </div>
       <div className="ctx-track">
@@ -75,7 +76,7 @@ function LevelCards({ level }: { level: TokenLevel }) {
           <div className="stat-label">Nivel {level.level}</div>
           <div className="stat-value">{level.label}</div>
           <div className="stat-sub">
-            {Math.round(level.pct)}% {basis}
+            <AnimatedNumber value={level.pct} format={(v) => `${Math.round(v)}%`} /> {basis}
           </div>
           <ArcGauge pct={level.pct} color="var(--lv)" />
           <div className="level-meter" aria-hidden="true">
@@ -86,12 +87,12 @@ function LevelCards({ level }: { level: TokenLevel }) {
         </div>
         <div className="level-card">
           <div className="stat-label">Ritmo</div>
-          <div className="stat-value">{burn ? `${compact(level.burnPerMin)}/min` : '-'}</div>
+          <div className="stat-value">{burn ? <AnimatedNumber value={level.burnPerMin} format={(v) => `${compact(v)}/min`} /> : '-'}</div>
           <div className="stat-sub">tokens por minuto</div>
         </div>
         <div className="level-card">
           <div className="stat-label">Proyeccion</div>
-          <div className="stat-value">{level.minutesLeft === null ? '-' : minutesText(level.minutesLeft)}</div>
+          <div className="stat-value">{level.minutesLeft === null ? '-' : <AnimatedNumber value={level.minutesLeft} format={(v) => minutesText(Math.round(v))} />}</div>
           <div className="stat-sub">
             {level.exhaustsBeforeReset === null
               ? 'sin estimacion'
@@ -102,12 +103,12 @@ function LevelCards({ level }: { level: TokenLevel }) {
         </div>
         <div className="level-card">
           <div className="stat-label">Eficiencia de cache</div>
-          <div className="stat-value">{pct(level.cacheEfficiency / 100)}</div>
+          <div className="stat-value"><AnimatedNumber value={level.cacheEfficiency / 100} format={pct} /></div>
           <div className="stat-sub">entrada leida desde cache</div>
         </div>
       </div>
       <p className="active-meta delegated">
-        Tokens delegados (fuera del contexto del orquestador): <b>{pct(level.delegationShare)}</b>
+        Tokens delegados (fuera del contexto del orquestador): <b><AnimatedNumber value={level.delegationShare} format={pct} /></b>
       </p>
     </>
   )
