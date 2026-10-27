@@ -274,7 +274,10 @@ function IslandOverlay() {
   const alertAt = data?.alertAt ?? 0.85
   const mood = pickMascotState(data)
   const level = levelFrom(data)
-  const tool = data?.agents?.find((a) => a.tool)?.tool ?? null
+  // solo la herramienta en curso: tras PostToolUse el nombre queda anotado
+  const toolOf = (session?: string) =>
+    data?.agents?.find((a) => a.state === 'tool' && a.tool && (session === undefined || a.session === session))?.tool ?? null
+  const tool = toolOf()
 
   const play = (name: ChispaEmote) => setEmote({ name, id: ++emoteId.current })
   const clearCollapse = () => {
@@ -355,6 +358,21 @@ function IslandOverlay() {
           <>
             <strong>{chats.length} {chats.length === 1 ? 'chat activo' : 'chats activos'}</strong>
             {level && <span className="island-level">{[levelText(level), level.label].join(' · ')}</span>}
+            <button
+              type="button"
+              className="island-action"
+              title="Abrir dashboard"
+              aria-label="Abrir dashboard"
+              onClick={(e) => {
+                e.stopPropagation()
+                hub?.openDashboard()
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <path d="M3 9h18M9 9v12" />
+              </svg>
+            </button>
           </>
         ) : (
           <span className="island-tool">{tool ?? (chats.length > 0 ? `${chats.length} chats` : 'En reposo')}</span>
@@ -364,7 +382,7 @@ function IslandOverlay() {
         <ul className="island-rows">
           {chats.length === 0 && <li className="island-empty">Sin chats activos</li>}
           {chats.map((c) => {
-            const chatTool = data?.agents?.find((a) => a.session === c.session)?.tool
+            const chatTool = toolOf(c.session)
             const pct = Math.round(c.context.pct * 100)
             return (
               <li key={c.session} className="island-row">
