@@ -76,6 +76,19 @@ Filtra con `?range=all|30d|7d` o con `?from=AAAA-MM-DD&to=AAAA-MM-DD`.
 | `minutesLeft` y `exhaustsBeforeReset` | Proyección hasta el límite de 5 horas, o `null`. Requiere `basis: plan5h`, 5% usado como mínimo, tokens locales y ritmo. |
 | `cacheEfficiency` | Porcentaje (0 a 100) de la entrada leída de caché, últimas 5 horas. |
 | `delegationShare` | Parte (0 a 1) de los tokens que gastaron los subagentes, últimas 5 horas. |
+| `burnFreshPerMin` | Tokens nuevos por minuto en los últimos 15 minutos. |
+
+### Tokens nuevos, caché y costo
+
+| Campo | Contenido |
+|---|---|
+| `todayFresh` | Tokens nuevos de hoy: entrada + escritura de caché + salida. En `/api/live` y `/api/active`. |
+| `todayCacheRead` | Lectura de caché de hoy. En `/api/live` y `/api/active`. |
+| `todayCostUsd` | Valor equivalente en API de hoy, en dólares. No es lo que paga una suscripción. |
+| `fresh`, `cacheRead` | Los mismos dos datos por fila en `/api/summary`, `/api/sessions` y `/api/projects`. |
+| `costUsd`, `cacheSavingsUsd` | Costo y ahorro por caché por fila. `costUnpriced` cuenta los tokens de modelos sin tarifa; no suman al costo. |
+
+`todayTokens` y `total` no cambian: siguen sumando las cuatro partes. Los precios salen de `src/core/pricing.ts` y se editan en Ajustes. El día se corta a medianoche local.
 
 `/api/events` envía `hello`, `changed` y un latido cada 25 segundos. Admite 8 clientes: el noveno recibe `429`. No concede CORS.
 
@@ -213,4 +226,8 @@ Claude Code los carga al iniciar una sesión en esta carpeta. El orquestador rev
 - El servidor escucha solo en `127.0.0.1`. No cambies eso.
 - Las capturas de pantalla salen siempre de `pnpm demo`, nunca de datos reales.
 - Al escribir expresiones regulares con barras invertidas dentro de scripts de shell, verifica el resultado: es fácil perder una `\`.
+- Un cambio en `src/core/parse.ts` o `src/core/aggregate.ts` lleva prueba de zona horaria y de deduplicación por `message.id`.
+- El escaneo es incremental: `scan(root, useCache, { changed })` solo hace `stat` de las rutas cambiadas. Si cambias la forma de la caché, sube `CACHE_VERSION`.
+- Estructura web: `src/web/views` (una vista por pestaña), `src/web/components` y `src/web/mascot`. Los `.cjs` llevan `// @ts-check` y comparten `scripts/lib/paths.cjs`.
+- El mod de Claude Code vive en `plugins/claudehub-mod/`. Valídalo con `claude plugin validate` y `claude plugin test`.
 - Lee [CONTRIBUTING.md](CONTRIBUTING.md) y [SECURITY.md](SECURITY.md).

@@ -41,10 +41,12 @@ A local monitor for Windows, macOS, and Linux: web dashboard, floating mascot on
 - [Usage](#usage)
 - [Real context limit](#real-context-limit)
 - [Your plan limits](#your-plan-limits-5-hour-and-weekly)
+- [Claude Code mod](#claude-code-mod)
 - [Other sources: Codex, Gemini, and OmniRoute](#other-sources-codex-gemini-and-omniroute)
 - [Hook states](#hook-states)
 - [Live updates](#live-updates)
 - [How it works](#how-it-works)
+- [How ClaudeHub counts tokens and costs](#how-claudehub-counts-tokens-and-costs)
 - [Configuration](#configuration)
 - [Local API](#local-api)
 - [Privacy and security](#privacy-and-security)
@@ -363,6 +365,29 @@ Run `/uso` in a Claude Code session. It shows the percentage and reset time of e
 
 The data updates only when you run `/uso`. No hook can call `get_usage`.
 
+## Claude Code mod
+
+The `claudehub-mod` mod is an optional Claude Code plugin. It complements `scripts/statusline.cjs` and `scripts/hook.cjs`, which keep working.
+
+> Status: how it behaves in the Claude desktop app is still to be confirmed. The plugin tests pass, but it has not been checked in that app yet.
+
+### Install the mod
+
+```bash
+claude plugin marketplace add NormanSMA/ClaudeHub
+claude plugin install claudehub-mod@claudehub
+```
+
+Then run `/reload-plugins` in Claude Code.
+
+### What it does
+
+- Writes `rate-limits.json` and `context-windows.json` to the ClaudeHub data folder, in the same format as the status line. The goal is to work in the desktop app without running `/uso`.
+- Adds the `/chub` command: it replies with one line showing today's new tokens, cache, and cost. It needs ClaudeHub running on `127.0.0.1:4317`.
+- Can show the 5-hour limit percentage above the prompt. That band (`showBand`) is off by default.
+
+The mod does not read OAuth tokens or `~/.claude/settings.json`, and it only saves usage fields. Read more in [plugins/claudehub-mod/README.md](plugins/claudehub-mod/README.md).
+
 ## Other sources: Codex, Gemini, and OmniRoute
 
 Besides Claude Code, ClaudeHub reads usage from three sources. The `/api/sources` route tells whether each one could be read.
@@ -455,6 +480,8 @@ The server watches `~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/tmp`, a
 
 The interface keeps a fallback polling. With the live channel open, polling goes to a cycle of 60 seconds at least. If the channel fails, it returns to the normal cycle.
 
+Reading is also incremental: the server rereads only the paths that changed. Every 60 seconds it runs a full backup scan, in case a notice was lost. Without watching every folder, each read is a full one.
+
 ### Limit reached notice
 
 This does not need the status line. When you reach a limit, Claude Code writes it to the logs with the exact reset time. ClaudeHub reads it and shows a red notice, for example **5-hour limit reached. Resets in 1 h 12 min**, plus a system notification and the mascot in alert mode. It also works with the desktop app.
@@ -505,6 +532,30 @@ The context in use of a chat is the input of the orchestrator's last message: `i
 - Hidden windows stop querying data.
 - The server runs in a separate process, so it doesn't slow down the mascot.
 - Measured on a laptop with Windows 11: the tray uses between 300 and 450 MB of RAM and about 0% CPU at rest.
+
+## How ClaudeHub counts tokens and costs
+
+### Tokens
+
+- **New tokens** = input + cache write + output.
+- **Cache read** is counted separately. It is usually more than 90% of the total.
+- **Total** = input + cache write + cache read + output. It is still the sum of all four.
+- **Deduplication by `message.id`.** A message that appears on several lines is counted once.
+- **The day** is cut at midnight, in the local time zone.
+
+### Cost
+
+Cost is an **API-equivalent value**: what those tokens would cost at the API's per-token rates. It is not what you pay with a Pro or Max subscription.
+
+- Under **Ajustes > Precios** (Settings > Prices) you pick the billing mode. With a subscription, the figure is called **Valor API** (API value). With pay-per-token API, it is called **Costo** (Cost).
+- **Cache savings** compare what cache reads cost against charging them as regular input. The extra cost of cache writes is subtracted.
+- For OmniRoute, providers you mark as free count as cost 0.
+
+### Prices
+
+Rates ship in the code, in USD per million tokens. You can change them per model under **Ajustes > Precios**. Empty fields keep the default rate.
+
+If a model has no rate, ClaudeHub does not invent a price. It shows **sin precio** (no price) in Models and counts those tokens separately in Summary. It does not show them as $0.
 
 ## Configuration
 
@@ -633,37 +684,46 @@ To report a vulnerability, read [SECURITY.md](SECURITY.md).
 
 ```
 ClaudeHub/
-├─ .github/               CI, issue and pull request templates
-├─ build/icon.png         app icon
+├─ .claude-plugin/       Claude Code plugin catalog (marketplace.json)
+├─ .github/              CI, issue and pull request templates
+├─ build/icon.png        app icon
+├─ plugins/claudehub-mod/Claude Code mod: limits, context, and /chub
 ├─ scripts/
-│  ├─ commands/uso.md     /uso command for plan limits
-│  ├─ hook.cjs            state hook (writes events.jsonl)
-│  ├─ launch.cjs          launcher for the SessionStart hook
-│  ├─ statusline.cjs      status line and real window logging
-│  └─ write-limits.cjs    saves the plan limits that /uso uses
+│  ├─ commands/uso.md    /uso command for plan limits
+│  ├─ lib/paths.cjs      data folder shared by the scripts
+│  ├─ hook.cjs           state hook (writes events.jsonl)
+│  ├─ launch.cjs         launcher for the SessionStart hook
+│  ├─ statusline.cjs     status line and real window logging
+│  └─ write-limits.cjs   saves the plan limits that /uso uses
 ├─ src/
-│  ├─ core/               parser, cache, aggregation, and configuration
-│  │  ├─ parse.ts         incremental reading and deduplication
-│  │  ├─ scan.ts          logs traversal and caching
-│  │  ├─ sources/         Codex, Gemini, and OmniRoute
-│  │  ├─ agents.ts        agent states, stalls, clashes, and mascot
-│  │  ├─ overview.ts      extra fields of /api/active
-│  │  ├─ aggregate.ts     reports, ranges, and context
-│  │  ├─ demo.ts          fictional data for demo mode
-│  │  ├─ config.ts        validated configuration
-│  │  ├─ paths.ts         data folders per system
-│  │  ├─ windows.ts       real context windows
-│  │  ├─ plan.ts          plan limits (5-hour and weekly)
-│  │  ├─ models.ts        "claude-opus-5-5" -> "Opus 5.5"
-│  │  └─ cli.ts           terminal summary
-│  ├─ server/             local API, static files, and live notices
-│  │  ├─ index.ts         routes
-│  │  └─ watch.ts         folder watching and SSE
-│  ├─ tray/               Electron: tray, mascot, alerts
-│  └─ web/                React: dashboard, settings, and mascot
-├─ docs/                  logo and demo screenshots
-├─ test/                  tests
-├─ AGENTS.md              guide for AI agents
+│  ├─ core/              parser, cache, aggregation, and configuration
+│  │  ├─ parse.ts        incremental reading and deduplication
+│  │  ├─ scan.ts         logs traversal and cache (full or changed paths only)
+│  │  ├─ sources/        Codex, Gemini, and OmniRoute
+│  │  ├─ agents.ts       agent states, stalls, clashes, and mascot
+│  │  ├─ overview.ts     extra fields of /api/active
+│  │  ├─ aggregate.ts    reports, ranges, and context
+│  │  ├─ pricing.ts      rates, cost, and cache savings
+│  │  ├─ demo.ts         fictional data for demo mode
+│  │  ├─ config.ts       validated configuration
+│  │  ├─ paths.ts        data folders per system
+│  │  ├─ windows.ts      real context windows
+│  │  ├─ plan.ts         plan limits (5-hour and weekly)
+│  │  ├─ models.ts       "claude-opus-5-5" -> "Opus 5.5"
+│  │  └─ cli.ts          terminal summary
+│  ├─ server/            local API, static files, and live notices
+│  │  ├─ index.ts        routes
+│  │  └─ watch.ts        folder watching and SSE
+│  ├─ shared/            shapes of the files the scripts write
+│  ├─ tray/              Electron: tray, mascot, alerts
+│  └─ web/               React: dashboard, settings, and mascot
+│     ├─ views/          tabs: Agents, Summary, Models, Roles, Sessions, Projects, and Settings
+│     ├─ components/     shared pieces: charts, chips, active chats
+│     ├─ mascot/         Chispa: component, states, and speech
+│     └─ App.tsx y más   shell (App.tsx), floating window (overlay.tsx), and live notices (live.ts)
+├─ docs/                 logo and demo screenshots
+├─ test/                 tests
+├─ AGENTS.md             guide for AI agents
 └─ LICENSE                MIT
 ```
 
