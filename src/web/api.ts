@@ -87,14 +87,30 @@ export interface SourceInfo {
 
 export type SourcesReport = Record<SourceId, SourceInfo>
 
-export interface Live {
-  lastTs: number | null
-  working: boolean
+/** Consumo de hoy de una fuente. `costUsd` es valor equivalente en API, no gasto facturado. */
+export interface TodaySource {
+  total: number
+  fresh: number
+  cacheRead: number
+  costUsd: number
+  costUnpriced: number
+}
+
+/** Campos de "Hoy" que comparten /api/live y /api/active: todas las fuentes activas. */
+export interface TodayFields {
   todayTokens: number
   todayCostUsd?: number
+  /** tokens de modelos sin tarifa: el costo de hoy no los incluye */
+  todayCostUnpriced?: number
   /** entrada + escritura de cache + salida */
   todayFresh: number
   todayCacheRead: number
+  todayBySource?: Partial<Record<SourceId, TodaySource>>
+}
+
+export interface Live extends TodayFields {
+  lastTs: number | null
+  working: boolean
   todayMessages: number
 }
 
@@ -187,8 +203,11 @@ export interface TokenLevel {
   level: LevelId
   label: string
   pct: number
-  basis: 'plan5h' | 'context'
+  basis: 'plan5h' | 'plan7d' | 'context'
+  /** tokens por minuto con lectura de cache */
   burnPerMin: number
+  /** tokens nuevos por minuto (sin lectura de cache) */
+  burnFreshPerMin?: number
   minutesLeft: number | null
   exhaustsBeforeReset: boolean | null
   cacheEfficiency: number
@@ -290,12 +309,8 @@ export interface Collision {
   since: number
 }
 
-export interface ActiveReport {
+export interface ActiveReport extends TodayFields {
   alertAt: number
-  todayTokens: number
-  todayCostUsd?: number
-  todayFresh: number
-  todayCacheRead: number
   chats: ActiveChat[]
   plan: PlanReport | null
   plans?: { claude: PlanReport | null; codex: PlanReport | null }

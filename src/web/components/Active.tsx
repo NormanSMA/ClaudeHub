@@ -180,7 +180,7 @@ export function PlanLimits({ plan, alertAt = 0.85, dense = false, hint = false }
   if (!plan) {
     return hint ? (
       <p className="plan-hint">
-        Limites del plan: solo se leen cuando usas claude en una terminal con la linea de estado de ClaudeHub activa y la sesion iniciada (planes Pro y Max). La app de escritorio de Claude no la ejecuta. Si llegas a un limite, ClaudeHub te avisa igual.
+        Sin datos del plan. Llegan del mod de ClaudeHub (app de escritorio y terminal) o de la linea de estado (terminal), tras el primer mensaje de la sesion, en planes Pro, Max y Ultra. Si llegas a un limite, ClaudeHub te avisa igual.
       </p>
     ) : null
   }
