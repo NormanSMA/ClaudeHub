@@ -43,10 +43,10 @@ curl "http://127.0.0.1:4317/api/active"
 | `/api/roles` | Cuánto gastó el orquestador y cuánto los subagentes. |
 | `/api/sessions` | Qué chats gastaron más, con su título. |
 | `/api/projects` | Qué proyectos gastaron más. |
-| `/api/sources` | Qué fuentes están activas, cuántos archivos y registros leyeron y si se pudieron leer. |
+| `/api/sources` | Qué fuentes están activas, cuántos archivos y registros leyeron y si se pudieron leer. Claude agrega `cliVersion` (versión más alta de Claude Code vista) y `skipped` (líneas de uso que no se pudieron contar; aparece solo si hay alguna y avisa de un cambio de formato). |
 | `/api/active` | Qué chats de Claude están activos y cuánta ventana de contexto usan. Incluye los campos de abajo. |
 | `/api/events` | Avisos en vivo por SSE. No lleva datos de uso. |
-| `/api/live` | Tokens de hoy y última actividad. |
+| `/api/live` | Tokens de hoy de todas las fuentes activas y última actividad. |
 | `/api/settings` | Configuración actual. `PUT` la guarda (solo `application/json`). |
 | `/api/update` | Si hay una versión nueva: `enabled`, `current`, `latest`, `available`, `url`, `name`, `notes` (hasta 3) y `checkedAt`. |
 
@@ -71,9 +71,9 @@ Filtra con `?range=all|30d|7d` o con `?from=AAAA-MM-DD&to=AAAA-MM-DD`.
 | Campo | Contenido |
 |---|---|
 | `level` y `label` | 1 Eco (hasta 20%), 2 Flujo (hasta 50%), 3 Ritmo Alto (hasta 75%), 4 Crítico (hasta 90%), 5 Límite (más de 90%). |
-| `pct` y `basis` | Porcentaje usado. `plan5h` sale del límite de 5 horas. Sin ese dato, `context` sale del chat activo con más contexto. |
-| `burnPerMin` | Tokens de Claude por minuto en los últimos 15 minutos. |
-| `minutesLeft` y `exhaustsBeforeReset` | Proyección hasta el límite de 5 horas, o `null`. Requiere `basis: plan5h`, 5% usado como mínimo, tokens locales y ritmo. |
+| `pct` y `basis` | Porcentaje usado de la ventana del plan más llena: `plan5h` (5 horas) o `plan7d` (semanal). Sin datos del plan, `context` sale del chat activo con más contexto. |
+| `burnPerMin` | Tokens de Claude por minuto en los últimos 15 minutos, con lectura de caché. La interfaz muestra `burnFreshPerMin`. |
+| `minutesLeft` y `exhaustsBeforeReset` | Proyección hasta el límite de 5 horas, o `null`. Requiere `basis: plan5h`, un dato del plan de menos de 10 minutos, 5% usado como mínimo, tokens locales y ritmo. |
 | `cacheEfficiency` | Porcentaje (0 a 100) de la entrada leída de caché, últimas 5 horas. |
 | `delegationShare` | Parte (0 a 1) de los tokens que gastaron los subagentes, últimas 5 horas. |
 | `burnFreshPerMin` | Tokens nuevos por minuto en los últimos 15 minutos. |
@@ -85,10 +85,14 @@ Filtra con `?range=all|30d|7d` o con `?from=AAAA-MM-DD&to=AAAA-MM-DD`.
 | `todayFresh` | Tokens nuevos de hoy: entrada + escritura de caché + salida. En `/api/live` y `/api/active`. |
 | `todayCacheRead` | Lectura de caché de hoy. En `/api/live` y `/api/active`. |
 | `todayCostUsd` | Valor equivalente en API de hoy, en dólares. No es lo que paga una suscripción. |
+| `todayCostUnpriced` | Tokens de hoy de modelos sin tarifa. No suman a `todayCostUsd`. |
+| `todayBySource` | Los mismos datos por fuente: `total`, `fresh`, `cacheRead`, `costUsd` y `costUnpriced`. |
 | `fresh`, `cacheRead` | Los mismos dos datos por fila en `/api/summary`, `/api/sessions` y `/api/projects`. |
 | `costUsd`, `cacheSavingsUsd` | Costo y ahorro por caché por fila. `costUnpriced` cuenta los tokens de modelos sin tarifa; no suman al costo. |
 
-`todayTokens` y `total` no cambian: siguen sumando las cuatro partes. Los precios salen de `src/core/pricing.ts` y se editan en Ajustes. El día se corta a medianoche local.
+Los campos `today*` son los mismos en `/api/live` y `/api/active`: suman todas las fuentes activas. La cuota (`plan`, `plans`, `level`) es por proveedor y no se mezcla con ellos.
+
+`todayTokens` y `total` no cambian: siguen sumando las cuatro partes. Los precios salen de `src/core/pricing.ts` y se editan en Ajustes. `PRICE_SOURCES` guarda la página oficial y la fecha en que se comparó cada tabla; repite la comparación antes de publicar. El modo rápido (`usage.speed`) usa su tarifa. No se aplican el recargo de `inference_geo` ni el cobro por búsqueda web. El día se corta a medianoche local.
 
 `/api/events` envía `hello`, `changed` y un latido cada 25 segundos. Admite 8 clientes: el noveno recibe `429`. No concede CORS.
 
@@ -124,7 +128,7 @@ El servidor vigila `~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/tmp` y 
 
 ## Estados por hooks
 
-El script `scripts/hook.cjs` es opcional. Anota cada evento en `events.jsonl`, dentro de la carpeta de datos.
+El script `scripts/hook.cjs` es opcional. Anota cada evento en `events.jsonl`, dentro de la carpeta de intercambio (ver abajo).
 
 Línea: `{v,ts,source,session,event,state,tool,cwd}`, de 512 bytes como máximo. Rota a `events.1.jsonl` al pasar de 256 KB.
 
@@ -142,6 +146,12 @@ Para instalarlo, pide confirmación antes de editar `~/.claude/settings.json`. C
 { "type": "command", "command": "node \"<ruta>\\ClaudeHub\\scripts\\hook.cjs\" claude" }
 ```
 
+## Carpeta de intercambio
+
+`rate-limits.json`, `context-windows.json` y `events.jsonl` se escriben en `~/.claudehub` (variable `CLAUDEHUB_EXCHANGE`; con `CLAUDEHUB_DATA` definida, esa carpeta). No van en la carpeta de datos porque la app de escritorio de Claude en Windows es un paquete MSIX: Windows redirige los archivos nuevos bajo `%APPDATA%` a una copia privada que otros procesos no ven.
+
+El servidor lee esos archivos de `~/.claudehub`, de la carpeta de datos y de `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\ClaudeHub`. Usa el `rate-limits.json` con `updatedAt` más reciente, fusiona las ventanas por sesión y une los eventos sin repetirlos.
+
 ## Límites del plan desde la app de escritorio
 
 La app de escritorio no ejecuta `statusLine`. Usa el comando `/uso`:
@@ -151,6 +161,8 @@ La app de escritorio no ejecuta `statusLine`. Usa el comando `/uso`:
 3. El usuario ejecuta `/uso`. El comando llama a `get_usage` y corre `scripts/write-limits.cjs`.
 
 `write-limits.cjs` valida los datos y escribe `rate-limits.json`. El dato se actualiza solo al ejecutar `/uso`.
+
+El mod `plugins/claudehub-mod` hace lo mismo sin intervención: escribe los límites y la ventana de contexto en cada medición de la sesión, en la terminal y en la app de escritorio.
 
 ## Abrir ClaudeHub al iniciar Claude Code
 
@@ -187,9 +199,9 @@ Por defecto el límite de la ventana es una estimación. Para usar el valor real
 }
 ```
 
-Si el usuario ya tiene un `statusLine`, no lo reemplaces: pregúntale cómo combinarlos. El script guarda `context_window.context_window_size` de cada sesión en `context-windows.json` y los límites del plan (`rate_limits.five_hour` y `rate_limits.seven_day`) en `rate-limits.json`, ambos dentro de la carpeta de datos de ClaudeHub.
+Si el usuario ya tiene un `statusLine`, no lo reemplaces: pregúntale cómo combinarlos. El script guarda `context_window.context_window_size` de cada sesión en `context-windows.json` y los límites del plan (`rate_limits.five_hour` y `rate_limits.seven_day`) en `rate-limits.json`, ambos dentro de la carpeta de intercambio.
 
-Los límites del plan solo los envía Claude Code a suscriptores Pro y Max, y después de la primera respuesta de la sesión. El porcentaje incluye todo el uso del plan, no solo Claude Code.
+Los límites del plan solo los envía Claude Code a suscriptores Pro, Max y Ultra, y después de la primera respuesta de la sesión. El porcentaje incluye todo el uso del plan, no solo Claude Code.
 
 La app de escritorio de Claude no ejecuta `statusLine` (es una función de la terminal). Para obtener los porcentajes hay que usar `claude` en una terminal con la sesión iniciada (`/login`). Aun sin eso, `/api/active` devuelve `plan.blocked` cuando el usuario alcanzó un límite, leído de los registros.
 
