@@ -7,10 +7,15 @@ async function fetchActive() {
   return res.json()
 }
 
-// Mismos umbrales que el dashboard: verde, ambar desde 70 %, rojo desde alertAt.
+// Mismos umbrales que ctxColor del dashboard: verde, ambar desde 60 %, rojo desde alertAt.
 function level(pct, alertAt = 0.85) {
   const f = pct > 1 ? pct / 100 : pct
   if (f >= alertAt) return 'danger'
-  if (f >= 0.7) return 'warn'
+  if (f >= 0.6) return 'warn'
   return 'ok'
+}
+
+// plans.claude es la fuente actual; plan queda como respaldo de servidores anteriores.
+function planOf(d) {
+  return (d.plans && d.plans.claude) || d.plan || null
 }

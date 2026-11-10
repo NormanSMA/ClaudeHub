@@ -139,5 +139,126 @@ describe('background.js con chrome simulado', () => {
     })
     expect(calls.badge).toEqual(['--'])
     expect(calls.color).toEqual(['#9b978d'])
+    expect(calls.title[0]).toContain('sin conexion')
+  })
+
+  it('con respuesta y plan nulo muestra los chats activos y no dice sin conexion', async () => {
+    const body = { plan: null, chats: [{}, {}], alertAt: 0.85 }
+    const calls = await runBackground(async () => ({ ok: true, json: async () => body }))
+    expect(calls.badge).toEqual(['2'])
+    expect(calls.color).toEqual(['#9b978d'])
+    expect(calls.title[0]).toContain('sin datos del plan')
+    expect(calls.title[0]).not.toContain('sin conexion')
+  })
+
+  it('con respuesta, plan nulo y sin chats deja la insignia vacia', async () => {
+    const body = { plan: null, chats: [], alertAt: 0.85 }
+    const calls = await runBackground(async () => ({ ok: true, json: async () => body }))
+    expect(calls.badge).toEqual([''])
+    expect(calls.title[0]).not.toContain('sin conexion')
+  })
+
+  it('tolera una respuesta sin plan ni chats', async () => {
+    const calls = await runBackground(async () => ({ ok: true, json: async () => ({}) }))
+    expect(calls.badge).toEqual([''])
+    expect(calls.title[0]).not.toContain('sin conexion')
+  })
+
+  it('prefiere plans.claude sobre plan', async () => {
+    const body = { plans: { claude: { fiveHour: { pct: 91 } } }, plan: null, alertAt: 0.85 }
+    const calls = await runBackground(async () => ({ ok: true, json: async () => body }))
+    expect(calls.badge).toEqual(['91'])
+    expect(calls.color).toEqual(['#e0584a'])
+  })
+})
+
+class FakeEl {
+  className = ''
+  textContent = ''
+  title = ''
+  checked = true
+  style: Record<string, string> = {}
+  children: Array<FakeEl | string> = []
+  classList = { add: () => undefined, remove: () => undefined }
+  append(...n: Array<FakeEl | string>) {
+    this.children.push(...n)
+  }
+  replaceChildren(...n: Array<FakeEl | string>) {
+    this.children = n
+  }
+  addEventListener() {}
+  toggleAttribute() {}
+  text(): string {
+    return this.textContent + this.children.map((c) => (typeof c === 'string' ? c : c.text())).join(' ')
+  }
+}
+
+async function runPopup(fetchImpl: (url: string) => Promise<unknown>) {
+  const nodes: Record<string, FakeEl> = { root: new FakeEl(), today: new FakeEl(), anim: new FakeEl() }
+  const document = {
+    getElementById: (id: string) => nodes[id],
+    createElement: () => new FakeEl(),
+    documentElement: new FakeEl(),
+  }
+  const ctx = vm.createContext({
+    document,
+    fetch: fetchImpl,
+    localStorage: { getItem: () => null, setItem: () => undefined },
+    setInterval: () => 0,
+    setTimeout: () => 0,
+  })
+  for (const file of ['shared.js', 'popup.js']) vm.runInContext(readFileSync(join(SHARED, file), 'utf8'), ctx, { filename: file })
+  await new Promise((done) => setImmediate(done))
+  return nodes.root.text()
+}
+
+const chat = {
+  title: 'Chat de prueba',
+  project: 'demo',
+  model: 'Opus',
+  lastTs: Date.now(),
+  activeSubagents: 0,
+  context: { pct: 0.3, used: 300, limit: 1000, estimated: false },
+}
+
+describe('popup.js con DOM simulado', () => {
+  const reply = (body: unknown) => async () => ({ ok: true, json: async () => body })
+
+  it('con plan nulo muestra los chats y Sin datos del plan', async () => {
+    const text = await runPopup(reply({ plan: null, chats: [chat], todayTokens: 5, alertAt: 0.85 }))
+    expect(text).toContain('Sin datos del plan')
+    expect(text).toContain('Chat de prueba')
+    expect(text).not.toContain('No hay conexion')
+  })
+
+  it('con plan sin ventanas muestra Sin datos del plan', async () => {
+    const text = await runPopup(reply({ plan: {}, chats: [], todayTokens: 5, alertAt: 0.85 }))
+    expect(text).toContain('Sin datos del plan')
+    expect(text).not.toContain('No hay conexion')
+  })
+
+  it('con plan muestra el limite y no el aviso', async () => {
+    const plan = { fiveHour: { pct: 40, resetsAt: Date.now() + 3600000 } }
+    const text = await runPopup(reply({ plans: { claude: plan }, plan: null, chats: [], todayTokens: 5, alertAt: 0.85 }))
+    expect(text).toContain('Limite de 5 horas')
+    expect(text).not.toContain('Sin datos del plan')
+  })
+
+  it('sin servidor muestra No hay conexion', async () => {
+    const text = await runPopup(async () => {
+      throw new Error('ECONNREFUSED')
+    })
+    expect(text).toContain('No hay conexion con ClaudeHub')
+  })
+})
+
+describe('umbral de color del contexto', () => {
+  it('es el mismo que ctxColor del dashboard (ambar desde 0,6)', () => {
+    const ctx = vm.createContext({})
+    vm.runInContext(readFileSync(join(SHARED, 'shared.js'), 'utf8'), ctx)
+    const level = vm.runInContext('level', ctx) as (p: number, a?: number) => string
+    expect(level(0.6)).toBe('warn')
+    expect(level(0.59)).toBe('ok')
+    expect(level(0.85)).toBe('danger')
   })
 })

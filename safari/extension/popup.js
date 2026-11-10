@@ -37,7 +37,12 @@ function bar(frac, lvl) {
 
 function planCard(d) {
   const card = el('div', 'card')
-  for (const [label, w] of [['Limite de 5 horas', d.plan.fiveHour], ['Semanal', d.plan.sevenDay]]) {
+  const plan = planOf(d)
+  if (!plan || (!plan.fiveHour && !plan.sevenDay)) {
+    card.append(el('div', 'sub', 'Sin datos del plan'))
+    return card
+  }
+  for (const [label, w] of [['Limite de 5 horas', plan.fiveHour], ['Semanal', plan.sevenDay]]) {
     if (!w) continue
     const lvl = level(w.pct, d.alertAt)
     const row = el('div', 'row')

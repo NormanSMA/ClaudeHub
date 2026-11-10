@@ -5,19 +5,27 @@ if (typeof importScripts === 'function') importScripts('shared.js')
 const api = globalThis.browser ?? globalThis.chrome
 const COLORS = { ok: '#6fa58a', warn: '#e3a64b', danger: '#e0584a', off: '#9b978d' }
 
+async function show(text, color, title) {
+  await api.action.setBadgeText({ text })
+  await api.action.setBadgeBackgroundColor({ color })
+  await api.action.setTitle({ title })
+}
+
 async function refresh() {
+  let d
   try {
-    const d = await fetchActive()
-    const pct = d.plan && d.plan.fiveHour ? Math.round(d.plan.fiveHour.pct) : null
-    if (pct === null) throw new Error('sin datos del plan')
-    await api.action.setBadgeText({ text: `${pct}` })
-    await api.action.setBadgeBackgroundColor({ color: COLORS[level(pct, d.alertAt)] })
-    await api.action.setTitle({ title: `ClaudeHub: limite de 5 horas al ${pct}%` })
+    d = await fetchActive()
   } catch {
-    await api.action.setBadgeText({ text: '--' })
-    await api.action.setBadgeBackgroundColor({ color: COLORS.off })
-    await api.action.setTitle({ title: 'ClaudeHub: sin conexion con el servidor local' })
+    return show('--', COLORS.off, 'ClaudeHub: sin conexion con el servidor local')
   }
+  const plan = planOf(d)
+  if (plan && plan.fiveHour) {
+    const pct = Math.round(plan.fiveHour.pct)
+    return show(`${pct}`, COLORS[level(pct, d.alertAt)], `ClaudeHub: limite de 5 horas al ${pct}%`)
+  }
+  // El servidor responde pero no hay plan: la insignia muestra los chats activos.
+  const n = Array.isArray(d.chats) ? d.chats.length : 0
+  return show(n > 0 ? `${n}` : '', COLORS.off, `ClaudeHub: sin datos del plan${n > 0 ? ` (${n} chats activos)` : ''}`)
 }
 
 api.alarms.create('refresh', { periodInMinutes: 1 })
