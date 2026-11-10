@@ -11,14 +11,14 @@
 // @ts-check
 const fs = require('node:fs')
 const path = require('node:path')
-const { dataDir } = require('./lib/paths.cjs')
+const { exchangeDir } = require('./lib/paths.cjs')
 
 /**
  * @typedef {import('../src/shared/files').RateLimitsFile} RateLimitsFile
  * @typedef {import('../src/shared/files').RateWindow} RateWindow
  */
 
-const PLAN_FILE = process.env.CLAUDEHUB_PLAN || path.join(dataDir(), 'rate-limits.json')
+const PLAN_FILE = process.env.CLAUDEHUB_PLAN || path.join(exchangeDir(), 'rate-limits.json')
 
 /**
  * @param {string} message

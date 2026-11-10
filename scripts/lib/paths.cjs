@@ -15,4 +15,14 @@ function dataDir() {
   return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'ClaudeHub')
 }
 
-module.exports = { dataDir }
+/**
+ * Carpeta de intercambio con el servidor. Misma logica que exchangeDir en src/core/paths.ts.
+ * Queda fuera de AppData porque la app de escritorio de Claude (MSIX) redirige ahi los archivos nuevos.
+ * CLAUDEHUB_EXCHANGE reemplaza la ruta; sin ella, CLAUDEHUB_DATA; sin ninguna, ~/.claudehub.
+ * @returns {string}
+ */
+function exchangeDir() {
+  return process.env.CLAUDEHUB_EXCHANGE || process.env.CLAUDEHUB_DATA || path.join(os.homedir(), '.claudehub')
+}
+
+module.exports = { dataDir, exchangeDir }

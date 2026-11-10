@@ -141,6 +141,33 @@ describe('niveles de consumo', () => {
     expect(late.exhaustsBeforeReset).toBe(false)
   })
 
+  it('usa la ventana semanal cuando va mas llena que la de 5 h', () => {
+    const claude: PlanReport = { ...plan(10, 10_000), sevenDay: { pct: 98, tokens: 900_000, resetsAt: now + 48 * H } }
+    const r = tokenLevel({ claude, contextPct: 0.2, ...extra })!
+    expect(r).toMatchObject({ level: 5, pct: 98, basis: 'plan7d', minutesLeft: null, exhaustsBeforeReset: null })
+    // con la de 5 h mas llena, la base sigue siendo la de 5 h
+    const five = tokenLevel({ claude: { ...claude, sevenDay: { pct: 5, tokens: 1, resetsAt: now + 48 * H } }, contextPct: null, ...extra })!
+    expect(five).toMatchObject({ pct: 10, basis: 'plan5h' })
+  })
+
+  it('solo con ventana semanal la base es plan7d', () => {
+    const claude: PlanReport = { fiveHour: null, sevenDay: { pct: 30, tokens: 1, resetsAt: now + H }, blocked: null, updatedAt: now }
+    expect(tokenLevel({ claude, contextPct: 0.9, ...extra })).toMatchObject({ pct: 30, basis: 'plan7d', level: 2 })
+  })
+
+  it('un bloqueo semanal da nivel 5 con base plan7d', () => {
+    const claude: PlanReport = { ...plan(10, 10_000), blocked: { type: 'seven_day', resetsAt: now + 48 * H } }
+    expect(tokenLevel({ claude, contextPct: null, ...extra })).toMatchObject({ level: 5, pct: 100, basis: 'plan7d', minutesLeft: null })
+  })
+
+  it('no proyecta con un dato del plan de mas de 10 minutos o sin fecha', () => {
+    const old = tokenLevel({ claude: { ...plan(50, 50_000), updatedAt: now - 11 * 60_000 }, contextPct: null, ...extra })!
+    expect(old).toMatchObject({ pct: 50, basis: 'plan5h', minutesLeft: null, exhaustsBeforeReset: null })
+    const recent = tokenLevel({ claude: { ...plan(50, 50_000), updatedAt: now - 9 * 60_000 }, contextPct: null, ...extra })!
+    expect(recent.minutesLeft).toBeCloseTo(50)
+    expect(tokenLevel({ claude: { ...plan(50, 50_000), updatedAt: 0 }, contextPct: null, ...extra })!.minutesLeft).toBeNull()
+  })
+
   it('no proyecta con pct < 5, sin tokens locales o sin ritmo', () => {
     for (const c of [
       { claude: plan(4.9, 1000), burnPerMin: 1000 },

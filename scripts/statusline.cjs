@@ -14,7 +14,7 @@
 // @ts-check
 const fs = require('node:fs')
 const path = require('node:path')
-const { dataDir } = require('./lib/paths.cjs')
+const { exchangeDir } = require('./lib/paths.cjs')
 
 /**
  * @typedef {import('../src/shared/files').RateLimitsFile} RateLimitsFile
@@ -24,8 +24,8 @@ const { dataDir } = require('./lib/paths.cjs')
  * @typedef {import('../src/shared/files').StatusLineInput} StatusLineInput
  */
 
-const FILE = process.env.CLAUDEHUB_WINDOWS || path.join(dataDir(), 'context-windows.json')
-const PLAN_FILE = process.env.CLAUDEHUB_PLAN || path.join(dataDir(), 'rate-limits.json')
+const FILE = process.env.CLAUDEHUB_WINDOWS || path.join(exchangeDir(), 'context-windows.json')
+const PLAN_FILE = process.env.CLAUDEHUB_PLAN || path.join(exchangeDir(), 'rate-limits.json')
 const MAX_ENTRIES = 500
 const MAX_AGE_MS = 30 * 86_400_000
 const REFRESH_MS = 10 * 60_000

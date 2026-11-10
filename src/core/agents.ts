@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { closeSync, fstatSync, openSync, readSync } from 'node:fs'
 import { join } from 'node:path'
-import { dataDir } from './paths'
+import { exchangeReadDirs } from './paths'
 
 export type EventSource = 'claude' | 'codex'
 export type HookState = 'idle' | 'starting' | 'thinking' | 'tool' | 'waiting' | 'done' | 'error'
@@ -116,17 +116,34 @@ function parseLines(text: string, truncated: boolean): HookEvent[] {
   return out
 }
 
-/**
- * Lee el final de events.jsonl y, si sobra espacio, el de events.1.jsonl.
- * Devuelve los eventos validos en orden cronologico del archivo.
- */
-export function readEvents(dir: string = dataDir(), maxBytes = 65536): HookEvent[] {
+/** Lee el final de events.jsonl y, si sobra espacio, el de events.1.jsonl de una carpeta. */
+function readDir(dir: string, maxBytes: number): HookEvent[] {
   const current = readTail(join(dir, 'events.jsonl'), maxBytes)
   const used = current ? Buffer.byteLength(current.text) : 0
   const older = used < maxBytes && (!current || !current.truncated) ? readTail(join(dir, 'events.1.jsonl'), maxBytes - used) : null
   const first = older ? parseLines(older.text, older.truncated) : []
   const last = current ? parseLines(current.text, current.truncated) : []
   return [...first, ...last]
+}
+
+/**
+ * Lee los eventos de una carpeta o de varias. Sin argumento usa todas las carpetas de intercambio.
+ * Con varias carpetas descarta eventos identicos repetidos y ordena por ts.
+ */
+export function readEvents(dirs: string | string[] = exchangeReadDirs(), maxBytes = 65536): HookEvent[] {
+  if (typeof dirs === 'string') return readDir(dirs, maxBytes)
+  const seen = new Set<string>()
+  const out: HookEvent[] = []
+  for (const dir of dirs) {
+    for (const ev of readDir(dir, maxBytes)) {
+      const key = JSON.stringify(ev)
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(ev)
+    }
+  }
+  // sort es estable: eventos con el mismo ts conservan el orden del archivo
+  return out.sort((a, b) => a.ts - b.ts)
 }
 
 /** Nombre de la carpeta final de una ruta, sin el resto. */
