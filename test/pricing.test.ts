@@ -29,7 +29,8 @@ const rows: [string, number, number, number, number, number][] = [
   ['claude-sonnet-4', 3, 15, 3.75, 6, 0.3],
   ['claude-haiku-5-5', 0.1, 0.5, 0.125, 0.2, 0.01],
   ['claude-haiku-4-5', 1, 5, 1.25, 2, 0.1],
-  ['gpt-6.1-sol', 2, 10, 2, 2, 0.1],
+  ['gpt-6.1-sol', 2, 10, 2.5, 5, 0.1],
+  ['gpt-6.1-terra', 1, 5, 1.25, 2.5, 0.05],
   ['gemini-3-flash-preview', 0.5, 3, 0.5, 0.5, 0.05],
 ]
 
@@ -108,7 +109,14 @@ describe('tarifas', () => {
   it('cambia GPT 6.1 Sol solamente por encima de 272k', () => {
     expect(priceOf('gpt-6.1-sol', undefined, 272_000)).toEqual(priceOf('gpt-6.1-sol'))
     expect(priceOf('gpt-6.1-sol', undefined, 272_001)).toEqual({
-      input: 4, output: 15, cacheWrite: 4, cacheWrite1h: 4, cacheRead: 0.2,
+      input: 4, output: 15, cacheWrite: 5, cacheWrite1h: 10, cacheRead: 0.2,
+    })
+  })
+
+  it('cambia GPT 6.1 Terra solamente por encima de 272k', () => {
+    expect(priceOf('gpt-6.1-terra', undefined, 272_000)).toEqual(priceOf('gpt-6.1-terra'))
+    expect(priceOf('gpt-6.1-terra', undefined, 272_001)).toEqual({
+      input: 2, output: 7.5, cacheWrite: 2.5, cacheWrite1h: 5, cacheRead: 0.1,
     })
   })
 
@@ -130,7 +138,7 @@ describe('tarifas', () => {
       input: 0, output: 5, cacheWrite: 1.25, cacheWrite1h: 2, cacheRead: 0.1,
     })
     expect(priceOf('gpt-6.1-sol', { 'GPT 6.1 Sol': { output: 7 } }, 272_001)).toEqual({
-      input: 4, output: 7, cacheWrite: 4, cacheWrite1h: 4, cacheRead: 0.2,
+      input: 4, output: 7, cacheWrite: 5, cacheWrite1h: 10, cacheRead: 0.2,
     })
     expect(priceOf('claude-haiku-4-5', { 'claude-haiku-4-5': { input: 0 } })).toEqual(priceOf('claude-haiku-4-5'))
   })
@@ -159,7 +167,8 @@ describe('costo por registro', () => {
 
   it.each([
     ['claude-haiku-5-5', 100_000, 0.0625005],
-    ['gpt-6.1-sol', 272_000, 1.088004],
+    // nivel alto: 1 de entrada a 4 y 272 000 de escritura de 30 min a 5
+    ['gpt-6.1-sol', 272_000, 1.360004],
   ] as const)('suma toda la entrada para seleccionar el nivel de %s', (model, cacheWrite, expected) => {
     expect(costOf({ ...rec, model, input: 1, cacheWrite, cacheRead: 0, output: 0 })).toBeCloseTo(expected, 12)
   })
