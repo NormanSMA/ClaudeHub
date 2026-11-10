@@ -37,5 +37,5 @@ claude plugin test plugins/claudehub-mod
 ## Límites
 
 - `/chub` necesita ClaudeHub en marcha (`pnpm start` o la bandeja). Sin servidor, responde con un aviso.
-- Los límites del plan solo llegan a suscriptores Pro y Max, después de la primera respuesta.
+- Los límites del plan solo llegan a suscriptores Pro, Max y Ultra, después de la primera respuesta.
 - El mod escribe los archivos sin renombrado atómico, porque el mod no tiene `rename`.

@@ -126,9 +126,13 @@ ClaudeHub muestra el porcentaje usado y el tiempo hasta el reinicio. Hay tres fo
 |---|---|
 | [Línea de estado](#línea-de-estado) | Claude Code en la terminal. |
 | [Comando `/uso`](#comando-uso) | App de escritorio de Claude. Se actualiza al ejecutarlo. |
-| [Mod `claudehub-mod`](#mod-de-claude-code) | En prueba para la app de escritorio. |
+| [Mod `claudehub-mod`](#mod-de-claude-code) | Terminal y app de escritorio de Claude. Se actualiza solo en cada medición. |
 
-Claude Code solo envía estos datos a suscriptores Pro y Max, tras la primera respuesta. El porcentaje incluye todo el uso de tu cuenta, no solo Claude Code.
+Claude Code solo envía estos datos a suscriptores Pro, Max y Ultra, tras la primera respuesta. El porcentaje incluye todo el uso de tu cuenta, no solo Claude Code.
+
+El nivel de consumo usa la ventana más llena: la de 5 horas o la semanal. La proyección solo aparece con un dato de menos de 10 minutos.
+
+Estos porcentajes son la cuota de tu suscripción. No son tokens medidos ni dinero: ClaudeHub no conoce lo que te factura Anthropic. El valor en dólares que muestra es lo que costaría el mismo uso en la API.
 
 Sin ninguna vía, ClaudeHub aún detecta un límite alcanzado: lo lee de los registros y muestra la hora de reinicio.
 
@@ -197,7 +201,7 @@ claude plugin marketplace add NormanSMA/ClaudeHub
 claude plugin install claudehub-mod@claudehub
 ```
 
-Luego ejecuta `/reload-plugins`. Escribe `rate-limits.json` y `context-windows.json` y agrega `/chub`, que resume los tokens y el costo de hoy. Su funcionamiento en la app de escritorio está por confirmar. Detalle en [plugins/claudehub-mod/README.md](../plugins/claudehub-mod/README.md).
+Luego ejecuta `/reload-plugins`. Escribe `rate-limits.json` y `context-windows.json` y agrega `/chub`, que resume los tokens y el costo de hoy. Funciona en la terminal y en la app de escritorio. Detalle en [plugins/claudehub-mod/README.md](../plugins/claudehub-mod/README.md).
 
 ## Otras fuentes
 
@@ -253,7 +257,13 @@ Edítala en **Ajustes** o en `config.json`. Todos los campos son opcionales y se
 | macOS | `~/Library/Application Support/ClaudeHub/` |
 | Linux | `~/.config/ClaudeHub/` |
 
-Contiene `config.json`, `cache.json`, `context-windows.json`, `rate-limits.json`, `events.jsonl`, `overlay-pos.json`, `tray.pid` y la copia de `omniroute/`. Borrar `cache.json` solo fuerza una relectura.
+Contiene `config.json`, `cache.json`, `update.json`, `setup.json`, `overlay-pos.json`, `tray.pid`, la carpeta `electron/` y la copia de `omniroute/`. Borrar `cache.json` solo fuerza una relectura.
+
+### Carpeta de intercambio
+
+`~/.claudehub/` en los tres sistemas. Ahí escriben el hook, la línea de estado, `/uso` y el mod: `rate-limits.json`, `context-windows.json`, `events.jsonl` y `events.1.jsonl`.
+
+Está fuera de la carpeta de datos por un motivo: la app de escritorio de Claude en Windows es un paquete MSIX y Windows redirige a una copia privada los archivos nuevos que crea bajo `%APPDATA%`. ClaudeHub no veía esos archivos. El servidor sigue leyendo también las ubicaciones anteriores y usa el dato más reciente.
 
 ### Variables de entorno
 
@@ -261,7 +271,8 @@ Contiene `config.json`, `cache.json`, `context-windows.json`, `rate-limits.json`
 |---|---|
 | `PORT` | Puerto. Por defecto `4317`, o `4318` en demo. |
 | `CLAUDEHUB_DEMO` | `1` para datos ficticios. |
-| `CLAUDEHUB_DATA` | Otra carpeta de datos. |
+| `CLAUDEHUB_DATA` | Otra carpeta de datos. También pasa a ser la carpeta de intercambio. |
+| `CLAUDEHUB_EXCHANGE` | Otra carpeta de intercambio. |
 | `CLAUDE_PROJECTS_DIR`, `CODEX_SESSIONS_DIR`, `GEMINI_TMP_DIR` | Otras carpetas de registros. |
 | `CLAUDEHUB_CACHE`, `CLAUDEHUB_CONFIG`, `CLAUDEHUB_WINDOWS`, `CLAUDEHUB_PLAN` | Otras rutas de caché, configuración, ventanas y límites. |
 
