@@ -14,6 +14,8 @@ export interface PriceRule {
   match: RegExp
   price: Price
   tierAbove?: { tokens: number; price: Price }
+  /** Modo rapido (`usage.speed: "fast"`): entrada y salida. La cache escala con la entrada. */
+  fast?: { input: number; output: number }
   /** Fin exclusivo de la tarifa temporal, en milisegundos. */
   until?: number
 }
@@ -21,20 +23,31 @@ export interface PriceRule {
 const price = (input: number, output: number, cacheWrite: number, cacheWrite1h: number, cacheRead: number): Price =>
   ({ input, output, cacheWrite, cacheWrite1h, cacheRead })
 
+/**
+ * Procedencia de cada tabla: pagina oficial y dia en que se comparo con ella.
+ * Antes de publicar una version se repite la comparacion y se actualiza la fecha.
+ */
+export const PRICE_SOURCES = [
+  { provider: 'Claude', url: 'https://platform.claude.com/docs/en/about-claude/pricing', verified: '2026-11-09' },
+  { provider: 'OpenAI', url: 'https://openai.com/index/introducing-gpt-6-1-sol/', verified: '2026-10-22' },
+  { provider: 'Gemini', url: 'https://ai.google.dev/gemini-api/docs/pricing', verified: '2026-10-22' },
+] as const
+
 const RULES: PriceRule[] = [
-  // Tabla de Claude: 2026-10-06. Fuente: https://platform.claude.com/docs/en/about-claude/pricing
-  { match: /^claude-fable-5-1$/, price: price(10, 50, 12.5, 20, 0.25) },
-  { match: /^claude-fable-5$/, price: price(10, 50, 12.5, 20, 1) },
-  { match: /^claude-opus-5-5$/, price: price(4, 20, 5, 8, 0.2) },
-  { match: /^claude-opus-(?:5|4-[678])$/, price: price(5, 25, 6.25, 10, 0.5) },
-  // Opus 4.5: tarifa de lanzamiento.
-  { match: /^claude-opus-4-5$/, price: price(5, 25, 6.25, 10, 0.5) },
-  // Opus 4.1 y 4: tarifa de lanzamiento.
+  // Tabla de Claude: 2026-11-09. Fuente: https://platform.claude.com/docs/en/about-claude/pricing
+  // Los modelos que esa pagina ya no lista (Claude 3.x) quedan sin tarifa: se muestran como "sin precio".
+  // No se aplican el recargo de inference_geo (1.1x) ni el cobro por busqueda web.
+  { match: /^claude-(?:fable|mythos)-5-2$/, price: price(8, 40, 10, 16, 0.2), fast: { input: 16, output: 80 } },
+  { match: /^claude-(?:fable|mythos)-5-1$/, price: price(10, 50, 12.5, 20, 0.25) },
+  { match: /^claude-(?:fable|mythos)-5$/, price: price(10, 50, 12.5, 20, 1) },
+  { match: /^claude-opus-5-5$/, price: price(4, 20, 5, 8, 0.2), fast: { input: 8, output: 40 } },
+  { match: /^claude-opus-(?:5|4-8)$/, price: price(5, 25, 6.25, 10, 0.5), fast: { input: 10, output: 50 } },
+  { match: /^claude-opus-4-[567]$/, price: price(5, 25, 6.25, 10, 0.5) },
   { match: /^claude-opus-4(?:-1)?$/, price: price(15, 75, 18.75, 30, 1.5) },
-  { match: /^claude-sonnet-5(?:-5)?$/, price: price(2, 10, 2.5, 4, 0.2) },
-  { match: /^claude-sonnet-4-6$/, price: price(3, 15, 3.75, 6, 0.3) },
-  // Sonnet 4.5 y 4: tarifa de lanzamiento.
-  { match: /^claude-sonnet-4(?:-5)?$/, price: price(3, 15, 3.75, 6, 0.3) },
+  // Sonnet 5.5 lee cache a 0.05x de la entrada; Sonnet 5 a 0.1x.
+  { match: /^claude-sonnet-5-5$/, price: price(2, 10, 2.5, 4, 0.1) },
+  { match: /^claude-sonnet-5$/, price: price(2, 10, 2.5, 4, 0.2) },
+  { match: /^claude-sonnet-4(?:-[56])?$/, price: price(3, 15, 3.75, 6, 0.3) },
   {
     match: /^claude-haiku-5-5$/,
     price: price(0.1, 0.5, 0.125, 0.2, 0.01),
@@ -61,12 +74,19 @@ const RULES: PriceRule[] = [
 
 const rulesByModel = new Map<string, PriceRule[]>()
 
-/** Resuelve el id, el volumen del prompt, la fecha y los ajustes por nombre visible. */
+/** Tarifa del modo rapido: los multiplicadores de cache se aplican sobre la entrada rapida. */
+function fastPrice(p: Price, fast: { input: number; output: number }): Price {
+  const k = fast.input / p.input
+  return { input: fast.input, output: fast.output, cacheWrite: p.cacheWrite * k, cacheWrite1h: p.cacheWrite1h * k, cacheRead: p.cacheRead * k }
+}
+
+/** Resuelve el id, el volumen del prompt, la fecha, la velocidad y los ajustes por nombre visible. */
 export function priceOf(
   model: string,
   overrides?: Record<string, Partial<Price>>,
   promptTokens = 0,
   ts = Date.now(),
+  speed?: Rec['speed'],
 ): Price | null {
   const id = model.toLowerCase().replace(/-\d{8}$/, '').replace(/^claude-(\d+)-(\d+)-([a-z]+)$/, 'claude-$3-$1-$2')
   let rules = rulesByModel.get(id)
@@ -75,7 +95,8 @@ export function priceOf(
     rulesByModel.set(id, rules)
   }
   const rule = rules.find((r) => r.until === undefined || ts < r.until)
-  const base = rule ? (rule.tierAbove && promptTokens > rule.tierAbove.tokens ? rule.tierAbove.price : rule.price) : null
+  const tier = rule ? (rule.tierAbove && promptTokens > rule.tierAbove.tokens ? rule.tierAbove.price : rule.price) : null
+  const base = tier && rule?.fast && speed === 'fast' ? fastPrice(tier, rule.fast) : tier
   const name = modelName(model)
   if (!overrides || !Object.hasOwn(overrides, name)) return base ? { ...base } : null
   return { ...(base ?? price(0, 0, 0, 0, 0)), ...overrides[name] }
@@ -83,7 +104,7 @@ export function priceOf(
 
 /** Calcula el costo del registro sin volver a cobrar la escritura de una hora. */
 export function costOf(r: Rec, overrides?: Record<string, Partial<Price>>): number | null {
-  const p = priceOf(r.model, overrides, r.input + r.cacheWrite + r.cacheRead, r.ts)
+  const p = priceOf(r.model, overrides, r.input + r.cacheWrite + r.cacheRead, r.ts, r.speed)
   return p ? pricedParts(r, p).costUsd : null
 }
 
@@ -112,7 +133,7 @@ export function costParts(
   overrides?: Record<string, Partial<Price>>,
   freeProviders?: readonly string[],
 ): { costUsd: number; unpricedTokens: number; cacheSavingsUsd: number; freeSavingsUsd: number } {
-  const p = priceOf(r.model, overrides, r.input + r.cacheWrite + r.cacheRead, r.ts)
+  const p = priceOf(r.model, overrides, r.input + r.cacheWrite + r.cacheRead, r.ts, r.speed)
   if (!p) return { costUsd: 0, unpricedTokens: total(r), cacheSavingsUsd: 0, freeSavingsUsd: 0 }
   const parts = pricedParts(r, p)
   const free = sourceOf(r) === 'omniroute' && freeProviders?.includes(r.project)

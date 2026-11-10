@@ -3,12 +3,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseFile } from '../src/core/parse'
-import { costOf, priceOf } from '../src/core/pricing'
+import { costOf, priceOf, PRICE_SOURCES } from '../src/core/pricing'
 import type { Rec } from '../src/core/types'
 
+// Filas de la pagina oficial, comparadas el 2026-11-09: entrada, salida, escritura 5 min, escritura 1 h, lectura.
 const rows: [string, number, number, number, number, number][] = [
+  ['claude-fable-5-2', 8, 40, 10, 16, 0.2],
+  ['claude-mythos-5-2', 8, 40, 10, 16, 0.2],
   ['claude-fable-5-1', 10, 50, 12.5, 20, 0.25],
+  ['claude-mythos-5-1', 10, 50, 12.5, 20, 0.25],
   ['claude-fable-5', 10, 50, 12.5, 20, 1],
+  ['claude-mythos-5', 10, 50, 12.5, 20, 1],
   ['claude-opus-5-5', 4, 20, 5, 8, 0.2],
   ['claude-opus-5', 5, 25, 6.25, 10, 0.5],
   ['claude-opus-4-8', 5, 25, 6.25, 10, 0.5],
@@ -17,7 +22,7 @@ const rows: [string, number, number, number, number, number][] = [
   ['claude-opus-4-5', 5, 25, 6.25, 10, 0.5],
   ['claude-opus-4-1', 15, 75, 18.75, 30, 1.5],
   ['claude-opus-4', 15, 75, 18.75, 30, 1.5],
-  ['claude-sonnet-5-5', 2, 10, 2.5, 4, 0.2],
+  ['claude-sonnet-5-5', 2, 10, 2.5, 4, 0.1],
   ['claude-sonnet-5', 2, 10, 2.5, 4, 0.2],
   ['claude-sonnet-4-6', 3, 15, 3.75, 6, 0.3],
   ['claude-sonnet-4-5', 3, 15, 3.75, 6, 0.3],
@@ -53,6 +58,40 @@ describe('tarifas', () => {
 
   it.each(rows)('acepta el sufijo de fecha de %s', (model) => {
     expect(priceOf(`${model}-20251001`)).toEqual(priceOf(model))
+  })
+
+  it('cobra el modo rapido con la cache escalada sobre la entrada rapida', () => {
+    expect(priceOf('claude-fable-5-2', undefined, 0, undefined, 'fast')).toEqual({
+      input: 16, output: 80, cacheWrite: 20, cacheWrite1h: 32, cacheRead: 0.4,
+    })
+    expect(priceOf('claude-opus-5-5', undefined, 0, undefined, 'fast')).toEqual({
+      input: 8, output: 40, cacheWrite: 10, cacheWrite1h: 16, cacheRead: 0.4,
+    })
+    expect(priceOf('claude-opus-5', undefined, 0, undefined, 'fast')?.input).toBe(10)
+    expect(priceOf('claude-opus-4-8', undefined, 0, undefined, 'fast')?.output).toBe(50)
+  })
+
+  it('ignora el modo rapido en modelos que no lo ofrecen', () => {
+    expect(priceOf('claude-sonnet-5-5', undefined, 0, undefined, 'fast')).toEqual(priceOf('claude-sonnet-5-5'))
+    expect(priceOf('claude-opus-4-7', undefined, 0, undefined, 'fast')).toEqual(priceOf('claude-opus-4-7'))
+  })
+
+  it('un registro rapido cuesta el doble que el mismo registro estandar en Opus 5.5', () => {
+    const base = { ...rec, model: 'claude-opus-5-5' }
+    expect(costOf({ ...base, speed: 'fast' })).toBeCloseTo(2 * costOf(base)!, 12)
+  })
+
+  it('deja sin tarifa los modelos que la pagina oficial ya no lista', () => {
+    expect(priceOf('claude-3-7-sonnet-20250219')).toBeNull()
+    expect(priceOf('claude-3-5-haiku-20241022')).toBeNull()
+  })
+
+  it('declara la pagina y la fecha de verificacion de cada tabla', () => {
+    for (const s of PRICE_SOURCES) {
+      expect(s.url.startsWith('https://')).toBe(true)
+      expect(s.verified).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    }
+    expect(PRICE_SOURCES.find((s) => s.provider === 'Claude')?.verified).toBe('2026-11-09')
   })
 
   it('acepta versiones de Claude anteriores al nombre de familia', () => {

@@ -1,6 +1,19 @@
 import { readFileSync, existsSync, openSync, readSync, closeSync, fstatSync } from 'node:fs'
 import { basename, sep } from 'node:path'
-import type { Rec, SessionMeta } from './types'
+import { preferLimitHit, type Rec, type SessionMeta } from './types'
+
+/** Compara versiones "2.1.321" por numeros. true si `a` es mayor que `b` o `b` falta. */
+export function newerVersion(a: string, b: string | undefined): boolean {
+  if (!/^\d+(\.\d+)*$/.test(a)) return false
+  if (!b) return true
+  const x = a.split('.').map(Number)
+  const y = b.split('.').map(Number)
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0)
+    if (d !== 0) return d > 0
+  }
+  return false
+}
 
 export function projectFromDir(dir: string): string {
   // Claude Code nombra la carpeta con la ruta del proyecto: "C--Proyectos-mi-app" = C:\Proyectos\mi-app
@@ -112,14 +125,17 @@ function consume(text: string, info: FileInfo, byId: Map<string, Rec>, meta: Ses
     try {
       o = JSON.parse(line)
     } catch {
+      // una linea de uso del asistente que no es JSON valido es un registro perdido
+      if (isUsage && line.includes('"type":"assistant"')) meta.skipped = (meta.skipped ?? 0) + 1
       continue
     }
-    // limite del plan alcanzado (error 429): se guarda el ultimo con su hora de reinicio
+    if (typeof o.version === 'string' && newerVersion(o.version, meta.cliVersion)) meta.cliVersion = o.version
+    // limite del plan alcanzado (error 429): gana el rechazado y, entre iguales, el que reinicia mas tarde
     const q = o.quotaLimits
     if (q && typeof q.resetsAt === 'number' && typeof q.rateLimitType === 'string') {
       const ts = Date.parse(o.timestamp)
       const hit = { ts: Number.isNaN(ts) ? 0 : ts, resetsAt: q.resetsAt * 1000, type: q.rateLimitType, status: String(q.status ?? '') }
-      if (!meta.limitHit || hit.resetsAt >= meta.limitHit.resetsAt) meta.limitHit = hit
+      meta.limitHit = preferLimitHit(meta.limitHit, hit)
       continue
     }
     if (o.type === 'custom-title' && typeof o.customTitle === 'string') {
@@ -133,9 +149,13 @@ function consume(text: string, info: FileInfo, byId: Map<string, Rec>, meta: Ses
     if (typeof o.cwd === 'string') meta.cwd = o.cwd
     const msg = o?.message
     const u = msg?.usage
-    if (o.type !== 'assistant' || !msg?.id || !u || !msg.model || msg.model === '<synthetic>') continue
+    if (o.type !== 'assistant' || !u || msg.model === '<synthetic>') continue
     const ts = Date.parse(o.timestamp)
-    if (Number.isNaN(ts)) continue
+    // con uso pero sin id, modelo o fecha no se puede contar ni deduplicar: se anota como descartada
+    if (!msg.id || !msg.model || Number.isNaN(ts)) {
+      meta.skipped = (meta.skipped ?? 0) + 1
+      continue
+    }
     const rec: Rec = {
       id: msg.id,
       ts,
@@ -152,6 +172,7 @@ function consume(text: string, info: FileInfo, byId: Map<string, Rec>, meta: Ses
     }
     const cacheWrite1h = u.cache_creation?.ephemeral_1h_input_tokens
     if (typeof cacheWrite1h === 'number' && cacheWrite1h > 0) rec.cacheWrite1h = cacheWrite1h
+    if (u.speed === 'fast') rec.speed = 'fast'
     const prev = byId.get(rec.id)
     if (!prev || rec.output >= prev.output) byId.set(rec.id, rec)
   }

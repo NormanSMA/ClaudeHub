@@ -23,7 +23,8 @@ function otherModelName(id: string): string | null {
 export function modelName(id: string): string {
   const other = otherModelName(id.toLowerCase())
   if (other) return other
-  const m = id.toLowerCase().match(/^claude-(?:(\d+)-(\d+)-)?([a-z]+)(?:-(\d+))?(?:-(\d{1,2}))?(?:-\d{8})?/)
+  // (?!\d): la fecha "-20250514" no se confunde con la version ("Opus 4", no "Opus 4.20")
+  const m = id.toLowerCase().match(/^claude-(?:(\d+)-(\d+)-)?([a-z]+)(?:-(\d{1,2})(?!\d))?(?:-(\d{1,2})(?!\d))?(?:-\d{8})?/)
   if (!m) return id
   const family = KNOWN[m[3]] ?? m[3][0].toUpperCase() + m[3].slice(1)
   const version = m[1] ? `${m[1]}.${m[2]}` : m[4] ? (m[5] ? `${m[4]}.${m[5]}` : m[4]) : ''
