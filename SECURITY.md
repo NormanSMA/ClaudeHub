@@ -16,9 +16,9 @@ Respondo en unos pocos días. Si el reporte es válido, publico un arreglo y te 
 
 - El servidor escucha solo en `127.0.0.1`.
 - Rechaza con `403` cualquier petición cuyo `Host` no sea `127.0.0.1` o `localhost` (DNS rebinding).
-- El endpoint que escribe la configuración exige `application/json`, un `Origin` propio y un cuerpo pequeño (CSRF).
+- El endpoint que escribe la configuración exige `application/json`, un `Origin` propio o ausente y un cuerpo pequeño (CSRF).
 - La configuración se valida y se acotan sus valores antes de guardarla.
-- La ventana de Electron usa `contextIsolation` y `sandbox`, y expone solo cuatro acciones a la interfaz.
+- La ventana de Electron usa `contextIsolation` y `sandbox`, y expone solo siete acciones a la interfaz.
 - Solo se leen campos de uso y títulos de chats. No se guardan respuestas.
 - Codex, Gemini y OmniRoute se leen solo por campos de uso. Nunca se leen textos de conversaciones.
 
@@ -27,7 +27,7 @@ Respondo en unos pocos días. Si el reporte es válido, publico un arreglo y te 
 - **`GET /api/events` (SSE).** Pasa por el filtro de `Host`. No envía datos de uso: solo `hello`, `changed` y latidos. Admite 8 clientes y el noveno recibe `429`. No concede CORS.
 - **OmniRoute con `docker cp`.** Se ejecuta con `execFile`, sin shell. El nombre del contenedor se valida (`^[\w.-]{1,64}$`). La copia se abre con `node:sqlite` en solo lectura, se valida con `PRAGMA quick_check` y solo se consulta la tabla `usage_history`. La fuente está apagada por defecto.
 - **`events.jsonl` del hook de estados.** `scripts/hook.cjs` guarda el evento, el estado, el nombre de la herramienta y la carpeta, con 512 bytes por línea como máximo. No guarda prompts ni argumentos de herramientas. Sale siempre con código 0 y sin salida.
-- **Vigilancia de carpetas.** El servidor solo observa `~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/tmp` y la carpeta de datos.
+- **Vigilancia de carpetas.** El servidor solo observa `~/.claude/projects`, `~/.codex/sessions`, `~/.gemini/tmp`, la carpeta de datos y la carpeta de intercambio `~/.claudehub`. En Windows lee además, sin escribir, la copia que el paquete de la app de Claude guarda en `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\ClaudeHub`.
 - **Sin CORS nuevo.** Ninguna ruta nueva concede acceso a otros orígenes. `PUT /api/settings` valida las claves `sources` y `omniroute` igual que el resto.
 
 ## Límites conocidos
