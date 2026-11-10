@@ -41,6 +41,17 @@ describe('write-limits', () => {
     expect(typeof data.updatedAt).toBe('number')
   })
 
+  it('interpreta un numero menor que 1e11 como epoch en segundos', () => {
+    const resetSec = Math.floor(future(3_600_000) / 1000)
+    expect(run(['--five', '10', '--five-reset', String(resetSec), '--seven', '20', '--seven-reset', `${resetSec}.4`]).status).toBe(0)
+    expect(read().fiveHour.resetsAt).toBe(resetSec * 1000)
+    expect(read().sevenDay.resetsAt).toBe(Math.round(Number(`${resetSec}.4`) * 1000))
+    // un epoch en milisegundos sigue igual
+    const ms = future(3_600_000)
+    expect(run(['--five', '10', '--five-reset', String(ms)]).status).toBe(0)
+    expect(read().fiveHour.resetsAt).toBe(ms)
+  })
+
   it('rechaza porcentajes fuera de rango o no numericos', () => {
     const reset = String(future(60_000))
     for (const pct of ['-1', '101', 'abc', '']) {

@@ -69,7 +69,8 @@ function trayIcon() {
  * @returns {Promise<unknown>}
  */
 async function getJson(p) {
-  const r = await fetch(`${URL}${p}`)
+  // sin tope, un servidor colgado dejaria la bandeja esperando para siempre
+  const r = await fetch(`${URL}${p}`, { signal: AbortSignal.timeout(5000) })
   if (!r.ok) throw new Error(String(r.status))
   return r.json()
 }
@@ -141,6 +142,36 @@ function setAutostart(on) {
 
 /** @type {import('electron').UtilityProcess | import('node:child_process').ChildProcess | null} */
 let server = null
+// espera antes de cada reinicio: 2 s, 5 s, 15 s y luego 60 s
+const RESTART_DELAYS_MS = [2000, 5000, 15000, 60000]
+// un servidor que vivio este tiempo se considera sano: el siguiente fallo vuelve a empezar por 2 s
+const HEALTHY_MS = 60000
+let restarts = 0
+
+/**
+ * @param {import('node:events').EventEmitter} proc
+ * @param {number} startedAt
+ */
+function watchServer(proc, startedAt) {
+  let handled = false
+  const onGone = () => {
+    // 'error' y 'exit' pueden llegar los dos: se reinicia una sola vez
+    if (handled) return
+    handled = true
+    server = null
+    if (quitting) return
+    if (Date.now() - startedAt > HEALTHY_MS) restarts = 0
+    const delay = RESTART_DELAYS_MS[Math.min(restarts, RESTART_DELAYS_MS.length - 1)]
+    restarts++
+    setTimeout(() => {
+      if (!quitting) void ensureServer()
+    }, delay)
+  }
+  proc.once('exit', onGone)
+  // un spawn fallido (sin node) solo emite 'error'
+  proc.once('error', onGone)
+}
+
 async function ensureServer() {
   if (await serverUp()) return
   const bundled = path.join(ROOT, 'dist-server', 'server.cjs')
@@ -155,6 +186,7 @@ async function ensureServer() {
     // desarrollo sin compilar: usa tsx con el Node del sistema
     server = spawn('node', ['--import', 'tsx', 'src/server/index.ts'], { cwd: ROOT, stdio: 'ignore', windowsHide: true })
   }
+  watchServer(server, Date.now())
   for (let i = 0; i < 60 && !(await serverUp()); i++) await new Promise((r) => setTimeout(r, 250))
 }
 

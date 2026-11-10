@@ -5,7 +5,7 @@
 // Uso:
 //   node write-limits.cjs --five 51 --five-reset 2026-10-07T18:00:00Z --seven 33 --seven-reset 2026-10-12T09:00:00Z
 //
-// Cada reset acepta una fecha ISO o milisegundos desde 1970.
+// Cada reset acepta una fecha ISO, milisegundos desde 1970 o segundos desde 1970 (un numero menor que 1e11).
 // Una ventana ausente conserva la guardada mientras no haya expirado (igual que statusline.cjs).
 
 // @ts-check
@@ -34,7 +34,7 @@ function fail(message) {
  * @param {unknown} data
  */
 function writeJson(file, data) {
-  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
   const tmp = file + '.' + process.pid + '.tmp'
   fs.writeFileSync(tmp, JSON.stringify(data))
   fs.renameSync(tmp, file)
@@ -89,7 +89,8 @@ function parsePct(text, name) {
 function parseReset(text, name) {
   if (typeof text !== 'string' || text.trim() === '') fail(name + ' vacio')
   const raw = text.trim()
-  const ms = /^\d+(\.\d+)?$/.test(raw) ? Math.round(Number(raw)) : Date.parse(raw)
+  // 1e11 ms es el ano 1973 y 1e11 s es el ano 5138: por debajo de 1e11 el numero solo puede ser un epoch en segundos
+  const ms = /^\d+(\.\d+)?$/.test(raw) ? Math.round(Number(raw) < 1e11 ? Number(raw) * 1000 : Number(raw)) : Date.parse(raw)
   if (!Number.isFinite(ms) || ms <= 0) fail(name + ' no es una fecha ISO ni milisegundos: ' + text)
   return ms
 }
