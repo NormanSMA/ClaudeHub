@@ -67,8 +67,10 @@ function CodexLimits({ plan, alertAt }: { plan: PlanReport | null; alertAt: numb
 
 /** Cuatro tarjetas: nivel, ritmo, proyeccion y eficiencia de cache. Sin `level`, no se dibuja. */
 function LevelCards({ level }: { level: TokenLevel }) {
-  const basis = level.basis === 'plan5h' ? 'del limite de 5 horas' : 'del contexto'
-  const burn = level.burnPerMin > 0
+  const basis = level.basis === 'plan5h' ? 'del limite de 5 horas' : level.basis === 'plan7d' ? 'del limite semanal' : 'del contexto'
+  // tokens nuevos: la lectura de cache multiplica la cifra por 10 o mas y no mide trabajo nuevo
+  const rate = level.burnFreshPerMin ?? level.burnPerMin
+  const burn = rate > 0
   return (
     <>
       <div className="level-cards">
@@ -87,8 +89,10 @@ function LevelCards({ level }: { level: TokenLevel }) {
         </div>
         <div className="level-card">
           <div className="stat-label">Ritmo</div>
-          <div className="stat-value">{burn ? <AnimatedNumber value={level.burnPerMin} format={(v) => `${compact(v)}/min`} /> : '-'}</div>
-          <div className="stat-sub">tokens por minuto</div>
+          <div className="stat-value" title={`Con lectura de cache: ${compact(level.burnPerMin)}/min`}>
+            {burn ? <AnimatedNumber value={rate} format={(v) => `${compact(v)}/min`} /> : '-'}
+          </div>
+          <div className="stat-sub">{level.burnFreshPerMin === undefined ? 'tokens por minuto' : 'tokens nuevos por minuto'}</div>
         </div>
         <div className="level-card">
           <div className="stat-label">Proyeccion</div>
@@ -118,7 +122,7 @@ function AgentsNow({ agents }: { agents: AgentLive[] }) {
   if (!agents.length) {
     return (
       <p className="plan-hint">
-        Sin eventos de hooks. Instala el hook para ver estados en vivo. Consulta la seccion de hooks del README.
+        Sin eventos recientes de hooks. Los estados en vivo llegan del hook de ClaudeHub; la guia explica como instalarlo.
       </p>
     )
   }

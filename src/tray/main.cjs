@@ -394,7 +394,7 @@ ipcMain.on('hub:hide', () => {
 /* ---------- tooltip y alertas ---------- */
 // Campos de /api/active que lee la bandeja
 /** @typedef {{ working: boolean, session: string, title: string, context: { pct: number, used: number, limit: number } }} ActiveChat */
-/** @typedef {{ chats: ActiveChat[], alertAt: number, todayTokens: number, plan: import('../core/plan').PlanReport | null }} ActiveReply */
+/** @typedef {{ chats: ActiveChat[], alertAt: number, todayTokens: number, todayFresh?: number, plan: import('../core/plan').PlanReport | null }} ActiveReply */
 
 /** @type {Set<string>} */
 const alerted = new Set()
@@ -454,10 +454,12 @@ function alertPlan(plan, alertAt) {
 async function poll() {
   if (!tray) return
   try {
-    const { chats, alertAt, todayTokens, plan } = /** @type {ActiveReply} */ (await getJson('/api/active'))
+    const { chats, alertAt, todayTokens, todayFresh, plan } = /** @type {ActiveReply} */ (await getJson('/api/active'))
     const working = chats.some((c) => c.working)
     const limit5 = plan && plan.fiveHour ? `, limite de 5 h al ${Math.round(plan.fiveHour.pct)}%` : ''
-    tray.setToolTip(`ClaudeHub - hoy ${tokensText(todayTokens)} tokens, ${chats.length} chats activos${limit5}${working ? ' (trabajando)' : ''}`)
+    // tokens nuevos, igual que la cabecera del dashboard: el total con lectura de cache es 10 a 20 veces mayor
+    const today = typeof todayFresh === 'number' ? `${tokensText(todayFresh)} tokens nuevos` : `${tokensText(todayTokens)} tokens`
+    tray.setToolTip(`ClaudeHub - hoy ${today}, ${chats.length} chats activos${limit5}${working ? ' (trabajando)' : ''}`)
     alertPlan(plan, alertAt)
     const live = new Set(chats.map((c) => c.session))
     for (const s of [...alerted]) if (!live.has(s)) alerted.delete(s)

@@ -275,9 +275,9 @@ export function islandMetrics(data: ActiveReport | null | undefined): IslandMetr
   const out: IslandMetric[] = []
   if (level) out.push({ id: 'level', text: `N${level.level} ${Math.round(level.pct)}%`, title: `Nivel de consumo: ${level.label}` })
   const cost = data?.todayCostUsd
-  if (typeof cost === 'number' && Number.isFinite(cost)) out.push({ id: 'cost', text: fmtUsd(cost), title: 'Costo de hoy (equivalente en API)' })
-  const burn = level ? data?.level?.burnPerMin : undefined
-  if (typeof burn === 'number' && Number.isFinite(burn)) out.push({ id: 'burn', text: `${compact(burn)}/min`, title: 'Tokens por minuto, ultimos 15 minutos' })
+  if (typeof cost === 'number' && Number.isFinite(cost)) out.push({ id: 'cost', text: fmtUsd(cost), title: 'Valor API estimado de hoy, todas las fuentes. No es gasto facturado' })
+  const burn = level ? (data?.level?.burnFreshPerMin ?? data?.level?.burnPerMin) : undefined
+  if (typeof burn === 'number' && Number.isFinite(burn)) out.push({ id: 'burn', text: `${compact(burn)}/min`, title: 'Tokens nuevos por minuto, ultimos 15 minutos' })
   return out
 }
 

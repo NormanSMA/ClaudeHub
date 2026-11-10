@@ -243,19 +243,47 @@ export function projectsReport(all: Rec[], range: Range, now = Date.now()) {
     .sort((a, b) => b.total - a.total)
 }
 
+/** Consumo de hoy de una fuente: tokens medidos y su valor equivalente en API. */
+export interface TodaySource {
+  total: number
+  fresh: number
+  cacheRead: number
+  costUsd: number
+  /** tokens de modelos sin tarifa: no suman a costUsd */
+  costUnpriced: number
+}
+
+/**
+ * Consumo de hoy (dia local) de los registros recibidos, con desglose por fuente.
+ * Es la unica definicion de "Hoy": la usan /api/live y /api/active con los mismos registros.
+ */
 export function live(all: Rec[], now = Date.now()) {
   let last = 0
   for (const r of all) if (r.ts > last) last = r.ts
   const today = filterRange(all, '7d', now).filter((r) => dayKey(r.ts) === dayKey(now))
   const tokens = breakdown(today)
+  const groups = new Map<Source, Rec[]>()
+  for (const r of today) {
+    const s = sourceOf(r)
+    const g = groups.get(s)
+    if (g) g.push(r)
+    else groups.set(s, [r])
+  }
+  const todayBySource: Partial<Record<Source, TodaySource>> = {}
+  for (const [s, recs] of groups) {
+    const b = breakdown(recs)
+    todayBySource[s] = { total: b.total, fresh: b.fresh, cacheRead: b.cacheRead, costUsd: b.costUsd, costUnpriced: b.costUnpriced }
+  }
   return {
     lastTs: last || null,
     working: last > 0 && now - last < 60_000,
     todayTokens: sum(today),
     todayCostUsd: tokens.costUsd,
+    todayCostUnpriced: tokens.costUnpriced,
     todayFresh: tokens.fresh,
     todayCacheRead: tokens.cacheRead,
     todayMessages: today.length,
+    todayBySource,
   }
 }
 
