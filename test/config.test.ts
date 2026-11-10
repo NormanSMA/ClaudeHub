@@ -154,6 +154,62 @@ describe('configuracion', () => {
   })
 })
 
+describe('guardado parcial', () => {
+  it('un PUT parcial conserva los campos ausentes', () => {
+    saveConfig({ name: 'Ada', alertAt: 0.7, billing: 'api', contextLimits: { 'Opus 5': 500_000 } })
+    const saved = saveConfig({ activeMinutes: 30 })
+    expect(saved).toMatchObject({ name: 'Ada', alertAt: 0.7, billing: 'api', activeMinutes: 30, contextLimits: { 'Opus 5': 500_000 } })
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ name: 'Ada', activeMinutes: 30 })
+  })
+
+  it('fusiona por clave de segundo nivel en sources, omniroute, pricing y mascot', () => {
+    saveConfig({
+      sources: { codex: false, gemini: true, omniroute: true },
+      omniroute: { container: 'mio', dbPath: 'C:\\db.sqlite' },
+      pricing: { overrides: { 'Opus 5': { input: 4 } }, freeProviders: ['local'] },
+      mascot: { talk: false, talkCooldownMin: 30 },
+    })
+    const saved = saveConfig({
+      sources: { gemini: false },
+      omniroute: { container: 'otro' },
+      pricing: { freeProviders: [] },
+      mascot: { talkCooldownMin: 5 },
+    })
+    expect(saved.sources).toEqual({ codex: false, gemini: false, omniroute: true })
+    expect(saved.omniroute).toEqual({ container: 'otro', dbPath: 'C:\\db.sqlite' })
+    expect(saved.pricing).toEqual({ overrides: { 'Opus 5': { input: 4 } }, freeProviders: [] })
+    expect(saved.mascot).toEqual({ talk: false, talkCooldownMin: 5 })
+  })
+
+  it('contextLimits se reemplaza completo para poder quitar entradas', () => {
+    saveConfig({ contextLimits: { 'Opus 5': 500_000, 'Sonnet 5.5': 200_000 } })
+    expect(saveConfig({ contextLimits: { 'Opus 5': 500_000 } }).contextLimits).toEqual({ 'Opus 5': 500_000 })
+  })
+
+  it('sanea lo fusionado y descarta claves ajenas', () => {
+    const before = saveConfig({ name: 'Ada' })
+    const saved = saveConfig(JSON.parse('{"alertAt":9,"otro":1,"__proto__":{"name":"mal"},"sources":{"codex":"si"}}'))
+    expect(saved.alertAt).toBe(0.99)
+    expect(saved.name).toBe(before.name)
+    expect(saved.sources.codex).toBe(DEFAULTS.sources.codex)
+    expect('otro' in saved).toBe(false)
+  })
+
+  it('un cuerpo que no es objeto no altera la configuracion', () => {
+    const before = saveConfig({ name: 'Estable' })
+    for (const body of [null, 'texto', 5, []]) expect(saveConfig(body)).toEqual(before)
+  })
+
+  it('el nombre de contenedor debe empezar por letra o digito', () => {
+    for (const container of ['-v', '--privileged', '.x', '_x', '']) {
+      expect(sanitize({ omniroute: { container } }).omniroute.container, container).toBe('omniroute')
+    }
+    for (const container of ['mi-omni', '9omni', 'Omni_1.2']) {
+      expect(sanitize({ omniroute: { container } }).omniroute.container, container).toBe(container)
+    }
+  })
+})
+
 describe('rutas y nombres de proyecto', () => {
   it('nombra proyectos de Windows, macOS y Linux', () => {
     expect(projectFromDir('C--Proyectos-mi-app')).toBe('mi-app')

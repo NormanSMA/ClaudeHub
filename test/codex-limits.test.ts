@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { latestCodexLimits } from '../src/core/sources/codex-limits'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearCodexLimitsCache, latestCodexLimits } from '../src/core/sources/codex-limits'
 import { codexPlanReport, plansReport } from '../src/core/plan'
 import type { CodexRateLimits } from '../src/core/sources/codex'
 import type { Rec } from '../src/core/types'
@@ -26,6 +26,7 @@ const win = (used: number, minutes: number, resetsAtMs: number) => ({
 
 let dir: string
 beforeEach(() => {
+  clearCodexLimitsCache()
   dir = mkdtempSync(join(tmpdir(), 'codex-limits-'))
 })
 afterEach(() => {
@@ -61,6 +62,64 @@ describe('latestCodexLimits', () => {
     // el mas antiguo por mtime tiene el ts mas alto, pero queda fuera de los 5
     rollout('rollout-viejo.jsonl', line(now, p, s, 'fuera') + '\n', 100)
     expect(latestCodexLimits(dir)?.planType).toBe('reciente')
+  })
+
+  it('conserva el resultado 30 s y lo recalcula al vaciar el memo o al vencer', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(now)
+      const p = win(10, 300, now + 2 * H)
+      const s = win(20, 10080, now + 24 * H)
+      rollout('rollout-a.jsonl', line(now - 3 * H, p, s, 'uno') + '\n', 1000)
+      expect(latestCodexLimits(dir)?.planType).toBe('uno')
+      rollout('rollout-b.jsonl', line(now - 1 * H, p, s, 'dos') + '\n', 2000)
+      vi.setSystemTime(now + 29_000)
+      expect(latestCodexLimits(dir)?.planType).toBe('uno')
+      clearCodexLimitsCache()
+      expect(latestCodexLimits(dir)?.planType).toBe('dos')
+      rollout('rollout-c.jsonl', line(now, p, s, 'tres') + '\n', 3000)
+      vi.setSystemTime(now + 29_000 + 31_000)
+      expect(latestCodexLimits(dir)?.planType).toBe('tres')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('el memo distingue carpetas', () => {
+    const p = win(10, 300, now + 2 * H)
+    const s = win(20, 10080, now + 24 * H)
+    rollout('rollout-a.jsonl', line(now, p, s, 'aqui') + '\n', 1000)
+    expect(latestCodexLimits(dir)?.planType).toBe('aqui')
+    expect(latestCodexLimits(join(dir, 'no-existe'))).toBeNull()
+  })
+
+  describe('rollouts grandes', () => {
+    const p = win(10, 300, now + 2 * H)
+    const s = win(20, 10080, now + 24 * H)
+    // linea sin limites: ocupa bytes sin aportar nada
+    const filler = (n: number) => (JSON.stringify({ type: 'response_item', payload: { text: 'x'.repeat(900) } }) + '\n').repeat(n)
+
+    it('lee el ultimo limite aunque el archivo supere el tramo final', () => {
+      const text = line(now - 5 * H, p, s, 'viejo') + '\n' + filler(600) + line(now - H, p, s, 'ultimo') + '\n' + filler(10)
+      expect(text.length).toBeGreaterThan(512 * 1024)
+      rollout('rollout-a.jsonl', text, 1000)
+      expect(latestCodexLimits(dir)?.planType).toBe('ultimo')
+    })
+
+    it('si el tramo final no trae limites, lee el archivo entero', () => {
+      const text = line(now - H, p, s, 'solo-al-inicio') + '\n' + filler(600)
+      expect(text.length).toBeGreaterThan(512 * 1024)
+      rollout('rollout-a.jsonl', text, 1000)
+      expect(latestCodexLimits(dir)?.planType).toBe('solo-al-inicio')
+    })
+
+    it('un limite partido por el corte no cuenta en el tramo y se recupera leyendo entero', () => {
+      const first = line(now - 2 * H, p, s, 'partido') + '\n'
+      // el tramo de 256 KB empieza justo en la mitad de la primera linea
+      const pad = 256 * 1024 - Math.floor(first.length / 2)
+      rollout('rollout-a.jsonl', first + 'x'.repeat(pad - 1) + '\n', 1000)
+      expect(latestCodexLimits(dir)?.planType).toBe('partido')
+    })
   })
 })
 

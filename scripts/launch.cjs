@@ -4,15 +4,14 @@
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
-const { dataDir } = require('./lib/paths.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 
-const PID_FILE = path.join(dataDir(), 'tray.pid')
-
 function running() {
+  // se carga aqui y no arriba: si falta el archivo, el error cae en el try del arranque y el hook sale sin ruido
+  const pidFile = path.join(require('./lib/paths.cjs').dataDir(), 'tray.pid')
   try {
-    const pid = Number(fs.readFileSync(PID_FILE, 'utf8'))
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'))
     process.kill(pid, 0)
     return true
   } catch {
@@ -38,17 +37,22 @@ function packagedApp(platform, env, exists) {
   return candidates.find((file) => file !== '' && exists(file)) ?? null
 }
 
-if (require.main === module && !running()) {
+// Un fallo asincrono de spawn (ejecutable borrado, sin permiso) emitiria 'error' sin manejador y saldria con 1.
+const quietSpawn = (/** @type {string} */ file, /** @type {string[]} */ args) =>
+  spawn(file, args, { detached: true, stdio: 'ignore' }).on('error', () => {}).unref()
+
+if (require.main === module) {
   try {
+    if (running()) process.exit(0)
     const packaged = packagedApp(process.platform, process.env, fs.existsSync)
     if (packaged) {
-      spawn(packaged, ['--background'], { detached: true, stdio: 'ignore' }).unref()
+      quietSpawn(packaged, ['--background'])
       process.exit(0)
     }
     const electron = require(path.join(ROOT, 'node_modules', 'electron'))
     // Sin windowsHide: esa opcion le pide a Windows ocultar la PRIMERA ventana que la app muestre,
     // y esa es el dashboard. Electron es una app grafica: no abre ninguna consola que haya que ocultar.
-    spawn(electron, [ROOT, '--background'], { detached: true, stdio: 'ignore' }).unref()
+    quietSpawn(electron, [ROOT, '--background'])
   } catch {
     /* sin electron instalado: no hacer nada */
   }

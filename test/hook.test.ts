@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -87,6 +87,26 @@ describe('hook de estado', () => {
       expect(r.stderr).toBe('')
     }
     expect(lines()).toEqual([])
+  })
+
+  it('sale con codigo 0 y sin salida aunque falte lib/paths.cjs', () => {
+    // copia sola del script: su require('./lib/paths.cjs') no puede resolverse
+    const lone = mkdtempSync(join(tmpdir(), 'ch-hook-lone-'))
+    try {
+      const copy = join(lone, 'hook.cjs')
+      copyFileSync(script, copy)
+      const r = spawnSync(process.execPath, [copy], {
+        input: JSON.stringify({ hook_event_name: 'Stop', session_id: 's' }),
+        env: { ...process.env, CLAUDEHUB_DATA: dir },
+        encoding: 'utf8',
+        timeout: 5000,
+      })
+      expect(r.status).toBe(0)
+      expect(r.stdout).toBe('')
+      expect(r.stderr).toBe('')
+    } finally {
+      rmSync(lone, { recursive: true, force: true })
+    }
   })
 
   it('termina en menos de 1 s aunque stdin quede abierto', async () => {
