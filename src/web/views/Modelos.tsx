@@ -101,7 +101,7 @@ export function ModelosView({ q, billing = 'subscription' }: { q: string; billin
       </ul>
       {ordered.length > 6 && (
         <button className="link" onClick={() => setMore(!more)}>
-          {more ? 'Mostrar menos' : `Mostrar ${ordered.length - 6} mas`}
+          {more ? 'Mostrar menos' : `Mostrar ${ordered.length - 6} más`}
         </button>
       )}
     </>

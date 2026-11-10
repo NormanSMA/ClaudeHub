@@ -32,11 +32,11 @@ const X_EYES: [number, number][] = [4, 9].flatMap((cx) => [
 ])
 
 const LABEL: Record<MascotState, string> = {
-  sleeping: 'Claude esta descansando',
-  happy: 'Claude esta despierto',
-  working: 'Claude esta trabajando',
-  tool: 'Claude esta usando una herramienta',
-  thinking: 'Claude esta pensando',
+  sleeping: 'Claude está descansando',
+  happy: 'Claude está despierto',
+  working: 'Claude está trabajando',
+  tool: 'Claude está usando una herramienta',
+  thinking: 'Claude está pensando',
   waiting: 'Claude espera una respuesta tuya',
   error: 'Claude tuvo un error',
   alert: 'Un chat casi llena su contexto',

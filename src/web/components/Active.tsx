@@ -7,13 +7,18 @@ export function ctxColor(p: number, alertAt = 0.85): string {
   return p >= alertAt ? 'var(--danger)' : p >= 0.6 ? 'var(--warn)' : 'var(--ok)'
 }
 
+/** El boton de /compact aparece cinco puntos antes del umbral de alerta, para actuar antes de la alarma. */
+export function compactAt(alertAt: number): number {
+  return Math.round((alertAt - 0.05) * 100) / 100
+}
+
 export function ContextBar({ chat, alertAt = 0.85 }: { chat: ActiveChat; alertAt?: number }) {
   const c = chat.context
   return (
     <div
       className="ctx"
       title={`Contexto en uso: ${c.used.toLocaleString('es-MX')} de ${c.limit.toLocaleString('es-MX')} tokens (${
-        c.source === 'statusline' ? 'limite real, de la linea de estado' : c.source === 'config' ? 'limite fijado en Ajustes' : 'limite estimado'
+        c.source === 'statusline' ? 'límite real, de la línea de estado' : c.source === 'config' ? 'límite fijado en Ajustes' : 'límite estimado'
       })`}
     >
       <div className="ctx-track">
@@ -109,7 +114,7 @@ export function ActiveList({ chats, agents = [], alertAt = 0.85, dense = false }
   alertAt?: number
   dense?: boolean
 }) {
-  if (!chats.length) return <div className="empty">Sin chats activos en los ultimos minutos</div>
+  if (!chats.length) return <div className="empty">Sin chats activos en los últimos minutos</div>
   return (
     <ul className={`active ${dense ? 'dense' : ''}`}>
       {chats.map((c) => {
@@ -128,10 +133,10 @@ export function ActiveList({ chats, agents = [], alertAt = 0.85, dense = false }
               {c.activeSubagents > 0 && <b> · {c.activeSubagents} subagente{c.activeSubagents > 1 ? 's' : ''}</b>}
             </div>
             <ContextBar chat={c} alertAt={alertAt} />
-            {c.context.pct >= 0.8 && <CompactAction chat={c} />}
+            {c.context.pct >= compactAt(alertAt) && <CompactAction chat={c} />}
             {!dense && (
               <div className="active-meta">
-                Sesion: {compact(c.tokens.total)} tokens (orquestador {compact(c.tokens.orchestrator)}, subagentes {compact(c.tokens.subagents)})
+                Sesión: {compact(c.tokens.total)} tokens (orquestador {compact(c.tokens.orchestrator)}, subagentes {compact(c.tokens.subagents)})
               </div>
             )}
             {!dense && <SubagentTree chat={c} />}
@@ -180,19 +185,19 @@ export function PlanLimits({ plan, alertAt = 0.85, dense = false, hint = false }
   if (!plan) {
     return hint ? (
       <p className="plan-hint">
-        Sin datos del plan. Llegan del mod de ClaudeHub (app de escritorio y terminal) o de la linea de estado (terminal), tras el primer mensaje de la sesion, en planes Pro, Max y Ultra. Si llegas a un limite, ClaudeHub te avisa igual.
+        Sin datos del plan. Llegan del mod de ClaudeHub (app de escritorio y terminal) o de la línea de estado (terminal), tras el primer mensaje de la sesión, en planes Pro, Max y Ultra. Si llegas a un límite, ClaudeHub te avisa igual.
       </p>
     ) : null
   }
   const ageMin = plan.updatedAt ? Math.round((Date.now() - plan.updatedAt) / 60_000) : 0
   return (
-    <section className={`plan ${dense ? 'dense' : ''}`} aria-label="Limites de uso del plan">
+    <section className={`plan ${dense ? 'dense' : ''}`} aria-label="Límites de uso del plan">
       {plan.blocked && (
         <div className="plan-blocked" role="alert">
-          <strong>Limite {limitName(plan.blocked.type)} alcanzado.</strong> Se restablece en {untilText(plan.blocked.resetsAt)}.
+          <strong>Límite {limitName(plan.blocked.type)} alcanzado.</strong> Se restablece en {untilText(plan.blocked.resetsAt)}.
         </div>
       )}
-      {plan.fiveHour && <PlanRow label="Limite de 5 horas" w={plan.fiveHour} alertAt={alertAt} dense={dense} />}
+      {plan.fiveHour && <PlanRow label="Límite de 5 horas" w={plan.fiveHour} alertAt={alertAt} dense={dense} />}
       {plan.sevenDay && <PlanRow label="Semanal" w={plan.sevenDay} alertAt={alertAt} dense={dense} />}
       {ageMin >= 15 && <div className="active-meta">Dato de hace {ageMin < 60 ? `${ageMin} min` : `${Math.round(ageMin / 60)} h`}: se actualiza al enviar un mensaje en Claude Code.</div>}
     </section>

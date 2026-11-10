@@ -4,6 +4,8 @@ import { compact, fmtUsd } from '../format'
 export interface SpeechInput {
   mascot: MascotConfig
   chats: { session: string; title: string; context: { pct: number } }[]
+  /** Umbral de alerta de /api/active; sin el se usa 0.85. */
+  alertAt?: number
   level?: { level: number; label: string } | null
   todayFresh?: number
   todayCostUsd?: number
@@ -59,7 +61,8 @@ export function pickLine(input: SpeechInput, memory: SpeechMemory, now: number):
   }
 
   let line: SpeechLine | null = null
-  const chat = input.chats.find((c) => c.context.pct >= 0.85 && !next.warnedChats.includes(c.session))
+  const alertAt = input.alertAt ?? 0.85
+  const chat = input.chats.find((c) => c.context.pct >= alertAt && !next.warnedChats.includes(c.session))
   const date = new Date(now)
   const day = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
   if (chat) {

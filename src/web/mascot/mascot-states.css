@@ -72,7 +72,7 @@
 .mascot-lv1 { --lv: var(--ok); }
 .mascot-lv2 { --lv: var(--blue); }
 .mascot-lv3 { --lv: var(--warn); }
-.mascot-lv4 { --lv: #e8833a; }
+.mascot-lv4 { --lv: light-dark(color-mix(in srgb, var(--warn) 55%, var(--danger)), #e8833a); }
 .mascot-lv5 { --lv: var(--danger); }
 .mascot {
   --mascot-sweat: #8fc7ff;
@@ -87,13 +87,10 @@
   box-sizing: border-box;
   border-radius: 8px;
   background: var(--lv);
-  color: #1a1918;
+  color: var(--bg);
   font: 700 10px/16px Inter, sans-serif;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-.mascot-lv5.level-badge {
-  color: #fff;
 }
 
 /* N4: gotas de sudor y anillo de aviso suave */

@@ -19,6 +19,12 @@ describe('diálogos de Chispa', () => {
     })
   })
 
+  it('toma el umbral de alertAt en lugar de 0.85 fijo', () => {
+    expect(pickLine(input({ alertAt: 0.9, chats: [chat('a', 0.88)] }), emptySpeechMemory(), NOW).line).toBeNull()
+    expect(pickLine(input({ alertAt: 0.9, chats: [chat('a', 0.9)] }), emptySpeechMemory(), NOW).line?.id).toBe('context:a')
+    expect(pickLine(input({ alertAt: 0.7, chats: [chat('b', 0.72)] }), emptySpeechMemory(), NOW).line?.id).toBe('context:b')
+  })
+
   it('avisa una vez por chat aunque baje y vuelva a subir', () => {
     const first = pickLine(input({ chats: [chat()] }), emptySpeechMemory(), NOW)
     const low = pickLine(input({ chats: [chat('chat-1', 0.3)] }), first.memory, NOW + COOLDOWN)

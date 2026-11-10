@@ -124,6 +124,46 @@ export function useLiveStatus(): LiveStatus {
   return status
 }
 
+interface Shared {
+  promise: Promise<unknown> | null
+  startedAt: number
+  data: unknown
+  doneAt: number
+}
+
+// Una entrada por ruta: los componentes que piden la misma ruta comparten la peticion en curso y el ultimo dato.
+const shared = new Map<string, Shared>()
+// Un aviso del servidor llega a todos a la vez: la peticion que acaba de salir sirve a los demas.
+const SAME_TICK_MS = 250
+const MOUNT_REUSE_MS = 2_000
+
+/** Pide `path` sin repetir: reutiliza la peticion en curso o un dato de menos de `maxAge` ms. */
+export function sharedRequest(path: string, maxAge: number): Promise<unknown> {
+  const now = Date.now()
+  const entry = shared.get(path) ?? { promise: null, startedAt: 0, data: undefined, doneAt: 0 }
+  shared.set(path, entry)
+  if (entry.promise && now - entry.startedAt <= Math.max(maxAge, SAME_TICK_MS)) return entry.promise
+  if (entry.doneAt > 0 && now - entry.doneAt < maxAge) return Promise.resolve(entry.data)
+  const promise = fetch(path)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((d: unknown) => {
+      entry.data = d
+      entry.doneAt = Date.now()
+      return d
+    })
+    .finally(() => {
+      if (entry.promise === promise) entry.promise = null
+    })
+  entry.promise = promise
+  entry.startedAt = now
+  return promise
+}
+
+/** Limpia el estado compartido entre pruebas. */
+export function resetSharedRequests(): void {
+  shared.clear()
+}
+
 /** Carga un endpoint, lo recarga al llegar un aviso del servidor y lo sondea como respaldo. */
 export function useApi<T>(path: string, every = 30_000): { data: T | null; error: string | null } {
   const [data, setData] = useState<T | null>(null)
@@ -132,23 +172,24 @@ export function useApi<T>(path: string, every = 30_000): { data: T | null; error
     let alive = true
     setData(null)
     // ventana oculta o pestana en segundo plano: no se consulta (ahorra CPU)
-    const load = () => {
+    const load = (maxAge: number) => {
       if (document.hidden) return
-      fetch(path)
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-        .then((d) => alive && (setData(d), setError(null)))
+      sharedRequest(path, maxAge)
+        .then((d) => alive && (setData(d as T), setError(null)))
         .catch((e) => alive && setError(String(e.message ?? e)))
     }
-    const onVisible = () => load()
-    const reload = throttle(load, THROTTLE_MS)
+    const poll = () => load(every)
+    const onVisible = () => load(0)
+    const reload = throttle(() => load(0), THROTTLE_MS)
     let timer: ReturnType<typeof setInterval> | null = null
     let status: LiveStatus = 'poll'
     let hadLive = false
     const schedule = () => {
       if (timer) clearInterval(timer)
-      timer = setInterval(load, status === 'live' ? Math.max(every, LIVE_POLL_MS) : every)
+      timer = setInterval(poll, status === 'live' ? Math.max(every, LIVE_POLL_MS) : every)
     }
-    load()
+    // al montar solo se reutiliza un dato de hace instantes: una vista que vuelve no debe mostrar datos viejos
+    load(MOUNT_REUSE_MS)
     schedule()
     const offChanges = subscribeChanges(reload)
     const offStatus = onStatus((next) => {

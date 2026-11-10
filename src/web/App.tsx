@@ -1,7 +1,9 @@
 import { levelFrom, pickMascotState } from './mascot/mascotState'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { animationsOn, setAnimations } from './components/AnimatedNumber'
+import { AnimatedTabs } from './components/AnimatedTabs'
+import { RangeGroup, type RangeId } from './components/RangeGroup'
 import { AgentesView } from './views/Agentes'
 import { ModelosView } from './views/Modelos'
 import { ProyectosView } from './views/Proyectos'
@@ -25,7 +27,6 @@ import { SourceChips, loadSource, saveSource, type SourceFilter } from './compon
 import { balloonText, useUpdateNotice } from './update'
 
 type Tab = 'agentes' | 'resumen' | 'modelos' | 'sesiones' | 'proyectos' | 'ajustes'
-type RangeId = 'all' | '30d' | '7d' | 'custom'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'agentes', label: 'Agentes' },
@@ -34,13 +35,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'sesiones', label: 'Sesiones' },
   { id: 'proyectos', label: 'Proyectos' },
   { id: 'ajustes', label: 'Ajustes' },
-]
-
-const RANGES: { id: RangeId; label: string }[] = [
-  { id: 'all', label: 'Todo' },
-  { id: '30d', label: '30d' },
-  { id: '7d', label: '7d' },
-  { id: 'custom', label: 'Fechas' },
 ]
 
 function useTheme(): [string, (origin?: { x: number; y: number }) => void] {
@@ -78,46 +72,6 @@ function useTheme(): [string, (origin?: { x: number; y: number }) => void] {
     document.startViewTransition(() => flushSync(() => setTheme(next)))
   }
   return [theme, change]
-}
-
-/** Barra de pestañas: la pildora se estira hacia la pestaña nueva y una segunda sigue al puntero. */
-function AnimatedTabs<T extends string>({ items, active, onSelect }: { items: { id: T; label: string }[]; active: T; onSelect: (id: T) => void }) {
-  const navRef = useRef<HTMLElement | null>(null)
-  const [pill, setPill] = useState({ left: 0, right: 0, width: 0, dir: 'right' })
-  const [hover, setHover] = useState<{ left: number; width: number } | null>(null)
-  const prev = useRef(0)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const btn = navRef.current?.querySelector<HTMLButtonElement>('button.on')
-      if (!btn) return
-      const moved = btn.offsetLeft - prev.current
-      prev.current = btn.offsetLeft
-      const nav = navRef.current!
-      if (btn.offsetLeft < nav.scrollLeft) nav.scrollLeft = btn.offsetLeft - 6
-      else if (btn.offsetLeft + btn.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = btn.offsetLeft + btn.offsetWidth - nav.clientWidth + 6
-      setPill((o) => ({ left: btn.offsetLeft, right: nav.clientWidth - btn.offsetLeft - btn.offsetWidth, width: btn.offsetWidth, dir: moved > 0 ? 'right' : moved < 0 ? 'left' : o.dir }))
-    }
-    measure()
-    void document.fonts?.ready.then(measure)
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [active])
-  return (
-    <nav ref={navRef} className="tabs tabs-sliding" aria-label="Secciones" onMouseLeave={() => setHover(null)}>
-      <span className="tab-pill-hover" style={{ transform: `translateX(${hover?.left ?? pill.left}px)`, width: hover?.width ?? pill.width, opacity: hover ? 1 : 0 }} aria-hidden="true" />
-      <span className={`tab-pill-indicator to-${pill.dir}`} style={{ left: pill.left, right: pill.right }} aria-hidden="true" />
-      {items.map((t) => (
-        <button
-          key={t.id}
-          className={active === t.id ? 'on' : ''}
-          onClick={() => onSelect(t.id)}
-          onMouseEnter={(e) => setHover({ left: e.currentTarget.offsetLeft, width: e.currentTarget.offsetWidth })}
-        >
-          {t.label}
-        </button>
-      ))}
-    </nav>
-  )
 }
 
 /** Arma la query del API: ?range=... o ?from=...&to=... (fechas locales, ambas incluidas). */
@@ -184,6 +138,7 @@ function HeaderMascot({ act, live, cfg, omniEnabled }: {
     const result = pickLine({
       mascot: cfg.mascot ?? { talk: true, talkCooldownMin: 10 },
       chats: act.chats,
+      alertAt: act.alertAt,
       level: act.level,
       todayFresh: live.todayFresh,
       todayCostUsd: live.todayCostUsd,
@@ -235,7 +190,7 @@ export function App() {
     <main>
       <header className="greeting">
         <HeaderMascot act={act} live={live} cfg={cfg} omniEnabled={sources?.omniroute.enabled} />
-        <h1>Que sigue{cfg?.name ? `, ${cfg.name}` : ''}?</h1>
+        <h1>¿Qué sigue{cfg?.name ? `, ${cfg.name}` : ''}?</h1>
         <TodayCount data={live} className="today" />
         <span
           className={`live-state ${liveStatus}`}
@@ -287,13 +242,7 @@ export function App() {
         <div className="bar">
           <AnimatedTabs items={TABS} active={tab} onSelect={setTab} />
           {tab !== 'agentes' && tab !== 'ajustes' && (
-            <div className="tabs ranges" aria-label="Rango">
-              {RANGES.map((r) => (
-                <button key={r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
+            <RangeGroup range={range} onChange={setRange} />
           )}
         </div>
         {tab !== 'ajustes' &&
@@ -319,7 +268,7 @@ export function App() {
             )}
           </div>
         )}
-        <div key={tab} className="view-enter">
+        <div key={tab} className="view-enter" role="tabpanel" id="tab-panel" aria-labelledby={`tab-${tab}`}>
           {tab === 'agentes' && <AgentesView />}
           {tab === 'resumen' && <ResumenView q={qs} qClaude={q} billing={cfg?.billing ?? 'subscription'} />}
           {tab === 'modelos' && <ModelosView q={qs} billing={cfg?.billing ?? 'subscription'} />}
