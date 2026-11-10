@@ -4,14 +4,14 @@ import { join, dirname, basename, sep, relative, isAbsolute } from 'node:path'
 import { homedir } from 'node:os'
 import { dataDir, codexSessionsDir, geminiTmpDir } from './paths'
 import { config } from './config'
-import { parseFile } from './parse'
+import { newerVersion, parseFile } from './parse'
 import { initCodexState, parseCodexChunk, type CodexState } from './sources/codex'
 import { parseGeminiChunk, seenGeminiIds, type GeminiState } from './sources/gemini'
-import type { LimitHit, Rec, SessionMeta, Source, SourceStat } from './types'
+import { preferLimitHit, type LimitHit, type Rec, type SessionMeta, type Source, type SourceStat } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
 const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
-const CACHE_VERSION = 8
+const CACHE_VERSION = 9
 const SAVE_EVERY_MS = 60_000
 const CHUNK = 8 * 1024 * 1024
 
@@ -78,6 +78,10 @@ interface Merged {
   sessions: Map<string, SessionMeta>
   limitHit: LimitHit | null
   counts: Record<FileSource, { files: number; records: number }>
+  /** lineas de uso de Claude descartadas, sumadas de todos los archivos */
+  skipped: number
+  /** version mas alta de Claude Code vista en los archivos */
+  cliVersion?: string
 }
 
 interface Engine {
@@ -278,6 +282,7 @@ function newMerged(): Merged {
     sessions: new Map(),
     limitHit: null,
     counts: { claude: { files: 0, records: 0 }, codex: { files: 0, records: 0 }, gemini: { files: 0, records: 0 } },
+    skipped: 0,
   }
 }
 
@@ -304,13 +309,16 @@ function mergeMeta(m: Merged, e: Entry, entry: CacheEntry): void {
   if (e.source !== 'claude') return
   if (!e.file.split(sep).includes('subagents')) m.sessions.set(basename(e.file, '.jsonl'), entry.meta)
   const h = entry.meta.limitHit
-  if (h && (!m.limitHit || h.resetsAt >= m.limitHit.resetsAt)) m.limitHit = h
+  if (h) m.limitHit = preferLimitHit(m.limitHit, h)
+  const v = entry.meta.cliVersion
+  if (v && newerVersion(v, m.cliVersion)) m.cliVersion = v
 }
 
 function absorb(m: Merged, e: Entry, read: Read, prior?: CacheEntry): void {
   const c = m.counts[e.source]
   if (!prior) c.files++
   c.records += read.entry.recs.length - (prior?.recs.length ?? 0)
+  if (e.source === 'claude') m.skipped += (read.entry.meta.skipped ?? 0) - (prior?.meta.skipped ?? 0)
   mergeRecs(m, e.file, read.added)
   mergeMeta(m, e, read.entry)
 }
@@ -408,7 +416,7 @@ function makeResult(eng: Engine, ctx: Ctx): ScanResult {
     sessions: new Map(m.sessions),
     limitHit: m.limitHit,
     sources: {
-      claude: stat('claude', true, ctx.root),
+      claude: { ...stat('claude', true, ctx.root), ...(m.skipped > 0 ? { skipped: m.skipped } : {}), ...(m.cliVersion ? { cliVersion: m.cliVersion } : {}) },
       codex: stat('codex', ctx.wantCodex, ctx.codex),
       gemini: stat('gemini', ctx.wantGemini, ctx.gemini),
       omniroute: { enabled: false, files: 0, records: 0, ok: false, reason: 'sin configurar' },
