@@ -28,6 +28,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=24"
+  },
   "main": "src/tray/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"tsx watch src/server/index.ts\" \"vite\"",
@@ -43,23 +46,25 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@hono/node-server": "^2.1.3",
-    "@types/node": "^26.6.3",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "@hono/node-server": "^2.1.6",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.3.0",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "hono": "^4.13.11",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "hono": "^4.13.17",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
   },
   "build": {
     "appId": "dev.normansma.claudehub",
