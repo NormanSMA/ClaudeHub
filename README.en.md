@@ -96,7 +96,7 @@ Everything is optional. Each step is in the [technical guide](docs/guia.md#integ
 |---|---|
 | Open ClaudeHub when Claude Code starts | `SessionStart` hook with `scripts/launch.cjs` |
 | Real context and limits in the terminal | Status line `scripts/statusline.cjs` |
-| Limits from the desktop app | `/uso` command |
+| Limits from the desktop app | `claudehub-mod` mod (automatic) or `/uso` command |
 | Each agent's state in Chispa | Hook `scripts/hook.cjs` |
 
 <details>

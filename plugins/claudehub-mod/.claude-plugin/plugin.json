@@ -1,6 +1,6 @@
 {
   "name": "claudehub-mod",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Mod de ClaudeHub: guarda los limites del plan y la ventana de contexto sin linea de estado, y agrega /chub.",
   "author": { "name": "NormanSMA" },
   "homepage": "https://github.com/NormanSMA/ClaudeHub",
