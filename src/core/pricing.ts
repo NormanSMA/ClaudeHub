@@ -29,7 +29,7 @@ const price = (input: number, output: number, cacheWrite: number, cacheWrite1h: 
  */
 export const PRICE_SOURCES = [
   { provider: 'Claude', url: 'https://platform.claude.com/docs/en/about-claude/pricing', verified: '2026-11-09' },
-  { provider: 'OpenAI', url: 'https://openai.com/index/introducing-gpt-6-1-sol/', verified: '2026-10-22' },
+  { provider: 'OpenAI', url: 'https://developers.openai.com/api/docs/pricing', verified: '2026-11-10' },
   { provider: 'Gemini', url: 'https://ai.google.dev/gemini-api/docs/pricing', verified: '2026-10-22' },
 ] as const
 
@@ -54,11 +54,18 @@ const RULES: PriceRule[] = [
     tierAbove: { tokens: 100_000, price: price(0.5, 2.5, 0.625, 1, 0.05) },
   },
   { match: /^claude-haiku-4-5$/, price: price(1, 5, 1.25, 2, 0.1) },
-  // Tabla de OpenAI: 2026-10-22. Fuente: https://openai.com/index/introducing-gpt-6-1-sol/
+  // Tabla de OpenAI: 2026-11-10. Fuente: https://developers.openai.com/api/docs/pricing
+  // Escritura de cache: la columna "30m write" va en cacheWrite y "12h write" en cacheWrite1h.
+  // Contexto largo: mas de 272k tokens de entrada. No se aplican Batch, Flex, Fast ni el recargo regional.
   {
     match: /^gpt-6\.1-sol$/,
-    price: price(2, 10, 2, 2, 0.1),
-    tierAbove: { tokens: 272_000, price: price(4, 15, 4, 4, 0.2) },
+    price: price(2, 10, 2.5, 5, 0.1),
+    tierAbove: { tokens: 272_000, price: price(4, 15, 5, 10, 0.2) },
+  },
+  {
+    match: /^gpt-6\.1-terra$/,
+    price: price(1, 5, 1.25, 2.5, 0.05),
+    tierAbove: { tokens: 272_000, price: price(2, 7.5, 2.5, 5, 0.1) },
   },
   // Tabla de Gemini: 2026-10-22. Fuente: https://ai.google.dev/gemini-api/docs/pricing
   { match: /^gemini-3-flash-preview$/, price: price(0.5, 3, 0.5, 0.5, 0.05) },
@@ -69,7 +76,7 @@ const RULES: PriceRule[] = [
     until: Date.UTC(2027, 0, 1),
   },
   { match: /^gemini-3\.8-flash$/, price: price(1.5, 7.5, 1.5, 1.5, 0.15) },
-  // codex-auto-review: sin tarifa publicada en la tabla de 2026-10-22.
+  // codex-auto-review: sin tarifa publicada en la tabla de 2026-11-10.
 ]
 
 const rulesByModel = new Map<string, PriceRule[]>()
