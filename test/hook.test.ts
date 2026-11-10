@@ -109,7 +109,7 @@ describe('hook de estado', () => {
     }
   })
 
-  it('termina en menos de 1 s aunque stdin quede abierto', async () => {
+  it('termina solo aunque stdin quede abierto', async () => {
     const t0 = Date.now()
     const child = spawn(process.execPath, [script], { env: { ...process.env, CLAUDEHUB_DATA: dir }, stdio: ['pipe', 'pipe', 'pipe'] })
     let out = ''
@@ -118,7 +118,8 @@ describe('hook de estado', () => {
     const code = await new Promise<number | null>((done) => child.on('close', done))
     expect(code).toBe(0)
     expect(out).toBe('')
-    expect(Date.now() - t0).toBeLessThan(1000)
+    // el script se corta a los 800 ms; el resto es el arranque de node, que en CI de Windows supera 200 ms
+    expect(Date.now() - t0).toBeLessThan(3000)
   })
 
   it('limita la linea a 512 bytes recortando cwd y tool', () => {
