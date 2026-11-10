@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join, extname, resolve, dirname, sep, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
@@ -11,7 +11,7 @@ import { activeExtras } from '../core/overview'
 import { readEvents } from '../core/agents'
 import { latestCodexLimits } from '../core/sources/codex-limits'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
-import { dataDir, codexSessionsDir, geminiTmpDir } from '../core/paths'
+import { dataDir, codexSessionsDir, geminiTmpDir, exchangeDir, exchangeReadDirs } from '../core/paths'
 import { createEventHub, createWatcher } from './watch'
 import { extensionCors } from './cors'
 import { modelName } from '../core/models'
@@ -227,13 +227,16 @@ app.get('/api/active', (c) =>
       const plan = planReport(claude, now, DEMO ? demoPlanRaw(now) : undefined, data().limitHit)
       const codexLimits = DEMO ? demoCodexLimits(now) : config().sources.codex ? latestCodexLimits() : null
       const chats = activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined)
-      const { todayTokens, todayFresh, todayCacheRead, todayCostUsd } = live(claude, now)
+      // misma definicion de "Hoy" que /api/live: todas las fuentes activas, con desglose
+      const { todayTokens, todayFresh, todayCacheRead, todayCostUsd, todayCostUnpriced, todayBySource } = live(records(), now)
       return {
         alertAt: config().alertAt,
         todayTokens,
         todayFresh,
         todayCacheRead,
         todayCostUsd,
+        todayCostUnpriced,
+        todayBySource,
         chats,
         plan,
         ...activeExtras({
@@ -313,7 +316,14 @@ if (!DEMO) {
     const full = resolve(file)
     return basename(full) === 'cache.json' || basename(full) === 'update.json' || full.endsWith('.tmp') || full === omniDir || full.startsWith(omniDir + sep)
   }
-  const watchDirs = [PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir()]
+  try {
+    mkdirSync(exchangeDir(), { recursive: true })
+  } catch {
+    // sin permiso de escritura el servidor sigue; solo faltara el intercambio con los hooks
+  }
+  // Las carpetas de intercambio son opcionales: pueden no existir (copias del paquete MSIX).
+  const exchangeDirs = exchangeReadDirs().filter((d) => existsSync(d))
+  const watchDirs = [...new Set([PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir(), ...exchangeDirs])]
   const watcher = createWatcher(
     watchDirs,
     (files) => {
@@ -324,7 +334,13 @@ if (!DEMO) {
     },
     { ignore },
   )
-  allWatched = () => watcher.watching().length === watchDirs.length
+  // Una fuente apagada no se escanea: su carpeta ausente no debe forzar escaneos completos.
+  allWatched = () => {
+    const { sources } = config()
+    const required = [PROJECTS_DIR, dataDir(), ...(sources.codex ? [codexSessionsDir()] : []), ...(sources.gemini ? [geminiTmpDir()] : [])]
+    const watching = watcher.watching()
+    return required.every((d) => watching.includes(d))
+  }
   process.on('exit', () => {
     watcher.close()
     hub.close()

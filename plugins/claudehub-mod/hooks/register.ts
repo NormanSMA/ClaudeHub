@@ -17,16 +17,17 @@ const PLAN_REFRESH_MS = 60_000
 const fiveHourPct = atom({ plugin: 'claudehub-mod', key: 'pct5h' } as const, null)
 
 // Los nombres de variable deben ser literales: la validacion del mod lee el codigo para listarlos.
+// Se escribe en ~/.claudehub y no en AppData: la app de escritorio (MSIX) redirige ahi los archivos
+// nuevos a una copia privada que el servidor no ve. El mod no puede crear carpetas; las crea el servidor.
 async function dataPaths($: EngineInterface): Promise<DataPaths | null> {
-  const appData = await $.env.get('APPDATA')
-  if (appData) {
-    const dir = `${appData}\\ClaudeHub`
+  const profile = await $.env.get('USERPROFILE')
+  if (profile) {
+    const dir = `${profile}\\.claudehub`
     return { rateLimits: `${dir}\\rate-limits.json`, contextWindows: `${dir}\\context-windows.json` }
   }
   const home = await $.env.get('HOME')
   if (!home) return null
-  const mac = `${home}/Library/Application Support`
-  const dir = (await $.fs.exists(mac)) ? `${mac}/ClaudeHub` : `${home}/.config/ClaudeHub`
+  const dir = `${home}/.claudehub`
   return { rateLimits: `${dir}/rate-limits.json`, contextWindows: `${dir}/context-windows.json` }
 }
 

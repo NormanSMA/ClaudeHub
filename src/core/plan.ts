@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { dataDir } from './paths'
+import { exchangeReadDirs } from './paths'
 import { LEVEL_LABELS, total, type LevelId, type LimitHit, type Rec, type TokenLevel } from './types'
 import type { CodexRateLimits, CodexWindow } from './sources/codex'
 
@@ -28,8 +28,6 @@ export interface PlanReport {
   planType?: string
 }
 
-const FILE = () => process.env.CLAUDEHUB_PLAN ?? join(dataDir(), 'rate-limits.json')
-
 const FIVE_HOURS = 5 * 3_600_000
 const SEVEN_DAYS = 7 * 86_400_000
 
@@ -49,16 +47,51 @@ function windowOf(raw: RawWindow | null | undefined, span: number, recs: Rec[], 
   return { pct: Math.min(100, Math.max(0, raw.pct)), resetsAt: raw.resetsAt, tokens }
 }
 
-let memo: { at: number; raw: { fiveHour?: RawWindow; sevenDay?: RawWindow; updatedAt?: number } | null } | null = null
+type RawPlan = { fiveHour?: RawWindow; sevenDay?: RawWindow; updatedAt?: number }
 
-function readRaw() {
-  if (memo && Date.now() - memo.at < 3_000) return memo.raw
-  let raw = null
+let memo: { at: number; raw: RawPlan | null } | null = null
+
+// El mod escribe sin renombrado atomico: una lectura puede ver el archivo a medias.
+// Se conserva el ultimo contenido valido de cada ruta en vez de perder el dato.
+const lastValid = new Map<string, RawPlan>()
+
+function readOne(file: string): RawPlan | null {
+  let text: string
   try {
-    raw = JSON.parse(readFileSync(FILE(), 'utf8'))
+    text = readFileSync(file, 'utf8')
   } catch {
-    raw = null
+    // sin archivo no hay dato que conservar
+    lastValid.delete(file)
+    return null
   }
+  try {
+    const raw = JSON.parse(text)
+    if (raw && typeof raw === 'object') {
+      lastValid.set(file, raw)
+      return raw
+    }
+  } catch {
+    // escritura a medias: vale el ultimo contenido valido
+  }
+  return lastValid.get(file) ?? null
+}
+
+/** Lee rate-limits.json de cada carpeta y devuelve el de mayor updatedAt. */
+export function readPlanRaw(dirs: string[]): RawPlan | null {
+  let best: RawPlan | null = null
+  for (const dir of dirs) {
+    const raw = readOne(join(dir, 'rate-limits.json'))
+    if (!raw) continue
+    const at = typeof raw.updatedAt === 'number' ? raw.updatedAt : 0
+    if (!best || at > (typeof best.updatedAt === 'number' ? best.updatedAt : 0)) best = raw
+  }
+  return best
+}
+
+function readRaw(): RawPlan | null {
+  if (memo && Date.now() - memo.at < 3_000) return memo.raw
+  const override = process.env.CLAUDEHUB_PLAN
+  const raw = override ? readOne(override) : readPlanRaw(exchangeReadDirs())
   memo = { at: Date.now(), raw }
   return raw
 }
@@ -67,7 +100,7 @@ function readRaw() {
 export function planReport(
   recs: Rec[],
   now = Date.now(),
-  raw: { fiveHour?: RawWindow; sevenDay?: RawWindow; updatedAt?: number } | null = readRaw(),
+  raw: RawPlan | null = readRaw(),
   limitHit: LimitHit | null = null,
 ): PlanReport | null {
   const valid = raw && typeof raw === 'object' ? raw : {}
@@ -124,20 +157,28 @@ export interface TokenLevelInput {
 }
 
 const MIN_PROJECTION_PCT = 5
+/** Edad maxima del dato del plan para proyectar: el porcentaje viejo no vale contra tokens de ahora. */
+export const MAX_PROJECTION_AGE_MS = 10 * 60_000
 
 /**
- * Nivel de consumo. Base: ventana de 5 h del plan (un limite alcanzado da nivel 5);
+ * Nivel de consumo. Base: la ventana del plan mas llena, de 5 h o semanal (un limite alcanzado da nivel 5);
  * sin plan, el chat activo con mas contexto; sin ninguno, null.
+ * La proyeccion solo sale con base de 5 h y un dato del plan de menos de 10 minutos.
  */
 export function tokenLevel({ claude, contextPct, burnPerMin, cacheEfficiency, delegationShare, now }: TokenLevelInput): TokenLevel | null {
   let pct: number
   let basis: TokenLevel['basis']
   let resetsAt = 0
   const win = claude?.fiveHour ?? null
+  const week = claude?.sevenDay ?? null
   if (claude?.blocked) {
     pct = 100
-    basis = 'plan5h'
+    basis = claude.blocked.type === 'seven_day' ? 'plan7d' : 'plan5h'
     resetsAt = claude.blocked.resetsAt
+  } else if (week && (!win || week.pct > win.pct)) {
+    pct = week.pct
+    basis = 'plan7d'
+    resetsAt = week.resetsAt
   } else if (win) {
     pct = win.pct
     basis = 'plan5h'
@@ -149,7 +190,9 @@ export function tokenLevel({ claude, contextPct, burnPerMin, cacheEfficiency, de
 
   let minutesLeft: number | null = null
   let exhaustsBeforeReset: boolean | null = null
-  if (basis === 'plan5h' && win && pct >= MIN_PROJECTION_PCT && win.tokens > 0 && burnPerMin > 0) {
+  const updatedAt = claude?.updatedAt ?? 0
+  const fresh = updatedAt > 0 && now - updatedAt <= MAX_PROJECTION_AGE_MS
+  if (!claude?.blocked && basis === 'plan5h' && win && fresh && pct >= MIN_PROJECTION_PCT && win.tokens > 0 && burnPerMin > 0) {
     const atLimit = (win.tokens * 100) / pct
     minutesLeft = (atLimit - win.tokens) / burnPerMin
     exhaustsBeforeReset = minutesLeft < (resetsAt - now) / 60_000

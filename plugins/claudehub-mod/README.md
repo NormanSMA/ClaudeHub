@@ -4,13 +4,13 @@ Mod de Claude Code para ClaudeHub. Complementa a `scripts/statusline.cjs` y `scr
 
 ## Qué hace
 
-- Guarda `rate-limits.json` y `context-windows.json` en la carpeta de datos de ClaudeHub. Usa el mismo formato que `statusline.cjs`. Funciona en la app de escritorio, donde no hay línea de estado ni hace falta `/uso`.
+- Guarda `rate-limits.json` y `context-windows.json` en la carpeta de intercambio de ClaudeHub. Usa el mismo formato que `statusline.cjs`. Funciona en la app de escritorio, donde no hay línea de estado ni hace falta `/uso`.
 - Agrega el comando `/chub`. Consulta `http://127.0.0.1:4317/api/active` y responde una línea con tokens nuevos, caché y costo de hoy.
 - Muestra opcionalmente el porcentaje del límite de 5 horas sobre el prompt. Viene apagado.
 
 El mod no usa la red, salvo `127.0.0.1:4317` para `/chub`. No lee tokens OAuth ni `~/.claude/settings.json`. No guarda prompts ni respuestas. Solo guarda campos de uso.
 
-Carpeta de datos: `%APPDATA%\ClaudeHub` en Windows, `~/Library/Application Support/ClaudeHub` en macOS y `~/.config/ClaudeHub` en Linux.
+Carpeta de intercambio: `%USERPROFILE%\.claudehub` en Windows y `~/.claudehub` en macOS y Linux. Queda fuera de AppData porque la app de escritorio de Claude (paquete MSIX) redirige ahí los archivos nuevos a una copia privada que ClaudeHub no ve. El mod no puede crear carpetas: ClaudeHub crea `.claudehub` al arrancar. Si no ha corrido nunca, crea la carpeta a mano o abre ClaudeHub una vez.
 
 ## Instalar
 

@@ -4,7 +4,7 @@ import type { ContextWindowsFile, RateLimitsFile } from '../../../src/shared/fil
 
 type Write = { path: string; text: string }
 
-const WINDOWS_DATA = 'C:\\Users\\ada\\AppData\\Roaming\\ClaudeHub'
+const WINDOWS_DATA = 'C:\\Users\\ada\\.claudehub'
 const RESET_5H = '2026-10-26T18:00:00.000Z'
 const RESET_7D = '2026-10-30T12:00:00.000Z'
 const NOW = Date.parse('2026-10-26T15:00:00.000Z')
@@ -19,14 +19,13 @@ const MEASURE: SessionMeasureInput = {
 }
 
 // Nada corre debajo del mod: cada hook hace de motor y anota lo que el mod escribe.
-function engine(on: On, env: Record<string, string>, hasLibrary = false) {
+function engine(on: On, env: Record<string, string>) {
   const writes: Write[] = []
   mock.env(on, env)
   mock.clock(on, { now: NOW })
   on('session.id', () => ({ value: 'sesion-1' }))
   on('session.model', () => ({ value: 'claude-opus-5' }))
   on('session.measure', (_, e) => ({ changed: e.changed }))
-  on('fs.exists', () => ({ value: hasLibrary }))
   on('fs.read', () => ({ deny: 'no existe' }))
   on('fs.write', (_, e) => {
     writes.push({ path: e.path, text: e.text })
@@ -47,7 +46,7 @@ function parse<T>(writes: Write[], file: string): T {
 }
 
 test('rate-limits.json cumple la forma de RateLimitsFile y convierte porcentaje y reinicio', async ($, on) => {
-  const writes = engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+  const writes = engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   await $.session.measure(MEASURE)
 
   const file = parse<RateLimitsFile>(writes, 'rate-limits.json')
@@ -59,7 +58,7 @@ test('rate-limits.json cumple la forma de RateLimitsFile y convierte porcentaje 
 })
 
 test('context-windows.json cumple la forma de ContextWindowsFile', async ($, on) => {
-  const writes = engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+  const writes = engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   await $.session.measure(MEASURE)
 
   const file = parse<ContextWindowsFile>(writes, 'context-windows.json')
@@ -68,28 +67,18 @@ test('context-windows.json cumple la forma de ContextWindowsFile', async ($, on)
   expect(typed['sesion-1']).toEqual({ size: 200_000, model: 'claude-opus-5', ts: NOW })
 })
 
-test('en Windows escribe en APPDATA con barras invertidas', async ($, on) => {
-  const writes = engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+test('en Windows escribe en USERPROFILE\\.claudehub con barras invertidas', async ($, on) => {
+  const writes = engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   await $.session.measure(MEASURE)
 
   expect(writes.map((w) => w.path).sort()).toEqual([`${WINDOWS_DATA}\\context-windows.json`, `${WINDOWS_DATA}\\rate-limits.json`])
 })
 
-test('en Linux escribe en ~/.config/ClaudeHub', async ($, on) => {
+test('en Linux y macOS escribe en ~/.claudehub', async ($, on) => {
   const writes = engine(on, { HOME: '/home/ada' })
   await $.session.measure(MEASURE)
 
-  expect(posix(writes)).toEqual(['/home/ada/.config/ClaudeHub/context-windows.json', '/home/ada/.config/ClaudeHub/rate-limits.json'])
-})
-
-test('en macOS escribe en Library/Application Support', async ($, on) => {
-  const writes = engine(on, { HOME: '/Users/ada' }, true)
-  await $.session.measure(MEASURE)
-
-  expect(posix(writes)).toEqual([
-    '/Users/ada/Library/Application Support/ClaudeHub/context-windows.json',
-    '/Users/ada/Library/Application Support/ClaudeHub/rate-limits.json',
-  ])
+  expect(posix(writes)).toEqual(['/home/ada/.claudehub/context-windows.json', '/home/ada/.claudehub/rate-limits.json'])
 })
 
 test('sin carpeta de datos no escribe nada', async ($, on) => {
@@ -100,14 +89,14 @@ test('sin carpeta de datos no escribe nada', async ($, on) => {
 })
 
 test('sin limites del plan ni ventana no inventa valores', async ($, on) => {
-  const writes = engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+  const writes = engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   await $.session.measure({ context: { window: 0 }, rateLimits: [], changed: ['context', 'rateLimits'] })
 
   expect(writes).toHaveLength(0)
 })
 
 test('una ventana sin reinicio se guarda como null y la otra se conserva', async ($, on) => {
-  const writes = engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+  const writes = engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   await $.session.measure({
     context: { window: 200_000 },
     rateLimits: [{ kind: 'five_hour', percentUsed: 120, resetsAt: RESET_5H }, { kind: 'seven_day', percentUsed: 10 }],
@@ -180,7 +169,7 @@ const BAND = {
 } as const
 
 test('la banda esta apagada por defecto', async ($, on) => {
-  engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+  engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: 'motor' }))
   await $.session.measure(MEASURE)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
@@ -190,7 +179,7 @@ test('la banda esta apagada por defecto', async ($, on) => {
 })
 
 test('la banda muestra el porcentaje de 5 h cuando se activa', { options: { showBand: true } }, async ($, on) => {
-  engine(on, { APPDATA: 'C:\\Users\\ada\\AppData\\Roaming' })
+  engine(on, { USERPROFILE: 'C:\\Users\\ada' })
   await $.session.measure(MEASURE)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })

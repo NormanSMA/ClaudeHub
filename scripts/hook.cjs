@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Hook de estado de ClaudeHub para Claude Code y Codex (opcional).
-// Anota cada evento en events.jsonl (carpeta de datos), una linea JSON por evento:
+// Anota cada evento en events.jsonl (carpeta de intercambio, ~/.claudehub), una linea JSON por evento:
 //   {v:1,ts,source,session,event,state,tool,cwd}
 // Reglas de seguridad: sale siempre con codigo 0, no escribe en stdout ni stderr
 // y termina en menos de 1 s. Una salida o el codigo 2 podrian bloquear al agente.
@@ -11,7 +11,7 @@
 // @ts-check
 const fs = require('node:fs')
 const path = require('node:path')
-const { dataDir } = require('./lib/paths.cjs')
+const { exchangeDir } = require('./lib/paths.cjs')
 
 /**
  * @typedef {import('../src/shared/files').EventLine} EventLine
@@ -88,7 +88,7 @@ function record(source, input) {
   if (!j || typeof j !== 'object') return
   const line = buildLine(source, j)
   if (!line) return
-  const dir = dataDir()
+  const dir = exchangeDir()
   fs.mkdirSync(dir, { recursive: true })
   const file = path.join(dir, 'events.jsonl')
   try {
