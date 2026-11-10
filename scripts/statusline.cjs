@@ -36,7 +36,7 @@ const PLAN_REFRESH_MS = 60_000
  * @param {unknown} data
  */
 function writeJson(file, data) {
-  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
   const tmp = file + '.' + process.pid + '.tmp'
   fs.writeFileSync(tmp, JSON.stringify(data))
   fs.renameSync(tmp, file)

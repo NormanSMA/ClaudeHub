@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { exchangeReadDirs } from './paths'
+import { exchangeReadDirs, readExchangeFile } from './paths'
 import { LEVEL_LABELS, total, type LevelId, type LimitHit, type Rec, type TokenLevel } from './types'
 import type { CodexRateLimits, CodexWindow } from './sources/codex'
 
@@ -49,6 +48,9 @@ function windowOf(raw: RawWindow | null | undefined, span: number, recs: Rec[], 
 
 type RawPlan = { fiveHour?: RawWindow; sevenDay?: RawWindow; updatedAt?: number }
 
+/** Desfase de reloj tolerado entre quien escribe el archivo y el servidor. */
+const CLOCK_SKEW_MS = 60_000
+
 let memo: { at: number; raw: RawPlan | null } | null = null
 
 // El mod escribe sin renombrado atomico: una lectura puede ver el archivo a medias.
@@ -58,15 +60,17 @@ const lastValid = new Map<string, RawPlan>()
 function readOne(file: string): RawPlan | null {
   let text: string
   try {
-    text = readFileSync(file, 'utf8')
+    text = readExchangeFile(file)
   } catch {
-    // sin archivo no hay dato que conservar
+    // sin archivo (o con uno desmedido) no hay dato que conservar
     lastValid.delete(file)
     return null
   }
   try {
     const raw = JSON.parse(text)
     if (raw && typeof raw === 'object') {
+      // una fecha futura ganaria siempre a los datos reales y pareceria reciente: se descarta el archivo
+      if (typeof raw.updatedAt === 'number' && raw.updatedAt > Date.now() + CLOCK_SKEW_MS) return null
       lastValid.set(file, raw)
       return raw
     }
