@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -32,6 +32,17 @@ export function exchangeDir(): string {
 }
 
 let packagesMemo: { at: number; dirs: string[] } | null = null
+
+const MAX_EXCHANGE_BYTES = 1024 * 1024
+
+/**
+ * Lee un archivo de intercambio como texto. Lanza si falta o si supera 1 MiB:
+ * son archivos de pocos KB que escriben otros procesos, y uno enorme bloquearia el servidor.
+ */
+export function readExchangeFile(file: string): string {
+  if (statSync(file).size > MAX_EXCHANGE_BYTES) throw new Error('archivo de intercambio demasiado grande')
+  return readFileSync(file, 'utf8')
+}
 
 /** Copias privadas de ClaudeHub dentro de los paquetes MSIX de Claude (solo Windows). */
 function packageDirs(): string[] {

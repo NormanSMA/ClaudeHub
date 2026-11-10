@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { exchangeReadDirs } from './paths'
+import { exchangeReadDirs, readExchangeFile } from './paths'
 
 /**
  * Ventanas de contexto reales por sesion, registradas por scripts/statusline.cjs
@@ -17,9 +16,11 @@ let memo: { at: number; data: Record<string, RecordedWindow> } | null = null
 function readFile(file: string): Record<string, RecordedWindow> {
   const data: Record<string, RecordedWindow> = {}
   try {
-    const raw = JSON.parse(readFileSync(file, 'utf8'))
+    const raw = JSON.parse(readExchangeFile(file))
     if (raw && typeof raw === 'object') {
       for (const [sid, v] of Object.entries(raw as Record<string, RecordedWindow>)) {
+        // el id de sesion viene de un archivo ajeno: no debe tocar el prototipo del objeto
+        if (sid === '__proto__' || sid === 'constructor' || sid === 'prototype') continue
         if (v && typeof v.size === 'number' && v.size >= 10_000 && v.size <= 10_000_000) data[sid] = v
       }
     }
