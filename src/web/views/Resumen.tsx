@@ -65,12 +65,12 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
       </section>
       <Heatmap days={data.heatmap} />
       <TokenAreaChart days={data.heatmap.filter((d) => d.day <= todayKey)} />
-      <p className="note">Usaste ~{int(Math.round(t.total / BOOK_TOKENS))}x mas tokens que Rebelion en la granja.</p>
+      <p className="note">Usaste ~{int(Math.round(t.total / BOOK_TOKENS))}x más tokens que Rebelión en la granja.</p>
       <div className="stats two">
         <Stat
-          label="Eficiencia de cache"
+          label="Eficiencia de caché"
           value={<AnimatedNumber value={t.cacheRead / Math.max(1, t.input + t.cacheWrite + t.cacheRead)} format={pct} />}
-          hint="Parte de la entrada que se leyo desde cache"
+          hint="Parte de la entrada que se leyó desde caché"
         />
         <Stat label="Salida visible" value={<AnimatedNumber value={Math.max(0, t.output - (t.reasoning ?? 0))} format={compact} />} hint="Salida sin pensamiento" />
       </div>

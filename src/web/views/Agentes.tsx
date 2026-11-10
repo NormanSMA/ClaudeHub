@@ -3,6 +3,7 @@ import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanRe
 import { compact, minutesText, pct } from '../format'
 import { ArcGauge } from '../components/charts'
 import { AnimatedNumber } from '../components/AnimatedNumber'
+import { Loading } from '../components/Loading'
 
 const SOURCE_NAME: Record<SourceId, string> = {
   claude: 'Claude',
@@ -56,18 +57,18 @@ function CodexRow({ label, w, alertAt }: { label: string; w: { pct: number; rese
 function CodexLimits({ plan, alertAt }: { plan: PlanReport | null; alertAt: number }) {
   if (!plan) return <p className="plan-hint">Codex: sin datos vigentes (se actualizan al usar Codex)</p>
   return (
-    <section className="plan" aria-label="Limites de uso de Codex">
+    <section className="plan" aria-label="Límites de uso de Codex">
       {plan.planType && <div className="active-meta">Plan: {plan.planType}</div>}
-      {plan.fiveHour && <CodexRow label="Limite de 5 horas" w={plan.fiveHour} alertAt={alertAt} />}
+      {plan.fiveHour && <CodexRow label="Límite de 5 horas" w={plan.fiveHour} alertAt={alertAt} />}
       {plan.sevenDay && <CodexRow label="Semanal" w={plan.sevenDay} alertAt={alertAt} />}
-      {!plan.fiveHour && !plan.sevenDay && <div className="active-meta">Sin ventanas de limite vigentes.</div>}
+      {!plan.fiveHour && !plan.sevenDay && <div className="active-meta">Sin ventanas de límite vigentes.</div>}
     </section>
   )
 }
 
 /** Cuatro tarjetas: nivel, ritmo, proyeccion y eficiencia de cache. Sin `level`, no se dibuja. */
 function LevelCards({ level }: { level: TokenLevel }) {
-  const basis = level.basis === 'plan5h' ? 'del limite de 5 horas' : level.basis === 'plan7d' ? 'del limite semanal' : 'del contexto'
+  const basis = level.basis === 'plan5h' ? 'del límite de 5 horas' : level.basis === 'plan7d' ? 'del límite semanal' : 'del contexto'
   // tokens nuevos: la lectura de cache multiplica la cifra por 10 o mas y no mide trabajo nuevo
   const rate = level.burnFreshPerMin ?? level.burnPerMin
   const burn = rate > 0
@@ -89,26 +90,26 @@ function LevelCards({ level }: { level: TokenLevel }) {
         </div>
         <div className="level-card">
           <div className="stat-label">Ritmo</div>
-          <div className="stat-value" title={`Con lectura de cache: ${compact(level.burnPerMin)}/min`}>
+          <div className="stat-value" title={`Con lectura de caché: ${compact(level.burnPerMin)}/min`}>
             {burn ? <AnimatedNumber value={rate} format={(v) => `${compact(v)}/min`} /> : '-'}
           </div>
           <div className="stat-sub">{level.burnFreshPerMin === undefined ? 'tokens por minuto' : 'tokens nuevos por minuto'}</div>
         </div>
         <div className="level-card">
-          <div className="stat-label">Proyeccion</div>
+          <div className="stat-label">Proyección</div>
           <div className="stat-value">{level.minutesLeft === null ? '-' : <AnimatedNumber value={level.minutesLeft} format={(v) => minutesText(Math.round(v))} />}</div>
           <div className="stat-sub">
             {level.exhaustsBeforeReset === null
-              ? 'sin estimacion'
+              ? 'sin estimación'
               : level.exhaustsBeforeReset
                 ? 'se agota antes del reinicio'
                 : 'alcanza hasta el reinicio'}
           </div>
         </div>
         <div className="level-card">
-          <div className="stat-label">Eficiencia de cache</div>
+          <div className="stat-label">Eficiencia de caché</div>
           <div className="stat-value"><AnimatedNumber value={level.cacheEfficiency / 100} format={pct} /></div>
-          <div className="stat-sub">entrada leida desde cache</div>
+          <div className="stat-sub">entrada leída desde caché</div>
         </div>
       </div>
       <p className="active-meta delegated">
@@ -122,7 +123,7 @@ function AgentsNow({ agents }: { agents: AgentLive[] }) {
   if (!agents.length) {
     return (
       <p className="plan-hint">
-        Sin eventos recientes de hooks. Los estados en vivo llegan del hook de ClaudeHub; la guia explica como instalarlo.
+        Sin eventos recientes de hooks. Los estados en vivo llegan del hook de ClaudeHub; la guía explica cómo instalarlo.
       </p>
     )
   }
@@ -155,9 +156,7 @@ function AgentsNow({ agents }: { agents: AgentLive[] }) {
 
 export function AgentesView() {
   const { data, error } = useApi<ActiveReport>('/api/active', 4_000)
-  if (!data) {
-    return <div className="empty">{error ? `No se pudo cargar (${error}). Esta corriendo el servidor?` : 'Leyendo tus logs...'}</div>
-  }
+  if (!data) return <Loading error={error} />
   const claudePlan = data.plans?.claude ?? data.plan
   const codexPlan = data.plans?.codex ?? null
   const agents = data.agents ?? []
@@ -170,7 +169,7 @@ export function AgentesView() {
         </div>
       ))}
       {data.level && <LevelCards level={data.level} />}
-      <h3>Limites del plan</h3>
+      <h3>Límites del plan</h3>
       <div className="plan-sources">
         <div>
           <div className="plan-source-name">Claude</div>
@@ -184,10 +183,12 @@ export function AgentesView() {
       <h3>Agentes ahora</h3>
       <AgentsNow agents={agents} />
       <h3>Chats activos de Claude</h3>
-      <ActiveList chats={data.chats} alertAt={data.alertAt} />
-      <p className="foot">
-        * Limite de contexto estimado: los logs no lo declaran. Fijalo en la pestana Ajustes o activa la linea de estado de ClaudeHub para usar el valor real.
-      </p>
+      <ActiveList chats={data.chats} agents={agents} alertAt={data.alertAt} />
+      {data.chats.some((c) => c.context.estimated) && (
+        <p className="foot">
+          * Límite de contexto estimado: los logs no lo declaran. Fíjalo en la pestaña Ajustes o activa la línea de estado de ClaudeHub para usar el valor real.
+        </p>
+      )}
     </>
   )
 }

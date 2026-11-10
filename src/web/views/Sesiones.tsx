@@ -40,7 +40,7 @@ export function SesionesView({ q, billing }: { q: string; billing: Billing }) {
         <input
           className="search"
           type="search"
-          placeholder="Buscar por titulo o proyecto"
+          placeholder="Buscar por título o proyecto"
           aria-label="Buscar sesiones"
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -58,7 +58,7 @@ export function SesionesView({ q, billing }: { q: string; billing: Billing }) {
         <thead>
           <tr>
             {th('title', 'Chat')}
-            {th('last', 'Ultimo uso')}
+            {th('last', 'Último uso')}
             {th('split', 'Reparto')}
             {th('messages', 'Mensajes', true)}
             {th('total', 'Tokens', true)}
@@ -90,7 +90,7 @@ export function SesionesView({ q, billing }: { q: string; billing: Billing }) {
           ))}
         </tbody>
       </table>
-      {sorted.length === 0 && <div className="empty">Ningun chat coincide con los filtros</div>}
+      {sorted.length === 0 && <div className="empty">Ningún chat coincide con los filtros</div>}
     </>
   )
 }

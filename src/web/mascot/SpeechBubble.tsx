@@ -80,11 +80,18 @@ export function SpeechBubble({ text, onDone, onTyping, durationMs = 6000 }: {
   }, [text, durationMs, reduced])
 
   if (closed) return null
+  // Un solo anuncio: la region de estado lleva el texto completo y el texto escrito queda oculto a lectores.
   return (
     <div className="speech-bubble">
       <span className="speech-bubble-live" role="status" aria-live="polite" aria-atomic="true">{text}</span>
-      <button type="button" onClick={() => close.current()} aria-label={`Cerrar bocadillo: ${text}`}>
-        <span aria-hidden="true">{visibleText}</span>
+      <p className="speech-bubble-text" aria-hidden="true">
+        <span className="speech-bubble-ghost">{text}</span>
+        <span>{visibleText}</span>
+      </p>
+      <button type="button" className="speech-bubble-close" onClick={() => close.current()} aria-label="Cerrar bocadillo">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+          <path d="M5 5l14 14M19 5L5 19" />
+        </svg>
       </button>
     </div>
   )

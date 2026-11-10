@@ -16,29 +16,32 @@ export function ProyectosView({ q, billing }: { q: string; billing: Billing }) {
   )
   if (!data) return <Loading error={error} />
   return (
-    <table className="projects-table">
-      <thead>
-        <tr>
-          {th('project', 'Proyecto')}
-          {th('split', 'Reparto')}
-          {th('sessions', 'Sesiones', true)}
-          {th('total', 'Tokens', true)}
-          {cloneElement(th('costUsd', cost.label, true), { title: cost.title })}
-        </tr>
-      </thead>
-      <tbody>
-        {sorted.map((p) => (
-          <tr key={p.project}>
-            <td>{p.project}</td>
-            <td>
-              <SplitBar a={p.orch} b={p.sub} />
-            </td>
-            <td className="num">{int(p.sessions)}</td>
-            <td className="num">{compact(p.total)}</td>
-            <td className="num project-cost"><strong>{fmtUsd(p.costUsd)}</strong></td>
+    <>
+      <table className="projects-table">
+        <thead>
+          <tr>
+            {th('project', 'Proyecto')}
+            {th('split', 'Reparto')}
+            {th('sessions', 'Sesiones', true)}
+            {th('total', 'Tokens', true)}
+            {cloneElement(th('costUsd', cost.label, true), { title: cost.title })}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {sorted.map((p) => (
+            <tr key={p.project}>
+              <td>{p.project}</td>
+              <td>
+                <SplitBar a={p.orch} b={p.sub} />
+              </td>
+              <td className="num">{int(p.sessions)}</td>
+              <td className="num">{compact(p.total)}</td>
+              <td className="num project-cost"><strong>{fmtUsd(p.costUsd)}</strong></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sorted.length === 0 && <div className="empty">Sin proyectos en este rango</div>}
+    </>
   )
 }

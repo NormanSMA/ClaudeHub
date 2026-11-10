@@ -31,7 +31,7 @@ describe('SpeechBubble', () => {
   it('muestra el texto completo con movimiento reducido', () => {
     vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) })
     const html = renderToStaticMarkup(createElement(SpeechBubble, { text: 'Hola, soy Chispa', onDone: vi.fn() }))
-    expect(html).toContain('<span aria-hidden="true">Hola, soy Chispa</span>')
+    expect(html).toContain('<span>Hola, soy Chispa</span>')
     expect(html).toContain('aria-live="polite"')
     expect(html).toContain('aria-atomic="true">Hola, soy Chispa</span>')
   })
@@ -39,8 +39,24 @@ describe('SpeechBubble', () => {
   it('reserva el texto completo para lectores durante la escritura', () => {
     vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) })
     const html = renderToStaticMarkup(createElement(SpeechBubble, { text: 'Hola', onDone: vi.fn() }))
-    expect(html).toContain('<span aria-hidden="true"></span>')
+    expect(html).toContain('<span></span>')
     expect(html).toContain('aria-atomic="true">Hola</span>')
+  })
+
+  it('anuncia el texto una sola vez y deja el texto escrito oculto a lectores', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) })
+    const html = renderToStaticMarkup(createElement(SpeechBubble, { text: 'Hola, soy Chispa', onDone: vi.fn() }))
+    expect(html.match(/role="status"/g)).toHaveLength(1)
+    expect(html).toMatch(/<p class="speech-bubble-text" aria-hidden="true">/)
+    expect(html).not.toContain('aria-label="Cerrar bocadillo:')
+    expect(html).toContain('aria-label="Cerrar bocadillo"')
+  })
+
+  it('solo el botón de cerrar es interactivo', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) })
+    const html = renderToStaticMarkup(createElement(SpeechBubble, { text: 'Hola', onDone: vi.fn() }))
+    expect(html.match(/<button/g)).toHaveLength(1)
+    expect(html).toContain('class="speech-bubble-close"')
   })
 })
 
