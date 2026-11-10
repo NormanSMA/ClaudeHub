@@ -1,66 +1,35 @@
 :root {
-  --bg: #1a1918;
-  --card: #262624;
-  --stat: #30302e;
-  --text: #f0eee6;
-  --muted: #9b978d;
-  --line: #3a3936;
-  --accent: #d97757;
-  --blue: #5b8def;
-  --violet: #a58bd6;
+  /* light-dark(claro, oscuro): una sola lista de tokens sirve al modo automatico y a los forzados */
+  --bg: light-dark(#f5f4ee, #1a1918);
+  --card: light-dark(#ffffff, #262624);
+  --stat: light-dark(#f0eee6, #30302e);
+  --text: light-dark(#1f1e1d, #f0eee6);
+  --muted: light-dark(#6f6c64, #9b978d);
+  --line: light-dark(#e3e0d6, #3a3936);
+  --accent: light-dark(#b44b29, #d97757);
+  --blue: light-dark(#1e62e9, #5b8def);
+  --violet: light-dark(#7d5fb8, #a58bd6);
   --mascot-body: #d97757;
   --mascot-cheek: #f0a488;
   --mascot-spark: #f3c3a8;
   --mascot-eye: #1f1e1d;
-  --ok: #6fa58a;
-  --warn: #e3a64b;
-  --dot-paused: #a8a49a;
-  --dot-working: #6fa58a;
-  --dot-waiting: #e3a64b;
-  --danger: #e0584a;
-  --heat0: #302f2d;
-  --heat1: #8a4a36;
-  --heat2: #b9603f;
+  --ok: light-dark(#49755f, #6fa58a);
+  --warn: light-dark(#936117, #e3a64b);
+  --dot-paused: light-dark(#88847a, #a8a49a);
+  --dot-working: light-dark(#397557, #6fa58a);
+  --dot-waiting: light-dark(#956015, #e3a64b);
+  --danger: light-dark(#ca3223, #e36659);
+  --heat0: light-dark(#ebe8de, #302f2d);
+  --heat1: light-dark(#f3c3a8, #8a4a36);
+  --heat2: light-dark(#ea9c7a, #b9603f);
   --heat3: #d97757;
-  --heat4: #f3a583;
+  --heat4: light-dark(#a8553a, #f3a583);
+  color-scheme: light dark;
+}
+:root[data-theme='dark'] {
   color-scheme: dark;
 }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    --dot-paused: #88847a;
-    --dot-working: #397557;
-    --dot-waiting: #956015;
-    --bg: #f5f4ee;
-    --card: #ffffff;
-    --stat: #f0eee6;
-    --text: #1f1e1d;
-    --muted: #6f6c64;
-    --line: #e3e0d6;
-    --violet: #7d5fb8;
-    --heat0: #ebe8de;
-    --heat1: #f3c3a8;
-    --heat2: #ea9c7a;
-    --heat3: #d97757;
-    --heat4: #a8553a;
-    color-scheme: light;
-  }
-}
 :root[data-theme='light'] {
-  --dot-paused: #88847a;
-  --dot-working: #397557;
-  --dot-waiting: #956015;
-  --bg: #f5f4ee;
-  --card: #ffffff;
-  --stat: #f0eee6;
-  --text: #1f1e1d;
-  --muted: #6f6c64;
-  --line: #e3e0d6;
-  --violet: #7d5fb8;
-  --heat0: #ebe8de;
-  --heat1: #f3c3a8;
-  --heat2: #ea9c7a;
-  --heat3: #d97757;
-  --heat4: #a8553a;
   color-scheme: light;
 }
 
@@ -98,19 +67,22 @@ h3 {
   display: flex;
   flex: none;
 }
+/* A la derecha de Chispa y centrado en ella: no baja hasta la fila de pestanas ni mueve la cabecera. */
 .header-mascot .speech-bubble {
   position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
+  top: 50%;
+  left: calc(100% + 10px);
   z-index: 5;
-  width: min(280px, calc(100vw - 40px));
+  width: max-content;
+  max-width: min(280px, calc(100vw - 114px));
+  transform: translateY(-50%);
 }
 .header-mascot .speech-bubble::after {
-  top: -6px;
+  top: calc(50% - 5px);
   bottom: auto;
-  left: 22px;
+  left: -6px;
   right: auto;
-  transform: rotate(225deg);
+  transform: rotate(135deg);
 }
 .today {
   color: var(--muted);
@@ -276,7 +248,7 @@ button:focus-visible {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.card > :not(.bar, .sources, .source-note, .dates) {
+.card > :not(.bar, .sources, .dates) {
   animation: tab-fade 150ms ease-out;
 }
 @keyframes tab-fade {
@@ -437,10 +409,6 @@ th {
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-.mono {
-  font-family: ui-monospace, Consolas, monospace;
-  color: var(--muted);
 }
 .split {
   position: relative;
@@ -770,11 +738,6 @@ td.title {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.source-note {
-  margin: -4px 0 14px;
-  color: var(--muted);
-  font-size: 12px;
-}
 @media (max-width: 560px) {
   .sources {
     flex-wrap: nowrap;
@@ -889,7 +852,7 @@ th[aria-sort='descending'] button {
 .update-btn {
   display: inline-block;
   background: var(--accent);
-  color: #1a1918;
+  color: var(--bg);
   border: 0;
   border-radius: 8px;
   padding: 6px 14px;
@@ -922,6 +885,8 @@ th[aria-sort='descending'] button {
   background: var(--card);
   color: var(--text);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  /* solo el boton de cerrar recibe clics: el globo nunca bloquea lo que queda debajo */
+  pointer-events: none;
 }
 .speech-bubble::after {
   content: '';
@@ -936,20 +901,42 @@ th[aria-sort='descending'] button {
   transform: rotate(45deg);
   pointer-events: none;
 }
-.speech-bubble button {
-  display: block;
-  width: 100%;
+.speech-bubble-text {
+  display: grid;
   min-height: 44px;
-  padding: 10px 14px;
+  margin: 0;
+  padding: 12px 34px 12px 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+/* El texto completo, invisible, fija el tamano final: el bocadillo no crece mientras Chispa escribe. */
+.speech-bubble-text > span {
+  grid-area: 1 / 1;
+}
+.speech-bubble-ghost {
+  visibility: hidden;
+}
+.speech-bubble-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
   border-radius: inherit;
   background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  color: var(--muted);
   cursor: pointer;
+  pointer-events: auto;
+}
+.speech-bubble-close:hover {
+  color: var(--text);
+}
+.speech-bubble-close:focus-visible {
+  outline-offset: -4px;
 }
 .speech-bubble-live {
   position: absolute;
@@ -1073,7 +1060,7 @@ th[aria-sort='descending'] button {
 }
 button.primary {
   background: var(--accent);
-  color: #1a1918;
+  color: var(--bg);
   border: 0;
   border-radius: 8px;
   padding: 8px 16px;
@@ -1455,9 +1442,18 @@ button.primary:disabled {
 }
 @media (prefers-reduced-motion: reduce) {
   .chart-bar, .split i { transition: none; }
-  .card > :not(.bar, .sources, .source-note, .dates) { animation: none; }
+  .card > :not(.bar, .sources, .dates) { animation: none; }
   .level-card, .level-meter i, .catbar-track i, .tree-bar i { transition: none; }
   .live-dot.on { animation: none; }
+}
+
+/* Interruptor "Animaciones": detiene tambien la mascota, el punto en vivo y el fundido de pestana.
+   !important porque los estados de la mascota usan selectores mas especificos. */
+html[data-anim='off'] :is(.mascot, .mascot *, .codex-badge, .live-dot, .card > *) {
+  animation: none !important;
+}
+html[data-anim='off'] :is(.m-wave, .m-glint) {
+  display: none;
 }
 
 ::view-transition-old(root),

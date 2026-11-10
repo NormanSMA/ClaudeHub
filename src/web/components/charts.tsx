@@ -29,7 +29,7 @@ export function StackedBars({
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * max)
   const every = Math.max(1, Math.ceil(data.length / 7))
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Tokens por dia">
+    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Tokens por día">
       {ticks.map((t) => (
         <g key={t}>
           <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="grid" />
@@ -88,7 +88,7 @@ export function Heatmap({ days }: { days: { day: string; tokens: number }[] }) {
   const cuts = [q(0.25), q(0.5), q(0.75)]
   const level = (v: number) => (v <= 0 ? 0 : v <= cuts[0] ? 1 : v <= cuts[1] ? 2 : v <= cuts[2] ? 3 : 4)
   return (
-    <div className="heatmap" role="img" aria-label="Actividad por dia">
+    <div className="heatmap" role="img" aria-label="Actividad por día">
       {days.map((d, i) => (
         <span
           key={d.day}
@@ -153,7 +153,7 @@ export function TokenAreaChart({ days }: { days: { day: string; tokens: number }
   const tipLeft = h ? Math.min(78, Math.max(22, (h.p.x / W) * 100)) : 0
   return (
     <div className="area-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Tokens por dia" onPointerMove={move} onPointerLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Tokens por día" onPointerMove={move} onPointerLeave={() => setHover(null)}>
         <defs>
           <linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
@@ -214,8 +214,8 @@ export function categorySegments(t: Breakdown): Segment[] {
   const thinking = Math.min(Math.max(0, t.reasoning ?? 0), output)
   return [
     { key: 'input', label: 'Entrada', value: t.input, color: 'var(--blue)' },
-    { key: 'cacheWrite', label: 'Escritura de cache', value: t.cacheWrite, color: 'var(--warn)' },
-    { key: 'cacheRead', label: 'Lectura de cache', value: t.cacheRead, color: 'var(--ok)' },
+    { key: 'cacheWrite', label: 'Escritura de caché', value: t.cacheWrite, color: 'var(--warn)' },
+    { key: 'cacheRead', label: 'Lectura de caché', value: t.cacheRead, color: 'var(--ok)' },
     { key: 'output', label: 'Salida', value: Math.max(0, output - thinking), color: 'var(--accent)' },
     { key: 'reasoning', label: 'Pensamiento', value: thinking, color: 'var(--violet)' },
   ]
@@ -227,7 +227,7 @@ export function CategoryBar({ tokens }: { tokens: Breakdown }) {
   let offset = 0
   return (
     <div className="catbar">
-      <div className="catbar-track" role="img" aria-label="Desglose de tokens por categoria">
+      <div className="catbar-track" role="img" aria-label="Desglose de tokens por categoría">
         {segs.map((s) => {
           const start = offset
           offset += s.value / sum

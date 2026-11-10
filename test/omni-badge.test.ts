@@ -30,7 +30,7 @@ describe('msText', () => {
 
 describe('viaDetail', () => {
   it('resume llamadas, exito, p95, tokens y proveedores', () => {
-    expect(viaDetail(via())).toBe('Via OmniRoute: 20 llamadas, 90.0% de exito, p95 5,1 s, 5.58k tokens. Proveedores: prov-a, prov-b.')
+    expect(viaDetail(via())).toBe('Vía OmniRoute: 20 llamadas, 90.0% de éxito, p95 5,1 s, 5.58k tokens. Proveedores: prov-a, prov-b.')
   })
 
   it('lista solo los errores que ocurrieron', () => {

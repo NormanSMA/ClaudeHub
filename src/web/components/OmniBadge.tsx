@@ -14,7 +14,7 @@ function errorsText(via: ModelVia): string {
 
 /** Texto del title y del aria-label: lo que paso por OmniRoute para este modelo. */
 export function viaDetail(via: ModelVia): string {
-  const head = `Via OmniRoute: ${via.calls} llamadas, ${pct(via.successRate)} de exito, p95 ${msText(via.p95Ms)}, ${compact(via.tokens)} tokens.`
+  const head = `Vía OmniRoute: ${via.calls} llamadas, ${pct(via.successRate)} de éxito, p95 ${msText(via.p95Ms)}, ${compact(via.tokens)} tokens.`
   return `${head}${errorsText(via)} Proveedores: ${via.providers.join(', ')}.`
 }
 

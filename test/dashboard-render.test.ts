@@ -84,7 +84,7 @@ describe('Jerarquía del dashboard', () => {
       `${compact(demoSummary.tokens.total)} tokens totales`,
       `${int(demoSummary.sessions)} sesiones`,
       `${int(demoSummary.messages)} mensajes`,
-      'Eficiencia de cache',
+      'Eficiencia de caché',
       'Salida visible',
     ]) expect(html).toContain(value)
   })

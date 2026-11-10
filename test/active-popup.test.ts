@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ActiveList } from '../src/web/components/Active'
+import { ActiveList, compactAt } from '../src/web/components/Active'
 import type { ActiveChat, AgentLive } from '../src/web/api'
 
 const chat: ActiveChat & { cacheReadPerM?: number | null } = {
@@ -46,6 +46,15 @@ describe('Popup de chats activos', () => {
 
   it('mantiene la acción por encima de 80 %', () => {
     expect(render({ context: { ...chat.context, used: 180_000, pct: 0.9 } })).toContain('Copiar /compact')
+  })
+
+  it('deriva el umbral del botón de alertAt', () => {
+    const render90 = (pct: number) => renderToStaticMarkup(createElement(ActiveList, {
+      chats: [{ ...chat, context: { ...chat.context, pct } }], alertAt: 0.9, dense: true,
+    }))
+    expect(render90(0.8)).not.toContain('Copiar /compact')
+    expect(render90(0.85)).toContain('Copiar /compact')
+    expect(compactAt(0.85)).toBe(0.8)
   })
 
   it.each([null, undefined])('omite el costo sin tarifa: %s', (cacheReadPerM) => {

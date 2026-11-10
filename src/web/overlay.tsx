@@ -10,6 +10,13 @@ import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type Mas
 import { balloonText, useUpdateNotice } from './update'
 import { SpeechBubble } from './mascot/SpeechBubble'
 import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine } from './mascot/mascotSpeech'
+// Fuentes empaquetadas: la mascota no pide nada a servidores externos.
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-ext-400.css'
+import '@fontsource/inter/latin-500.css'
+import '@fontsource/inter/latin-ext-500.css'
+import '@fontsource/inter/latin-600.css'
+import '@fontsource/inter/latin-ext-600.css'
 import './style.css'
 import './overlay.css'
 
@@ -70,6 +77,7 @@ function Overlay() {
     const result = pickLine({
       mascot: cfg.mascot ?? { talk: true, talkCooldownMin: 10 },
       chats: data.chats,
+      alertAt: data.alertAt,
       level: data.level,
       todayFresh: live.todayFresh,
       todayCostUsd: live.todayCostUsd,
@@ -277,7 +285,7 @@ export function islandMetrics(data: ActiveReport | null | undefined): IslandMetr
   const cost = data?.todayCostUsd
   if (typeof cost === 'number' && Number.isFinite(cost)) out.push({ id: 'cost', text: fmtUsd(cost), title: 'Valor API estimado de hoy, todas las fuentes. No es gasto facturado' })
   const burn = level ? (data?.level?.burnFreshPerMin ?? data?.level?.burnPerMin) : undefined
-  if (typeof burn === 'number' && Number.isFinite(burn)) out.push({ id: 'burn', text: `${compact(burn)}/min`, title: 'Tokens nuevos por minuto, ultimos 15 minutos' })
+  if (typeof burn === 'number' && Number.isFinite(burn)) out.push({ id: 'burn', text: `${compact(burn)}/min`, title: 'Tokens nuevos por minuto, últimos 15 minutos' })
   return out
 }
 
