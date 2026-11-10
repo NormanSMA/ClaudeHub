@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { CONTAINER_RE } from '../config'
 import type { Rec } from '../types'
 
 export interface OmnirouteStatus {
@@ -63,7 +64,6 @@ export interface OmnirouteOpts {
 
 const REMOTE = '/app/data/storage.sqlite'
 const SUFFIXES = ['', '-wal', '-shm'] as const
-const CONTAINER_RE = /^[\w.-]{1,64}$/
 const DEFAULT_TTL = 60_000
 const MAX_RETRIES = 2
 // Tope de filas para acotar memoria. Se leen primero las mas recientes.

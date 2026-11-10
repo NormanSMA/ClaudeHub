@@ -190,6 +190,22 @@ describe('readOmniroute con copia del contenedor', () => {
     expect(calls).toEqual([])
   })
 
+  it('rechaza un contenedor que empieza por guion: docker lo tomaria como opcion', async () => {
+    for (const container of ['-v', '--privileged', '-', '.oculto', '_x', 'a'.repeat(65)]) {
+      const calls: string[] = []
+      const { status } = await readOmniroute({ container, dbPath: '', workDir: newWork(), copy: fakeCopy(calls) })
+      expect(status, container).toMatchObject({ ok: false, reason: 'nombre de contenedor invalido' })
+      expect(calls).toEqual([])
+    }
+  })
+
+  it('acepta nombres validos de contenedor', async () => {
+    for (const container of ['omniroute', '0-omni', 'Omni_Route.1', 'a'.repeat(64)]) {
+      const { status } = await readOmniroute({ container, dbPath: '', workDir: newWork(), copy: fakeCopy([]) })
+      expect(status.ok, container).toBe(true)
+    }
+  })
+
   it('sin copia previa y con error de copia devuelve vacio sin lanzar', async () => {
     const { recs, status } = await readOmniroute({
       container: 'omniroute',

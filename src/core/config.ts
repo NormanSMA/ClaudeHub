@@ -40,6 +40,9 @@ export const DEFAULTS: HubConfig = {
   mascot: { talk: true, talkCooldownMin: 10 },
   overlayMode: 'corner',
 }
+/** Docker toma un nombre que empiece por "-" como opcion, por eso debe empezar por letra o digito. */
+export const CONTAINER_RE = /^[A-Za-z0-9][\w.-]{0,63}$/
+
 const FILE = process.env.CLAUDEHUB_CONFIG ?? join(dataDir(), 'config.json')
 
 export const configPath = () => FILE
@@ -93,7 +96,7 @@ export function sanitize(raw: unknown): HubConfig {
     },
     omniroute: {
       container:
-        typeof omni.container === 'string' && /^[\w.-]{1,64}$/.test(omni.container)
+        typeof omni.container === 'string' && CONTAINER_RE.test(omni.container)
           ? omni.container
           : DEFAULTS.omniroute.container,
       // eslint-disable-next-line no-control-regex
@@ -122,19 +125,42 @@ export function useDefaultsOnly(): void {
 export function config(): HubConfig {
   if (defaultsOnly) return DEFAULTS
   if (memo && Date.now() - memo.at < 10_000) return memo.cfg
-  let cfg = DEFAULTS
-  try {
-    cfg = sanitize(JSON.parse(readFileSync(FILE, 'utf8')))
-  } catch {
-    /* sin archivo o invalido: valores por defecto */
-  }
+  const cfg = readFile()
   memo = { at: Date.now(), cfg }
   return cfg
 }
 
-/** Valida y guarda la configuracion de forma atomica. Devuelve lo guardado. */
+function readFile(): HubConfig {
+  try {
+    return sanitize(JSON.parse(readFileSync(FILE, 'utf8')))
+  } catch {
+    return DEFAULTS // sin archivo o invalido
+  }
+}
+
+const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+
+// contextLimits queda fuera: se reemplaza completo para que la interfaz pueda quitar entradas.
+const MERGED_KEYS = new Set(['sources', 'omniroute', 'pricing', 'mascot'])
+
+/** Pone el cuerpo sobre la configuracion actual: una clave ausente conserva su valor guardado. */
+function mergeOver(base: HubConfig, patch: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base }
+  if (!isPlain(patch)) return out
+  for (const [key, value] of Object.entries(patch)) {
+    if (!Object.hasOwn(DEFAULTS, key)) continue // evita claves ajenas como __proto__
+    const current = out[key]
+    out[key] = MERGED_KEYS.has(key) && isPlain(value) && isPlain(current) ? { ...current, ...value } : value
+  }
+  return out
+}
+
+/**
+ * Valida y guarda la configuracion de forma atomica. Un cuerpo parcial se fusiona sobre el archivo actual.
+ * Devuelve lo guardado.
+ */
 export function saveConfig(raw: unknown): HubConfig {
-  const cfg = sanitize(raw)
+  const cfg = sanitize(mergeOver(readFile(), raw))
   mkdirSync(dirname(FILE), { recursive: true })
   const tmp = `${FILE}.tmp`
   writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n')

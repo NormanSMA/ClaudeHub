@@ -11,7 +11,6 @@
 // @ts-check
 const fs = require('node:fs')
 const path = require('node:path')
-const { exchangeDir } = require('./lib/paths.cjs')
 
 /**
  * @typedef {import('../src/shared/files').EventLine} EventLine
@@ -88,8 +87,9 @@ function record(source, input) {
   if (!j || typeof j !== 'object') return
   const line = buildLine(source, j)
   if (!line) return
-  const dir = exchangeDir()
-  fs.mkdirSync(dir, { recursive: true })
+  // se carga aqui y no arriba: si falta el archivo, el error cae en el try del llamador y la salida sigue siendo 0
+  const dir = require('./lib/paths.cjs').exchangeDir()
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 }) // privada: guarda carpetas de trabajo e ids de sesion
   const file = path.join(dir, 'events.jsonl')
   try {
     // rota a events.1.jsonl al pasar de 256 KB

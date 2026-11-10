@@ -1,8 +1,9 @@
-import { readFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
 import { join, extname, resolve, dirname, sep, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { scan, PROJECTS_DIR } from '../core/scan'
 import { demoData, demoPlanRaw, demoEvents, demoCodexLimits, demoUpdate } from '../core/demo'
 import { getUpdate, manualCheck, startUpdateChecks, type ManualCheck } from '../core/update'
@@ -28,8 +29,9 @@ import {
   activeReport,
   filterSource,
   parseSource,
+  dayKey,
 } from '../core/aggregate'
-import type { Range, SourceStat } from '../core/types'
+import type { Range, Source, SourceStat } from '../core/types'
 import type { ScanResult } from '../core/scan'
 
 const DEMO = process.env.CLAUDEHUB_DEMO === '1'
@@ -101,27 +103,40 @@ function scanNow(): ScanResult {
 }
 
 let cached: { at: number; data: ScanResult } | null = null
+// revision sube solo cuando cambia el contenido: scan devuelve el mismo objeto si nada cambio,
+// y omni cambia de identidad con cada lectura nueva. El demo es relativo a la hora y siempre cambia.
+let revision = 0
+let lastScan: ScanResult | null = null
+let lastOmni: OmnirouteResult | null = null
+
 function data(): ScanResult {
   refreshOmniroute()
   if (!cached || Date.now() - cached.at > 4_000) {
-    cached = { at: Date.now(), data: DEMO ? demoData() : withOmniroute(scanNow()) }
+    const base = DEMO ? demoData() : scanNow()
+    if (DEMO || base !== lastScan || omni !== lastOmni) revision++
+    lastScan = base
+    lastOmni = omni
+    cached = { at: Date.now(), data: DEMO ? base : withOmniroute(base) }
   }
   return cached.data
 }
 const records = () => data().recs
 /** Solo registros de Claude: el plan, los chats activos y los roles no deben mezclarse con otras fuentes. */
 const claudeRecords = () => filterSource(records(), 'claude')
-const sourceOfQuery = (c: { req: { query: (k: string) => string | undefined } }) => parseSource(c.req.query('source'))
 
-// Los reportes que varias pantallas piden a la vez se calculan una vez por ciclo de escaneo.
-const reports = new Map<string, { at: number; value: unknown }>()
-function once<T>(key: string, build: () => T): T {
+// Un reporte se recalcula solo si cambiaron los datos o el dia local (los rangos 7d y 30d son por calendario).
+// Los que dependen de la hora actual (perCycle) se recalculan en cada ciclo de escaneo.
+const MAX_REPORTS = 100
+const reports = new Map<string, { stamp: string; value: unknown }>()
+function once<T>(key: string, build: () => T, perCycle = false): T {
   data()
-  const at = cached!.at
+  const stamp = perCycle ? `${revision}:${cached!.at}` : `${revision}:${dayKey(Date.now())}`
   const hit = reports.get(key)
-  if (hit && hit.at === at) return hit.value as T
+  if (hit && hit.stamp === stamp) return hit.value as T
   const value = build()
-  reports.set(key, { at, value })
+  // las consultas con fechas arbitrarias no deben hacer crecer el mapa sin tope
+  if (reports.size >= MAX_REPORTS) reports.clear()
+  reports.set(key, { stamp, value })
   return value
 }
 
@@ -141,7 +156,26 @@ function rangeOf(q: (k: string) => string | undefined): Range {
   return v === '7d' || v === '30d' ? v : 'all'
 }
 
+/**
+ * Memoiza un reporte con clave ruta + fuente + rango. Un rango abierto (solo `from`) usa Date.now()
+ * como tope, asi que se recalcula en cada ciclo en vez de quedar congelado.
+ */
+function cachedReport<T>(c: Context, name: string, build: (source: Source | 'all', range: Range) => T): T {
+  const q = (k: string) => c.req.query(k)
+  const source = parseSource(q('source'))
+  const range = rangeOf(q)
+  const open = typeof range === 'object' && dayStart(q('to'), true) === null
+  const span = typeof range === 'object' ? `${range.from}-${open ? 'abierto' : range.to}` : range
+  return once(`${name}|${source}|${span}`, () => build(source, range), open)
+}
+
 const app = new Hono()
+
+// Una excepcion en una ruta no debe filtrar la traza al cliente.
+app.onError((err, c) => {
+  console.error('ClaudeHub:', err instanceof Error ? err.message : String(err))
+  return c.json({ error: 'Error interno.' }, 500)
+})
 
 // Anti DNS rebinding: solo se atiende a quien pregunta por 127.0.0.1 o localhost.
 const HOST_OK = /^(127\.0\.0\.1|localhost)(:\d+)?$/
@@ -151,20 +185,22 @@ app.use('*', async (c, next) => {
 })
 // La extension del navegador solo lee /api/active; ningun otro endpoint recibe CORS.
 app.use('/api/active', extensionCors)
-app.get('/api/summary', (c) => c.json(summary(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
-app.get('/api/models', (c) => {
-  const source = sourceOfQuery(c)
-  const range = rangeOf((k) => c.req.query(k))
-  const report = modelsReport(filterSource(records(), source), range)
-  // la etiqueta de OmniRoute solo tiene sentido si la tabla incluye esa fuente
-  if (source !== 'all' && source !== 'omniroute') return c.json(report)
-  return c.json(attachVia(report, { calls: DEMO ? demoOmniroute() : (omni?.calls ?? []), range }))
-})
-app.get('/api/roles', (c) => c.json(rolesReport(claudeRecords(), rangeOf((k) => c.req.query(k)))))
-app.get('/api/sessions', (c) =>
-  c.json(sessionsReport(filterSource(records(), sourceOfQuery(c)), data().sessions, rangeOf((k) => c.req.query(k)))),
+app.get('/api/summary', (c) => c.json(cachedReport(c, 'summary', (source, range) => summary(filterSource(records(), source), range))))
+app.get('/api/models', (c) =>
+  c.json(
+    cachedReport(c, 'models', (source, range) => {
+      const report = modelsReport(filterSource(records(), source), range)
+      // la etiqueta de OmniRoute solo tiene sentido si la tabla incluye esa fuente
+      if (source !== 'all' && source !== 'omniroute') return report
+      return attachVia(report, { calls: DEMO ? demoOmniroute() : (omni?.calls ?? []), range })
+    }),
+  ),
 )
-app.get('/api/projects', (c) => c.json(projectsReport(filterSource(records(), sourceOfQuery(c)), rangeOf((k) => c.req.query(k)))))
+app.get('/api/roles', (c) => c.json(cachedReport(c, 'roles', (_source, range) => rolesReport(claudeRecords(), range))))
+app.get('/api/sessions', (c) =>
+  c.json(cachedReport(c, 'sessions', (source, range) => sessionsReport(filterSource(records(), source), data().sessions, range))),
+)
+app.get('/api/projects', (c) => c.json(cachedReport(c, 'projects', (source, range) => projectsReport(filterSource(records(), source), range))))
 app.get('/api/sources', (c) => c.json(data().sources))
 app.get('/api/config', (c) => c.json({
   name: DEMO ? '' : config().name,
@@ -179,7 +215,7 @@ app.get('/api/settings', (c) =>
     config: config(),
     path: DEMO ? '(modo demo: no se guarda)' : configPath(),
     demo: DEMO,
-    models: [...new Set(records().map((r) => modelName(r.model)))].sort((a, b) => a.localeCompare(b, 'es')),
+    models: once('settings-models', () => [...new Set(records().map((r) => modelName(r.model)))].sort((a, b) => a.localeCompare(b, 'es'))),
   }),
 )
 /** Defensa contra CSRF: sin cabecera Origin (curl) o con un origen propio. */
@@ -192,14 +228,16 @@ function originOk(origin: string | undefined): boolean {
   }
 }
 
-app.put('/api/settings', async (c) => {
+// bodyLimit cuenta los bytes leidos: cubre Transfer-Encoding chunked y cabeceras content-length falsas
+const settingsLimit = bodyLimit({ maxSize: 20_000, onError: (c) => c.json({ error: 'Cuerpo demasiado grande.' }, 413) })
+
+app.put('/api/settings', settingsLimit, async (c) => {
   if (DEMO) return c.json({ error: 'El modo demo no guarda cambios.' }, 403)
-  // origen propio, JSON obligatorio (obliga a un preflight que no se concede) y cuerpo pequeno
+  // origen propio y JSON obligatorio (obliga a un preflight que no se concede)
   if (!originOk(c.req.header('origin'))) return c.json({ error: 'Origen no permitido.' }, 403)
   if (!(c.req.header('content-type') ?? '').toLowerCase().startsWith('application/json')) {
     return c.json({ error: 'Se requiere application/json.' }, 415)
   }
-  if (Number(c.req.header('content-length') ?? 0) > 20_000) return c.json({ error: 'Cuerpo demasiado grande.' }, 413)
   let body: unknown
   try {
     body = await c.req.json()
@@ -218,7 +256,7 @@ app.post('/api/update/check', async (c) => {
   const out = await manualCheck()
   return c.json(out, out.result === 'throttled' ? 429 : 200)
 })
-app.get('/api/live', (c) => c.json(once('live', () => live(records()))))
+app.get('/api/live', (c) => c.json(once('live', () => live(records()), true)))
 app.get('/api/active', (c) =>
   c.json(
     once('active', () => {
@@ -248,7 +286,7 @@ app.get('/api/active', (c) =>
           now,
         }),
       }
-    }),
+    }, true),
   ),
 )
 
@@ -300,11 +338,23 @@ const MIME: Record<string, string> = {
   '.ico': 'image/x-icon',
 }
 
+// Una ruta de API desconocida no debe caer en el index.html de la interfaz.
+app.all('/api/*', (c) => c.json({ error: 'No existe.' }, 404))
+
+// Solo archivos: un directorio (por ejemplo /assets) haria fallar readFileSync con EISDIR.
+const isFile = (p: string): boolean => {
+  try {
+    return statSync(p).isFile()
+  } catch {
+    return false
+  }
+}
+
 app.get('*', (c) => {
   const rel = c.req.path === '/' ? 'index.html' : c.req.path.slice(1)
   let file = resolve(DIST, rel)
-  if (!(file === DIST || file.startsWith(DIST + sep)) || !existsSync(file)) file = join(DIST, 'index.html')
-  if (!existsSync(file)) return c.text('Falta el build. Ejecuta: pnpm build', 404)
+  if (!(file === DIST || file.startsWith(DIST + sep)) || !isFile(file)) file = join(DIST, 'index.html')
+  if (!isFile(file)) return c.text('Falta el build. Ejecuta: pnpm build', 404)
   return c.body(readFileSync(file), 200, { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' })
 })
 
@@ -317,7 +367,7 @@ if (!DEMO) {
     return basename(full) === 'cache.json' || basename(full) === 'update.json' || full.endsWith('.tmp') || full === omniDir || full.startsWith(omniDir + sep)
   }
   try {
-    mkdirSync(exchangeDir(), { recursive: true })
+    mkdirSync(exchangeDir(), { recursive: true, mode: 0o700 })
   } catch {
     // sin permiso de escritura el servidor sigue; solo faltara el intercambio con los hooks
   }
