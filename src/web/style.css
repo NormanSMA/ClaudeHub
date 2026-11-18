@@ -1450,7 +1450,7 @@ button.primary:disabled {
 
 /* Interruptor "Animaciones": detiene tambien la mascota, el punto en vivo y el fundido de pestana.
    !important porque los estados de la mascota usan selectores mas especificos. */
-html[data-anim='off'] :is(.mascot, .mascot *, .codex-badge, .live-dot, .card > *) {
+html[data-anim='off'] :is(.mascot, .mascot *, .codex-badge, .provider-badge, .live-dot, .card > *) {
   animation: none !important;
 }
 html[data-anim='off'] :is(.m-wave, .m-glint) {
