@@ -122,7 +122,7 @@ describe('nivel y subagentes con datos del demo', () => {
 describe('activeExtras', () => {
   it('sin eventos ni limites: planes vacios y mascota durmiendo', () => {
     const r = activeExtras(base)
-    expect(r.plans).toEqual({ claude: claudePlan, codex: null })
+    expect(r.plans).toEqual({ claude: claudePlan, codex: null, antigravity: null })
     expect(r.agents).toEqual([])
     expect(r.collisions).toEqual([])
     expect(r.mascot).toBe('sleeping')

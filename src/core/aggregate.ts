@@ -6,7 +6,7 @@ import { fresh, sourceOf, total, type Range, type Rec, type SessionMeta, type So
 
 export type Metas = Map<string, SessionMeta>
 
-const SOURCES: readonly Source[] = ['claude', 'codex', 'gemini', 'omniroute']
+const SOURCES: readonly Source[] = ['claude', 'codex', 'gemini', 'omniroute', 'antigravity']
 
 /** Valida ?source= contra una lista blanca. Cualquier otro valor equivale a 'all'. */
 export function parseSource(v: string | undefined): Source | 'all' {

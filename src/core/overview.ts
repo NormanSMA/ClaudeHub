@@ -2,6 +2,7 @@ import { agentStates, collisions, mascotState, type EventSource, type HookEvent,
 import { breakdown, burnRate, cacheEfficiency, delegationShare } from './aggregate'
 import { codexPlanReport, tokenLevel, type PlanReport } from './plan'
 import type { CodexRateLimits } from './sources/codex'
+import type { AntigravityQuotas } from './sources/antigravity'
 import { fresh, sourceOf, type Rec, type TokenLevel } from './types'
 
 /** Estado de una sesion en la forma publica de la API: sin huella de carpeta ni rutas. */
@@ -23,7 +24,7 @@ export interface PublicCollision {
 }
 
 export interface ActiveExtras {
-  plans: { claude: PlanReport | null; codex: PlanReport | null }
+  plans: { claude: PlanReport | null; codex: PlanReport | null; antigravity: AntigravityQuotas | null }
   agents: PublicAgent[]
   collisions: PublicCollision[]
   mascot: MascotState
@@ -36,6 +37,7 @@ export interface ActiveExtrasInput {
   contextPct: number | null
   recs: Rec[]
   codexLimits: CodexRateLimits | null
+  antigravityQuotas?: AntigravityQuotas | null
   events: HookEvent[]
   now: number
 }
@@ -45,7 +47,7 @@ const SESSION_CHARS = 8
 const shortId = (session: string): string => session.slice(0, SESSION_CHARS)
 
 /** Campos extra de /api/active: planes por fuente, agentes, choques y estado de la mascota. */
-export function activeExtras({ claudePlan, contextPct, recs, codexLimits, events, now }: ActiveExtrasInput): ActiveExtras {
+export function activeExtras({ claudePlan, contextPct, recs, codexLimits, antigravityQuotas, events, now }: ActiveExtrasInput): ActiveExtras {
   const states = agentStates(events, now)
   const clashes = collisions(states, now)
   const recent = recs.filter((r) => sourceOf(r) === 'claude' && r.ts > now - FIVE_HOURS_MS && r.ts <= now)
@@ -58,7 +60,7 @@ export function activeExtras({ claudePlan, contextPct, recs, codexLimits, events
     now,
   })
   return {
-    plans: { claude: claudePlan, codex: codexPlanReport(codexLimits, recs, now) },
+    plans: { claude: claudePlan, codex: codexPlanReport(codexLimits, recs, now), antigravity: antigravityQuotas ?? null },
     agents: states.map((s) => ({
       source: s.source,
       session: shortId(s.session),

@@ -13,7 +13,7 @@ export interface HubConfig {
   /** Nombre para el saludo de la interfaz. Vacio: saludo sin nombre */
   name: string
   /** Fuentes adicionales a Claude que se leen */
-  sources: { codex: boolean; gemini: boolean; omniroute: boolean }
+  sources: { codex: boolean; gemini: boolean; omniroute: boolean; antigravity: boolean }
   /** Acceso a la base de OmniRoute: nombre del contenedor Docker y ruta opcional de storage.sqlite */
   omniroute: { container: string; dbPath: string }
   /** Consulta GitHub Releases para avisar de versiones nuevas. Con false no hay peticiones de red */
@@ -32,7 +32,7 @@ export const DEFAULTS: HubConfig = {
   activeMinutes: 20,
   alertAt: 0.85,
   name: '',
-  sources: { codex: true, gemini: true, omniroute: false },
+  sources: { codex: true, gemini: true, omniroute: false, antigravity: true },
   omniroute: { container: 'omniroute', dbPath: '' },
   checkUpdates: true,
   pricing: { overrides: {}, freeProviders: [] },
@@ -93,6 +93,7 @@ export function sanitize(raw: unknown): HubConfig {
       codex: flag(src.codex, DEFAULTS.sources.codex),
       gemini: flag(src.gemini, DEFAULTS.sources.gemini),
       omniroute: flag(src.omniroute, DEFAULTS.sources.omniroute),
+      antigravity: flag(src.antigravity, DEFAULTS.sources.antigravity),
     },
     omniroute: {
       container:

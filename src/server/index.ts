@@ -5,14 +5,15 @@ import { serve } from '@hono/node-server'
 import { Hono, type Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { scan, PROJECTS_DIR } from '../core/scan'
-import { demoData, demoPlanRaw, demoEvents, demoCodexLimits, demoUpdate } from '../core/demo'
+import { demoData, demoPlanRaw, demoEvents, demoCodexLimits, demoAntigravityQuotas, demoUpdate } from '../core/demo'
 import { getUpdate, manualCheck, startUpdateChecks, type ManualCheck } from '../core/update'
 import { planReport } from '../core/plan'
 import { activeExtras } from '../core/overview'
 import { readEvents } from '../core/agents'
 import { latestCodexLimits } from '../core/sources/codex-limits'
+import { latestAntigravityQuotas } from '../core/sources/antigravity'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
-import { dataDir, codexSessionsDir, geminiTmpDir, exchangeDir, exchangeReadDirs } from '../core/paths'
+import { dataDir, codexSessionsDir, geminiTmpDir, antigravityBrainDir, exchangeDir, exchangeReadDirs } from '../core/paths'
 import { createEventHub, createWatcher } from './watch'
 import { extensionCors } from './cors'
 import { modelName } from '../core/models'
@@ -264,6 +265,7 @@ app.get('/api/active', (c) =>
       const now = Date.now()
       const plan = planReport(claude, now, DEMO ? demoPlanRaw(now) : undefined, data().limitHit)
       const codexLimits = DEMO ? demoCodexLimits(now) : config().sources.codex ? latestCodexLimits() : null
+      const antigravityQuotas = DEMO ? demoAntigravityQuotas(now) : config().sources.antigravity ? latestAntigravityQuotas() : null
       const chats = activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined)
       // misma definicion de "Hoy" que /api/live: todas las fuentes activas, con desglose
       const { todayTokens, todayFresh, todayCacheRead, todayCostUsd, todayCostUnpriced, todayBySource } = live(records(), now)
@@ -282,6 +284,7 @@ app.get('/api/active', (c) =>
           contextPct: chats.length ? Math.max(...chats.map((c) => c.context.pct)) : null,
           recs: records(),
           codexLimits,
+          antigravityQuotas,
           events: DEMO ? demoEvents(now) : readEvents(),
           now,
         }),
@@ -373,7 +376,7 @@ if (!DEMO) {
   }
   // Las carpetas de intercambio son opcionales: pueden no existir (copias del paquete MSIX).
   const exchangeDirs = exchangeReadDirs().filter((d) => existsSync(d))
-  const watchDirs = [...new Set([PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), dataDir(), ...exchangeDirs])]
+  const watchDirs = [...new Set([PROJECTS_DIR, codexSessionsDir(), geminiTmpDir(), antigravityBrainDir(), dataDir(), ...exchangeDirs])]
   const watcher = createWatcher(
     watchDirs,
     (files) => {
@@ -387,7 +390,7 @@ if (!DEMO) {
   // Una fuente apagada no se escanea: su carpeta ausente no debe forzar escaneos completos.
   allWatched = () => {
     const { sources } = config()
-    const required = [PROJECTS_DIR, dataDir(), ...(sources.codex ? [codexSessionsDir()] : []), ...(sources.gemini ? [geminiTmpDir()] : [])]
+    const required = [PROJECTS_DIR, dataDir(), ...(sources.codex ? [codexSessionsDir()] : []), ...(sources.gemini ? [geminiTmpDir()] : []), ...(sources.antigravity ? [antigravityBrainDir()] : [])]
     const watching = watcher.watching()
     return required.every((d) => watching.includes(d))
   }

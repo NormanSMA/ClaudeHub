@@ -67,6 +67,14 @@ const RULES: PriceRule[] = [
     price: price(1, 5, 1.25, 2.5, 0.05),
     tierAbove: { tokens: 272_000, price: price(2, 7.5, 2.5, 5, 0.1) },
   },
+  {
+    match: /^gpt-6\.2-sol$/,
+    price: price(2, 10, 2.5, 5, 0.1),
+    tierAbove: { tokens: 272_000, price: price(4, 15, 5, 10, 0.2) },
+  },
+  { match: /^gpt-oss-120b$/, price: price(0.15, 0.6, 0.15, 0.15, 0.03) },
+  { match: /^gemini-4-hydrogen$/, price: price(2.5, 10, 2.5, 2.5, 0.25) },
+  { match: /^gemini-4-argon$/, price: price(1.25, 5, 1.25, 1.25, 0.125) },
   // Tabla de Gemini: 2026-10-22. Fuente: https://ai.google.dev/gemini-api/docs/pricing
   { match: /^gemini-3-flash-preview$/, price: price(0.5, 3, 0.5, 0.5, 0.05) },
   // Tabla de Gemini: 2026-10-22. Fuente: https://cloud.google.com/vertex-ai/generative-ai/pricing
@@ -95,7 +103,7 @@ export function priceOf(
   ts = Date.now(),
   speed?: Rec['speed'],
 ): Price | null {
-  const id = model.toLowerCase().replace(/-\d{8}$/, '').replace(/^claude-(\d+)-(\d+)-([a-z]+)$/, 'claude-$3-$1-$2')
+  const id = model.toLowerCase().replace(/-(?:low|medium|high|xhigh)$/, '').replace(/^gemini-pro-orchestrator-g1-pro$/, 'gemini-4-argon').replace(/-\d{8}$/, '').replace(/^claude-(\d+)-(\d+)-([a-z]+)$/, 'claude-$3-$1-$2')
   let rules = rulesByModel.get(id)
   if (!rules) {
     rules = RULES.filter((r) => r.match.test(id))

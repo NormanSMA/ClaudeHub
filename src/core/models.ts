@@ -5,10 +5,15 @@ const KNOWN: Record<string, string> = {
   fable: 'Fable',
 }
 
+const EFFORT_RE = /-(?:low|medium|high|xhigh)$/i
+
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1)
 
 /** "gpt-6.1-sol" -> "GPT 6.1 Sol", "gemini-3-flash-preview" -> "Gemini 3 Flash" */
-function otherModelName(id: string): string | null {
+function otherModelName(raw: string): string | null {
+  const id = raw.replace(EFFORT_RE, '')
+  if (id === 'gemini-pro-orchestrator-g1-pro') return 'Gemini 4 Argon'
+  if (id === 'gpt-oss-120b') return 'GPT-OSS 120B'
   const gpt = id.match(/^gpt-(\d+(?:\.\d+)?)(?:-([a-z]+))?(?=-|$)/)
   if (gpt) return gpt[2] ? `GPT ${gpt[1]} ${cap(gpt[2])}` : `GPT ${gpt[1]}`
   const gem = id.match(/^gemini-(\d+(?:\.\d+)?)-([a-z]+)(?=-|$)/)
@@ -23,6 +28,7 @@ function otherModelName(id: string): string | null {
 export function modelName(id: string): string {
   const other = otherModelName(id.toLowerCase())
   if (other) return other
+  id = id.replace(EFFORT_RE, '')
   // (?!\d): la fecha "-20250514" no se confunde con la version ("Opus 4", no "Opus 4.20")
   const m = id.toLowerCase().match(/^claude-(?:(\d+)-(\d+)-)?([a-z]+)(?:-(\d{1,2})(?!\d))?(?:-(\d{1,2})(?!\d))?(?:-\d{8})?/)
   if (!m) return id

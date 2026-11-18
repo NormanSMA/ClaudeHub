@@ -1,17 +1,24 @@
-import { readdirSync, statSync, readFileSync, openSync, readSync, closeSync } from 'node:fs'
+import { existsSync, readdirSync, statSync, readFileSync, openSync, readSync, closeSync } from 'node:fs'
 import { mkdir, writeFile, rename } from 'node:fs/promises'
 import { join, dirname, basename, sep, relative, isAbsolute } from 'node:path'
 import { homedir } from 'node:os'
-import { dataDir, codexSessionsDir, geminiTmpDir } from './paths'
+import { dataDir, codexSessionsDir, geminiTmpDir, antigravityBrainDir, antigravityDir } from './paths'
 import { config } from './config'
 import { newerVersion, parseFile } from './parse'
 import { initCodexState, parseCodexChunk, type CodexState } from './sources/codex'
 import { parseGeminiChunk, seenGeminiIds, type GeminiState } from './sources/gemini'
+import {
+  initAntigravityState,
+  parseAntigravityChunk,
+  readAntigravitySummaries,
+  seenAntigravityIds,
+  type AntigravityState,
+} from './sources/antigravity'
 import { preferLimitHit, type LimitHit, type Rec, type SessionMeta, type Source, type SourceStat } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
 const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
-const CACHE_VERSION = 9
+const CACHE_VERSION = 10
 const SAVE_EVERY_MS = 60_000
 const CHUNK = 8 * 1024 * 1024
 
@@ -26,6 +33,8 @@ interface CacheEntry {
   codex?: CodexState
   /** estado del parser de Gemini para seguir leyendo desde `offset` */
   gemini?: GeminiState
+  /** estado del parser de Antigravity para seguir leyendo desde `offset` */
+  antigravity?: AntigravityState
 }
 interface Cache {
   version: number
@@ -50,7 +59,7 @@ export interface ScanOptions {
   onRead?: (file: string, bytes: number) => void
 }
 
-type FileSource = 'claude' | 'codex' | 'gemini'
+type FileSource = 'claude' | 'codex' | 'gemini' | 'antigravity'
 type Stat = { mtimeMs: number; size: number }
 
 interface Entry {
@@ -64,8 +73,10 @@ interface Ctx {
   root: string
   codex: string
   gemini: string
+  antigravity: string
   wantCodex: boolean
   wantGemini: boolean
+  wantAntigravity: boolean
   key: string
 }
 
@@ -142,6 +153,25 @@ function listGemini(dir: string): Entry[] {
   return out
 }
 
+const TRANSCRIPT_PARTS = ['.system_generated', 'logs', 'transcript.jsonl']
+
+/** Transcripts de Antigravity: <brain>/<id>/.system_generated/logs/transcript.jsonl */
+function listAntigravity(dir: string): Entry[] {
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const out: Entry[] = []
+  for (const e of entries) {
+    if (!e.isDirectory()) continue
+    const file = join(dir, e.name, ...TRANSCRIPT_PARTS)
+    if (existsSync(file)) out.push({ file, source: 'antigravity', project: '' })
+  }
+  return out
+}
+
 function dirExists(dir: string): boolean {
   try {
     return statSync(dir).isDirectory()
@@ -167,7 +197,18 @@ function context(root: string, opts: ScanOptions): Ctx {
   const wantGemini = extra && cfg.sources.gemini
   const codex = codexSessionsDir()
   const gemini = geminiTmpDir()
-  return { root, codex, gemini, wantCodex, wantGemini, key: [root, codex, gemini, wantCodex, wantGemini].join('|') }
+  const wantAntigravity = extra && cfg.sources.antigravity
+  const antigravity = antigravityBrainDir()
+  return {
+    root,
+    codex,
+    gemini,
+    antigravity,
+    wantCodex,
+    wantGemini,
+    wantAntigravity,
+    key: [root, codex, gemini, antigravity, wantCodex, wantGemini, wantAntigravity].join('|'),
+  }
 }
 
 function listEntries(ctx: Ctx): Entry[] {
@@ -176,6 +217,7 @@ function listEntries(ctx: Ctx): Entry[] {
     for (const file of listJsonl(ctx.codex, [], isRollout)) entries.push({ file, source: 'codex', project: '' })
   }
   if (ctx.wantGemini) entries.push(...listGemini(ctx.gemini))
+  if (ctx.wantAntigravity) entries.push(...listAntigravity(ctx.antigravity))
   return entries
 }
 
@@ -192,6 +234,12 @@ function classify(p: string, ctx: Ctx): Entry | null {
   if (ctx.wantGemini && within(ctx.gemini, p)) {
     const parts = relative(ctx.gemini, p).split(sep)
     if (parts.length === 3 && parts[1] === 'chats' && isGeminiChat(parts[2])) return { file: p, source: 'gemini', project: parts[0] }
+  }
+  if (ctx.wantAntigravity && within(ctx.antigravity, p)) {
+    const parts = relative(ctx.antigravity, p).split(sep)
+    if (parts.length === 4 && parts.slice(1).join('/') === TRANSCRIPT_PARTS.join('/')) {
+      return { file: p, source: 'antigravity', project: '' }
+    }
   }
   return null
 }
@@ -274,6 +322,51 @@ function readGemini({ e, st, prior }: Job): Read {
   return { entry: { mtime: st.mtimeMs, size: st.size, offset, recs, meta: {}, gemini: state }, added }
 }
 
+/** Id de la conversacion: la carpeta que contiene .system_generated. */
+const antigravitySession = (file: string): string => basename(dirname(dirname(dirname(file))))
+
+function readAntigravity({ e, st, prior }: Job): Read {
+  const state: AntigravityState = prior?.antigravity
+    ? structuredClone(prior.antigravity)
+    : initAntigravityState(antigravitySession(e.file))
+  const info = readAntigravitySummaries(antigravityDir()).get(state.session)
+  let changed = false
+  if (info) {
+    if (info.project && info.project !== state.project) {
+      state.project = info.project
+      changed = true
+    }
+    if (info.cwd && info.cwd !== state.cwd) state.cwd = info.cwd
+    if (info.parentSession !== state.parentSession) {
+      state.parentSession = info.parentSession
+      changed = true
+    }
+    if (info.agent !== state.agent) {
+      state.agent = info.agent
+      changed = true
+    }
+    if (info.title) state.title = info.title
+  }
+  const priorRecs = changed && prior
+    ? prior.recs.map((r) => ({
+        ...r,
+        session: state.parentSession || state.session,
+        project: state.project || 'antigravity',
+        role: (state.parentSession ? 'subagent' : 'orchestrator') as Rec['role'],
+        agent: state.agent || undefined,
+        agentFile: state.parentSession ? state.session : undefined,
+      }))
+    : prior?.recs
+  const seen = seenAntigravityIds(priorRecs ?? [])
+  const added: Rec[] = []
+  const offset = feedLines(e.file, prior?.offset ?? 0, st.size, (text) => {
+    for (const r of parseAntigravityChunk(text, state, seen)) added.push(r)
+  })
+  const recs = priorRecs ? priorRecs.concat(added) : added
+  const meta: SessionMeta = { ...(state.title ? { title: state.title } : {}), ...(state.cwd ? { cwd: state.cwd } : {}) }
+  return { entry: { mtime: st.mtimeMs, size: st.size, offset, recs, meta, antigravity: state }, added: changed ? recs : added }
+}
+
 function newMerged(): Merged {
   return {
     recs: [],
@@ -281,7 +374,9 @@ function newMerged(): Merged {
     index: new Map(),
     sessions: new Map(),
     limitHit: null,
-    counts: { claude: { files: 0, records: 0 }, codex: { files: 0, records: 0 }, gemini: { files: 0, records: 0 } },
+    counts: { claude: { files: 0, records: 0 }, codex: { files: 0, records: 0 }, gemini: { files: 0, records: 0 },
+      antigravity: { files: 0, records: 0 },
+    },
     skipped: 0,
   }
 }
@@ -306,6 +401,19 @@ function mergeRecs(m: Merged, file: string, recs: Rec[]): void {
 }
 
 function mergeMeta(m: Merged, e: Entry, entry: CacheEntry): void {
+  if (e.source === 'antigravity') {
+    const st = entry.antigravity
+    if (st && !st.parentSession) {
+      const info = readAntigravitySummaries(antigravityDir()).get(st.session)
+      const meta: SessionMeta = {
+        ...entry.meta,
+        ...(info?.title ? { title: info.title } : {}),
+        ...(info?.cwd ? { cwd: info.cwd } : {}),
+      }
+      m.sessions.set(st.session, meta)
+    }
+    return
+  }
   if (e.source !== 'claude') return
   if (!e.file.split(sep).includes('subagents')) m.sessions.set(basename(e.file, '.jsonl'), entry.meta)
   const h = entry.meta.limitHit
@@ -351,7 +459,7 @@ function applyFile(eng: Engine, e: Entry, st: Stat): void {
   const grew = !!hit && st.size > hit.size && hit.offset <= st.size
   const prior = grew ? hit : undefined
   try {
-    const read = e.source === 'claude' ? readClaude({ e, st, prior }) : e.source === 'codex' ? readCodex({ e, st, prior }) : readGemini({ e, st, prior })
+    const read = e.source === 'claude' ? readClaude({ e, st, prior }) : e.source === 'codex' ? readCodex({ e, st, prior }) : e.source === 'gemini' ? readGemini({ e, st, prior }) : readAntigravity({ e, st, prior })
     eng.report(e.file, st.size - (prior?.offset ?? 0))
     eng.cache.files[e.file] = read.entry
     eng.infos.set(e.file, e)
@@ -419,6 +527,7 @@ function makeResult(eng: Engine, ctx: Ctx): ScanResult {
       claude: { ...stat('claude', true, ctx.root), ...(m.skipped > 0 ? { skipped: m.skipped } : {}), ...(m.cliVersion ? { cliVersion: m.cliVersion } : {}) },
       codex: stat('codex', ctx.wantCodex, ctx.codex),
       gemini: stat('gemini', ctx.wantGemini, ctx.gemini),
+      antigravity: stat('antigravity', ctx.wantAntigravity, ctx.antigravity),
       omniroute: { enabled: false, files: 0, records: 0, ok: false, reason: 'sin configurar' },
     },
   }
