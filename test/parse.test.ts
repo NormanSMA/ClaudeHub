@@ -78,13 +78,17 @@ describe('parser', () => {
     expect(sessionTitle(undefined)).toBe('Sin titulo')
   })
 
-  it('el modo demo arma tres chats activos con contexto verde, ambar y rojo', () => {
+  it('el modo demo arma tres chats activos de Claude con verde, ambar y rojo mas Codex y Antigravity', () => {
     const { recs, sessions } = demoData(Date.now())
     const active = activeReport(recs, sessions, Date.now(), undefined, {})
-    expect(active).toHaveLength(3)
-    const pct = active.map((a) => Math.round(a.context.pct * 100)).sort((a, b) => a - b)
+    expect(active).toHaveLength(5)
+    const claudeChats = active.filter((a) => a.source === 'claude')
+    expect(claudeChats).toHaveLength(3)
+    const pct = claudeChats.map((a) => Math.round(a.context.pct * 100)).sort((a, b) => a - b)
     expect(pct).toEqual([31, 66, 94])
-    expect(active.some((a) => a.activeSubagents > 0)).toBe(true)
+    expect(claudeChats.some((a) => a.activeSubagents > 0)).toBe(true)
+    expect(active.some((a) => a.source === 'codex')).toBe(true)
+    expect(active.some((a) => a.source === 'antigravity')).toBe(true)
   })
 
   it('nombra modelos', () => {

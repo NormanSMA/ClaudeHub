@@ -77,7 +77,7 @@ describe('filtro por fuente', () => {
 })
 
 describe('activeReport con varias fuentes', () => {
-  it('ignora registros recientes de Codex, Gemini y OmniRoute', () => {
+  it('incluye Claude, Codex y Antigravity e ignora Gemini CLI y OmniRoute', () => {
     const now = Date.now()
     const mk = (source: Source, session: string): Rec => ({
       id: `${source}:${session}`,
@@ -92,8 +92,28 @@ describe('activeReport con varias fuentes', () => {
       role: 'orchestrator',
       source,
     })
-    const recs = [mk('claude', 'c1'), mk('codex', 'x1'), mk('gemini', 'g1'), mk('omniroute', 'o1')]
+    const recs = [mk('claude', 'c1'), mk('codex', 'x1'), mk('antigravity', 'a1'), mk('gemini', 'g1'), mk('omniroute', 'o1')]
     const chats = activeReport(recs, new Map(), now, undefined, {})
-    expect(chats).toHaveLength(1)
+    expect(chats.map((c) => c.session).sort()).toEqual(['a1', 'c1', 'x1'])
+  })
+
+  it('no fusiona sesiones con el mismo id de fuentes distintas', () => {
+    const now = Date.now()
+    const mk = (source: Source, input: number): Rec => ({
+      id: `${source}:m`,
+      ts: now - 1000,
+      model: 'x',
+      input,
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 5,
+      session: 'misma',
+      project: 'p',
+      role: 'orchestrator',
+      source,
+    })
+    const chats = activeReport([mk('claude', 100), mk('codex', 200)], new Map(), now, undefined, {})
+    expect(chats).toHaveLength(2)
+    expect(chats.map((c) => c.source).sort()).toEqual(['claude', 'codex'])
   })
 })

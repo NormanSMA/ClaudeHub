@@ -348,6 +348,27 @@ function demoOtherSources(now: number) {
   make(CODEX_SPECS, 'codex')
   make(GEMINI_SPECS, 'gemini')
   make(ANTIGRAVITY_SPECS, 'antigravity')
+  const live = (source: 'codex' | 'antigravity', session: string, project: string, model: string, cacheRead: number) => {
+    for (let i = 0; i < 3; i++) {
+      recs.push({
+        id: `demo-${source}-live-${i}-${session}`,
+        ts: now - 45_000 - (2 - i) * 20_000,
+        model,
+        input: 400,
+        cacheWrite: 0,
+        cacheRead: cacheRead - (2 - i) * 2_000,
+        output: 500,
+        session,
+        project,
+        role: 'orchestrator',
+        source,
+      })
+      if (source === 'codex') codex++
+      else antigravity++
+    }
+  }
+  live('codex', 'demo-codex-web', 'cafe-web', 'gpt-6.1-sol', 84_000)
+  live('antigravity', 'demo-agy-web', 'cafe-web', 'gemini-4-hydrogen', 112_000)
   return {
     recs,
     codex,

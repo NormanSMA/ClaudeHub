@@ -266,7 +266,7 @@ app.get('/api/active', (c) =>
       const plan = planReport(claude, now, DEMO ? demoPlanRaw(now) : undefined, data().limitHit)
       const codexLimits = DEMO ? demoCodexLimits(now) : config().sources.codex ? latestCodexLimits() : null
       const antigravityQuotas = DEMO ? demoAntigravityQuotas(now) : config().sources.antigravity ? latestAntigravityQuotas() : null
-      const chats = activeReport(claude, data().sessions, now, undefined, DEMO ? {} : undefined)
+      const chats = activeReport(records(), data().sessions, now, undefined, DEMO ? {} : undefined)
       // misma definicion de "Hoy" que /api/live: todas las fuentes activas, con desglose
       const { todayTokens, todayFresh, todayCacheRead, todayCostUsd, todayCostUnpriced, todayBySource } = live(records(), now)
       return {
