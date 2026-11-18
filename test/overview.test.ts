@@ -119,6 +119,47 @@ describe('nivel y subagentes con datos del demo', () => {
   })
 })
 
+describe('activeReport multi-fuente', () => {
+  const now = 1_000_000_000_000
+  const mk = (session: string, source: 'claude' | 'codex' | 'antigravity', project: string, model: string) => ({
+    id: `${session}-1`,
+    ts: now - 30_000,
+    model,
+    input: 100,
+    cacheWrite: 0,
+    cacheRead: 50_000,
+    output: 10,
+    session,
+    project,
+    role: 'orchestrator' as const,
+    source,
+  })
+  const recs = [
+    mk('c1', 'claude', 'p-claude', 'claude-sonnet-5'),
+    mk('x1', 'codex', 'cafe-web', 'gpt-6.1-sol'),
+    mk('x2', 'codex', 'unknown', 'gpt-6.1-sol'),
+    mk('a1', 'antigravity', 'cafe-web', 'gemini-4-hydrogen'),
+    mk('a2', 'antigravity', 'antigravity', 'gemini-4-hydrogen'),
+  ]
+  const metas = new Map([['c1', { title: 'Mi chat' }]])
+  const chats = activeReport(recs, metas, now, undefined, {})
+  const by = (s: string) => chats.find((c) => c.session === s)
+
+  it('incluye las tres fuentes con su campo source', () => {
+    expect(by('c1')?.source).toBe('claude')
+    expect(by('x1')?.source).toBe('codex')
+    expect(by('a1')?.source).toBe('antigravity')
+  })
+
+  it('usa el titulo de la sesion o un titulo descriptivo de respaldo', () => {
+    expect(by('c1')?.title).toBe('Mi chat')
+    expect(by('x1')?.title).toBe('Codex · cafe-web')
+    expect(by('x2')?.title).toBe('Sesión de Codex')
+    expect(by('a1')?.title).toBe('Antigravity · cafe-web')
+    expect(by('a2')?.title).toBe('Sesión de Antigravity')
+  })
+})
+
 describe('activeExtras', () => {
   it('sin eventos ni limites: planes vacios y mascota durmiendo', () => {
     const r = activeExtras(base)

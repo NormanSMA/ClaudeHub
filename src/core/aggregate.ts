@@ -326,7 +326,15 @@ export interface ChatSubagent {
   working: boolean
 }
 
-/** Chats con actividad reciente, con su uso de ventana de contexto. */
+function chatTitle(meta: SessionMeta | undefined, source: Source, project: string): string {
+  const title = sessionTitle(meta)
+  if (title !== 'Sin titulo') return title
+  if (source === 'codex') return project && project !== 'unknown' ? `Codex · ${project}` : 'Sesión de Codex'
+  if (source === 'antigravity') return project && project !== 'antigravity' ? `Antigravity · ${project}` : 'Sesión de Antigravity'
+  return title
+}
+
+/** Chats con actividad reciente de Claude, Codex y Antigravity, con su uso de ventana de contexto. */
 export function activeReport(
   all: Rec[],
   metas: Metas,
@@ -336,12 +344,14 @@ export function activeReport(
 ) {
   const by = new Map<
     string,
-    { last: Rec | null; peak: number; project: string; orch: number; sub: number; lastTs: number; subs: Map<string, Omit<ChatSubagent, 'working'>> }
+    { session: string; source: Source; last: Rec | null; peak: number; project: string; orch: number; sub: number; lastTs: number; subs: Map<string, Omit<ChatSubagent, 'working'>> }
   >()
   for (const r of all) {
-    // los chats activos y su ventana de contexto son de Claude; otras fuentes se ven en Agentes
-    if (sourceOf(r) !== 'claude') continue
-    const s = by.get(r.session) ?? { last: null, peak: 0, project: r.project, orch: 0, sub: 0, lastTs: 0, subs: new Map() }
+    // chats activos de Claude, Codex y Antigravity con su ventana de contexto
+    const src = sourceOf(r)
+    if (src !== 'claude' && src !== 'codex' && src !== 'antigravity') continue
+    const key = `${src}:${r.session}`
+    const s = by.get(key) ?? { session: r.session, source: src, last: null, peak: 0, project: r.project, orch: 0, sub: 0, lastTs: 0, subs: new Map() }
     s.lastTs = Math.max(s.lastTs, r.ts)
     if (r.role === 'orchestrator') {
       s.orch += total(r)
@@ -358,10 +368,11 @@ export function activeReport(
         s.subs.set(r.agentFile, sub)
       }
     }
-    by.set(r.session, s)
+    by.set(key, s)
   }
   const out = []
-  for (const [session, s] of by) {
+  for (const s of by.values()) {
+    const session = s.session
     if (now - s.lastTs > windowMs || !s.last) continue
     const used = s.last.input + s.last.cacheWrite + s.last.cacheRead
     const modelLabel = modelName(s.last.model)
@@ -372,7 +383,8 @@ export function activeReport(
     const subagents: ChatSubagent[] = [...all].sort((a, b) => b.lastTs - a.lastTs).slice(0, MAX_SUBAGENTS)
     out.push({
       session,
-      title: sessionTitle(meta),
+      title: chatTitle(meta, s.source, s.project),
+      source: s.source,
       project: s.project,
       cwd: meta?.cwd ?? null,
       model: modelLabel,
