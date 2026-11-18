@@ -9,6 +9,10 @@ export const codexSessionsDir = (): string =>
 /** Chats de Gemini CLI. GEMINI_TMP_DIR reemplaza la ruta. */
 export const geminiTmpDir = (): string => process.env.GEMINI_TMP_DIR ?? join(homedir(), '.gemini', 'tmp')
 
+/** Datos de Antigravity. ANTIGRAVITY_DIR reemplaza la ruta. */
+export const antigravityDir = (): string => process.env.ANTIGRAVITY_DIR ?? join(homedir(), '.gemini', 'antigravity')
+export const antigravityBrainDir = (): string => join(antigravityDir(), 'brain')
+
 /**
  * Carpeta donde ClaudeHub guarda su cache y su configuracion.
  * Windows: %APPDATA%\ClaudeHub. macOS: ~/Library/Application Support/ClaudeHub. Linux: ~/.config/ClaudeHub.
