@@ -1,5 +1,5 @@
 import { ActiveList, PlanLimits, ctxColor, untilText } from '../components/Active'
-import { useApi, type ActiveReport, type AgentLive, type AgentState, type PlanReport, type SourceId, type TokenLevel } from '../api'
+import { useApi, type ActiveReport, type AgentLive, type AgentState, type AntigravityQuotas, type PlanReport, type SourceId, type TokenLevel } from '../api'
 import { compact, minutesText, pct } from '../format'
 import { ArcGauge } from '../components/charts'
 import { AnimatedNumber } from '../components/AnimatedNumber'
@@ -10,6 +10,7 @@ const SOURCE_NAME: Record<SourceId, string> = {
   codex: 'Codex',
   gemini: 'Gemini',
   omniroute: 'OmniRoute',
+  antigravity: 'Antigravity',
 }
 
 const SOURCE_COLOR: Record<SourceId, string> = {
@@ -17,6 +18,7 @@ const SOURCE_COLOR: Record<SourceId, string> = {
   codex: 'var(--blue)',
   gemini: 'var(--violet)',
   omniroute: 'var(--ok)',
+  antigravity: 'var(--teal)',
 }
 
 const STATE_LABEL: Record<AgentState, string> = {
@@ -62,6 +64,32 @@ function CodexLimits({ plan, alertAt }: { plan: PlanReport | null; alertAt: numb
       {plan.fiveHour && <CodexRow label="Límite de 5 horas" w={plan.fiveHour} alertAt={alertAt} />}
       {plan.sevenDay && <CodexRow label="Semanal" w={plan.sevenDay} alertAt={alertAt} />}
       {!plan.fiveHour && !plan.sevenDay && <div className="active-meta">Sin ventanas de límite vigentes.</div>}
+    </section>
+  )
+}
+
+function AntigravityLimits({ plan, alertAt }: { plan: AntigravityQuotas | null; alertAt: number }) {
+  if (!plan || !plan.groups.length) return <p className="plan-hint">Antigravity: sin datos vigentes de cuota</p>
+  return (
+    <section className="plan" aria-label="Límites de uso de Antigravity">
+      {plan.groups.map((g) => {
+        const p = g.usedPct / 100
+        const color = ctxColor(p, alertAt)
+        return (
+          <div className="plan-row" key={g.id} title={`${g.remainingPct}% disponible · ${g.models.join(', ')}`}>
+            <div className="plan-head">
+              <span className="plan-label">{g.label}</span>
+              <span className="plan-pct" style={{ color }}>
+                <AnimatedNumber value={g.usedPct} format={(v) => `${Math.round(v)}%`} />
+              </span>
+            </div>
+            <div className="ctx-track">
+              <i style={{ width: `${Math.max(2, g.usedPct)}%`, background: color }} />
+            </div>
+            <div className="active-meta">Se restablece en {untilText(g.resetsAt)}</div>
+          </div>
+        )
+      })}
     </section>
   )
 }
@@ -159,6 +187,7 @@ export function AgentesView() {
   if (!data) return <Loading error={error} />
   const claudePlan = data.plans?.claude ?? data.plan
   const codexPlan = data.plans?.codex ?? null
+  const antigravityPlan = data.plans?.antigravity ?? null
   const agents = data.agents ?? []
   const collisions = data.collisions ?? []
   return (
@@ -178,6 +207,10 @@ export function AgentesView() {
         <div>
           <div className="plan-source-name">Codex</div>
           <CodexLimits plan={codexPlan} alertAt={data.alertAt} />
+        </div>
+        <div>
+          <div className="plan-source-name">Antigravity</div>
+          <AntigravityLimits plan={antigravityPlan} alertAt={data.alertAt} />
         </div>
       </div>
       <h3>Agentes ahora</h3>
