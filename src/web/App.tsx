@@ -1,4 +1,4 @@
-import { levelFrom, pickMascotState } from './mascot/mascotState'
+import { levelFrom, pickMascotFamily, pickMascotState } from './mascot/mascotState'
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { animationsOn, setAnimations } from './components/AnimatedNumber'
@@ -152,7 +152,7 @@ function HeaderMascot({ act, live, cfg, omniEnabled }: {
 
   return (
     <div className="header-mascot">
-      <Mascot state={pickMascotState(act)} size={56} level={levelFrom(act)?.level} talking={talking} />
+      <Mascot state={pickMascotState(act)} family={pickMascotFamily(act)} size={56} level={levelFrom(act)?.level} talking={talking} />
       {line && cfg?.mascot?.talk !== false && (
         <SpeechBubble key={line.id} text={line.text} onTyping={setTalking} onDone={() => setLine(null)} />
       )}

@@ -5,8 +5,8 @@ import { useApi, type ActiveReport, type ConfigInfo, type Live, type OverlayMode
 import { ChispaCanvas, type ChispaEmote } from './mascot/ChispaCanvas'
 import { TodayCount } from './components/TodayCount'
 import { compact, fmtUsd } from './format'
-import { CodexBadge, LevelBadge, Mascot } from './mascot/Mascot'
-import { codexBusy, exhaustText, levelFrom, levelText, pickMascotState, type MascotState } from './mascot/mascotState'
+import { CodexBadge, GeminiBadge, LevelBadge, Mascot } from './mascot/Mascot'
+import { codexBusy, exhaustText, geminiBusy, levelFrom, levelText, pickMascotFamily, pickMascotState, type MascotState } from './mascot/mascotState'
 import { balloonText, useUpdateNotice } from './update'
 import { SpeechBubble } from './mascot/SpeechBubble'
 import { loadSpeechMemory, pickLine, saveSpeechMemory, type SpeechLine } from './mascot/mascotSpeech'
@@ -62,7 +62,9 @@ function Overlay() {
   const chats = data?.chats ?? []
   const alertAt = data?.alertAt ?? 0.85
   const mood: MascotState = petted ? 'happy' : pickMascotState(data)
+  const family = pickMascotFamily(data)
   const codex = codexBusy(data)
+  const gemini = geminiBusy(data)
   const level = levelFrom(data)
   const exhaust = exhaustText(level)
   // cerrada solo se ve la mascota con sus insignias; el detalle del nivel va en la ayuda al pasar el mouse
@@ -254,9 +256,14 @@ function Overlay() {
         aria-label={levelHint ? `Mascota de ClaudeHub. ${levelHint}` : 'Mascota de ClaudeHub'}
         aria-expanded={open}
       >
-        <Mascot state={mood} size={44} level={level?.level} announce={notice} talking={speaking && talking} />
+        <Mascot state={mood} family={family} size={44} level={level?.level} announce={notice} talking={speaking && talking} />
         {level && <LevelBadge level={level.level} />}
-        {codex && <CodexBadge />}
+        {(codex || gemini) && (
+          <span className="mascot-badges">
+            {codex && <CodexBadge />}
+            {gemini && <GeminiBadge />}
+          </span>
+        )}
         {chats.length > 0 && <span className={`badge ${mood === 'alert' ? 'bad' : ''}`}>{chats.length}</span>}
       </button>
     </div>
@@ -410,7 +417,7 @@ function IslandOverlay() {
             </span>
           )}
           <div ref={canvasBox} className="island-chispa">
-            <ChispaCanvas width={CANVAS_SIZE} height={CANVAS_SIZE} cursorRef={cursorRef} emote={emote} sleeping={mood === 'sleeping'} />
+            <ChispaCanvas width={CANVAS_SIZE} height={CANVAS_SIZE} cursorRef={cursorRef} emote={emote} sleeping={mood === 'sleeping'} family={pickMascotFamily(data)} />
           </div>
           {!expanded && (
             <span className="island-metric" title={metric?.title}>

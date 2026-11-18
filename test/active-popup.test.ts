@@ -90,4 +90,14 @@ describe('Popup de chats activos', () => {
   it('conserva el render del dashboard', () => {
     expect(render({}, [], false)).toContain('Copiar /compact')
   })
+
+  it('muestra etiqueta de proveedor cuando source esta definido', () => {
+    const codexHtml = render({ source: 'codex', model: 'GPT-5.4' })
+    expect(codexHtml).toContain('class="src-pill src-codex">Codex</span>')
+    expect(codexHtml).toContain('GPT-5.4')
+
+    const agyHtml = render({ source: 'antigravity', model: 'Gemini 2.5 Pro' })
+    expect(agyHtml).toContain('class="src-pill src-antigravity">Antigravity</span>')
+    expect(agyHtml).toContain('Gemini 2.5 Pro')
+  })
 })
