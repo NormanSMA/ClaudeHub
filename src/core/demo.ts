@@ -2,6 +2,7 @@ import type { ScanResult } from './scan'
 import type { Rec, SessionMeta } from './types'
 import type { HookEvent } from './agents'
 import type { CodexRateLimits } from './sources/codex'
+import type { AntigravityQuotas } from './sources/antigravity'
 import { VERSION, RELEASES_PREFIX, type UpdateInfo } from './update'
 
 // Datos ficticios para probar ClaudeHub sin leer tus logs: pnpm demo
@@ -84,6 +85,39 @@ export function demoCodexLimits(now = Date.now()): CodexRateLimits {
     planType: 'plus',
     primary: { usedPercent: 30, windowMinutes: 300, resetsAt: Math.floor((now + (2 * 60 + 10) * 60_000) / 1000) },
     secondary: { usedPercent: 12, windowMinutes: 10080, resetsAt: Math.floor((now + 5 * 86_400_000) / 1000) },
+  }
+}
+
+/** Cuotas ficticias de Antigravity con tres grupos de modelos. */
+export function demoAntigravityQuotas(now = Date.now()): AntigravityQuotas {
+  return {
+    updatedAt: now - 15_000,
+    groups: [
+      {
+        id: 'claude-5.5',
+        label: 'Claude 5.5',
+        usedPct: 0,
+        remainingPct: 100,
+        resetsAt: now + (4 * 60 + 30) * 60_000,
+        models: ['Opus 5.5', 'Sonnet 5.5'],
+      },
+      {
+        id: 'gemini-4-hydrogen-3.8',
+        label: 'Gemini 4 Hydrogen / 3.8',
+        usedPct: 12,
+        remainingPct: 88,
+        resetsAt: now + (3 * 60 + 15) * 60_000,
+        models: ['Gemini 4 Hydrogen', 'Gemini 3.8 Flash'],
+      },
+      {
+        id: 'gemini-4-argon',
+        label: 'Gemini 4 Argon',
+        usedPct: 0,
+        remainingPct: 100,
+        resetsAt: now + (4 * 60 + 45) * 60_000,
+        models: ['Gemini 4 Argon'],
+      },
+    ],
   }
 }
 
@@ -206,6 +240,7 @@ export function demoData(now = Date.now()): ScanResult {
     codex: { enabled: true, files: other.codexFiles, records: other.codex, ok: true },
     gemini: { enabled: true, files: other.geminiFiles, records: other.gemini, ok: true },
     omniroute: { enabled: true, files: 1, records: omni.length, ok: true },
+    antigravity: { enabled: true, files: other.antigravityFiles, records: other.antigravity, ok: true },
   }
   return { recs, sessions, limitHit: null, sources }
 }
@@ -227,6 +262,11 @@ const CODEX_SPECS: OtherSpec[] = [
 const GEMINI_SPECS: OtherSpec[] = [
   { id: 'gemini-docs', project: 'portafolio', from: 20, to: 8, model: 'gemini-3-flash-preview' },
   { id: 'gemini-dash', project: 'ventas-dashboard', from: 7, to: 0, model: 'gemini-3-flash-preview' },
+]
+
+const ANTIGRAVITY_SPECS: OtherSpec[] = [
+  { id: 'agy-api', project: 'inventario-api', from: 15, to: 2, model: 'gemini-4-hydrogen' },
+  { id: 'agy-web', project: 'cafe-web', from: 8, to: 0, model: 'gemini-4-argon' },
 ]
 
 const OMNI_PROVIDERS = [
@@ -267,7 +307,7 @@ function demoOmniroute(now: number): Rec[] {
   return recs
 }
 
-/** Registros ficticios de Codex y Gemini. Usa su propio generador: los datos de Claude no cambian. */
+/** Registros ficticios de Codex, Gemini y Antigravity. Usa su propio generador: los datos de Claude no cambian. */
 function demoOtherSources(now: number) {
   const rand = rng(20261007)
   const today = new Date(now)
@@ -275,7 +315,8 @@ function demoOtherSources(now: number) {
   const recs: Rec[] = []
   let codex = 0
   let gemini = 0
-  const make = (specs: OtherSpec[], source: 'codex' | 'gemini') => {
+  let antigravity = 0
+  const make = (specs: OtherSpec[], source: 'antigravity' | 'codex' | 'gemini') => {
     for (const s of specs) {
       const session = `demo-${s.id}`
       for (let d = s.from; d >= s.to; d--) {
@@ -298,12 +339,22 @@ function demoOtherSources(now: number) {
             source,
           })
           if (source === 'codex') codex++
-          else gemini++
+          else if (source === 'gemini') gemini++
+          else antigravity++
         }
       }
     }
   }
   make(CODEX_SPECS, 'codex')
   make(GEMINI_SPECS, 'gemini')
-  return { recs, codex, gemini, codexFiles: CODEX_SPECS.length, geminiFiles: GEMINI_SPECS.length }
+  make(ANTIGRAVITY_SPECS, 'antigravity')
+  return {
+    recs,
+    codex,
+    gemini,
+    antigravity,
+    codexFiles: CODEX_SPECS.length,
+    geminiFiles: GEMINI_SPECS.length,
+    antigravityFiles: ANTIGRAVITY_SPECS.length,
+  }
 }

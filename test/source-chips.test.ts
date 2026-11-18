@@ -24,7 +24,7 @@ describe('sourceChipText', () => {
   })
 
   it('conserva el texto y la ayuda de las otras fuentes', () => {
-    for (const id of ['claude', 'codex', 'gemini'] as const) {
+    for (const id of ['claude', 'codex', 'gemini', 'antigravity'] as const) {
       expect(sourceChipText(id, { ...active, enabled: false }))
         .toEqual({ text: '12', title: 'Fuente desactivada' })
     }
@@ -35,14 +35,14 @@ describe('sourceChipText', () => {
 describe('SourceChips', () => {
   it('usa un logo de 12 px para OmniRoute y mantiene los puntos de las otras fuentes', () => {
     const report: SourcesReport = {
-      claude: active, codex: active, gemini: active,
+      claude: active, codex: active, gemini: active, antigravity: active,
       omniroute: { ...active, enabled: false, records: 0 },
     }
     const html = renderToStaticMarkup(createElement(SourceChips, { source: 'all', onChange: () => {}, report }))
     expect(html).toContain('width="12" height="12"')
     expect(html).toContain('title="Actívala en Ajustes"')
     expect(html).toContain('>apagada</span>')
-    expect(html.match(/class="dot"/g)).toHaveLength(4)
+    expect(html.match(/class="dot"/g)).toHaveLength(5)
     expect(html.match(/<svg/g)).toHaveLength(1)
   })
 })

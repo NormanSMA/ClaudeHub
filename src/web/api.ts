@@ -75,7 +75,7 @@ export interface ProjectRow {
   cacheSavingsUsd: number
 }
 
-export type SourceId = 'claude' | 'codex' | 'gemini' | 'omniroute'
+export type SourceId = 'claude' | 'codex' | 'gemini' | 'omniroute' | 'antigravity'
 
 export interface SourceInfo {
   enabled: boolean
@@ -300,7 +300,7 @@ export interface SettingsInfo {
     activeMinutes: number
     contextLimits: Record<string, number>
     checkUpdates?: boolean
-    sources: { codex: boolean; gemini: boolean; omniroute: boolean }
+    sources: { codex: boolean; gemini: boolean; omniroute: boolean; antigravity: boolean }
     billing: Billing
     mascot: MascotConfig
     overlayMode?: OverlayMode
@@ -332,6 +332,20 @@ export interface PlanReport {
   planType?: string
 }
 
+export interface AntigravityQuotaGroup {
+  id: string
+  label: string
+  usedPct: number
+  remainingPct: number
+  resetsAt: number
+  models: string[]
+}
+
+export interface AntigravityQuotas {
+  updatedAt: number
+  groups: AntigravityQuotaGroup[]
+}
+
 export type AgentState = 'starting' | 'thinking' | 'tool' | 'waiting' | 'done' | 'error'
 
 export interface AgentLive {
@@ -354,7 +368,7 @@ export interface ActiveReport extends TodayFields {
   alertAt: number
   chats: ActiveChat[]
   plan: PlanReport | null
-  plans?: { claude: PlanReport | null; codex: PlanReport | null }
+  plans?: { claude: PlanReport | null; codex: PlanReport | null; antigravity?: AntigravityQuotas | null }
   agents?: AgentLive[]
   collisions?: Collision[]
   mascot?: 'waiting' | 'error' | 'alert' | 'tool' | 'thinking' | 'happy' | 'sleeping'

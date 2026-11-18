@@ -10,6 +10,7 @@ const SOURCES: { id: SourceFilter; label: string; color: string }[] = [
   { id: 'codex', label: 'Codex', color: 'var(--blue)' },
   { id: 'gemini', label: 'Gemini', color: 'var(--violet)' },
   { id: 'omniroute', label: 'OmniRoute', color: 'var(--ok)' },
+  { id: 'antigravity', label: 'Antigravity', color: 'var(--teal)' },
 ]
 
 const SOURCE_KEY = 'source'
