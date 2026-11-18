@@ -12,11 +12,8 @@ export interface ChispaCanvasProps {
   family?: MascotFamily
 }
 
-const PALETTES: Record<MascotFamily, { body: string; cheek: string; spark: string; eye: string }> = {
-  claude: { body: '#D97757', cheek: '#F0A488', spark: '#F3C3A8', eye: '#1F1E1D' },
-  codex: { body: '#10A37F', cheek: '#6EE7B7', spark: '#93C5FD', eye: '#1F1E1D' },
-  gemini: { body: '#6366F1', cheek: '#C084FC', spark: '#38BDF8', eye: '#1F1E1D' },
-}
+const CLAUDE_PALETTE = { body: '#D97757', cheek: '#F0A488', spark: '#F3C3A8', eye: '#1F1E1D' }
+
 const DURATION: Record<ChispaEmote, number> = {
   greeting: 1_000,
   squish: 650,
@@ -25,9 +22,8 @@ const DURATION: Record<ChispaEmote, number> = {
 }
 const MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
-function drawBody(context: CanvasRenderingContext2D, family: MascotFamily): void {
-  const palette = PALETTES[family] ?? PALETTES.claude
-  context.fillStyle = palette.body
+function drawClaudeBody(context: CanvasRenderingContext2D): void {
+  context.fillStyle = CLAUDE_PALETTE.body
   context.beginPath()
   context.roundRect(2, 4, 10, 6.6, 2.1)
   context.fill()
@@ -40,35 +36,16 @@ function drawBody(context: CanvasRenderingContext2D, family: MascotFamily): void
   context.roundRect(6.8, 2.5, 0.7, 2, 0.35)
   context.fill()
 
-  context.fillStyle = palette.spark
+  context.fillStyle = CLAUDE_PALETTE.spark
   context.beginPath()
-  if (family === 'codex') {
-    for (let i = 0; i < 6; i++) {
-      const a = (i * Math.PI) / 3 - Math.PI / 6
-      const hx = 7 + Math.cos(a) * 1.45
-      const hy = 1.4 + Math.sin(a) * 1.45
-      if (i === 0) context.moveTo(hx, hy)
-      else context.lineTo(hx, hy)
-    }
-    context.closePath()
-    context.fill()
-  } else if (family === 'gemini') {
-    context.moveTo(7, -0.2)
-    context.quadraticCurveTo(7.35, 1.05, 9.3, 1.4)
-    context.quadraticCurveTo(7.35, 1.75, 7, 3)
-    context.quadraticCurveTo(6.65, 1.75, 4.7, 1.4)
-    context.quadraticCurveTo(6.65, 1.05, 7, -0.2)
-    context.fill()
-  } else {
-    context.moveTo(7, 0)
-    context.quadraticCurveTo(7.6, 1.1, 9, 1.4)
-    context.quadraticCurveTo(7.6, 1.7, 7, 2.8)
-    context.quadraticCurveTo(6.4, 1.7, 5, 1.4)
-    context.quadraticCurveTo(6.4, 1.1, 7, 0)
-    context.fill()
-  }
+  context.moveTo(7, 0)
+  context.quadraticCurveTo(7.6, 1.1, 9, 1.4)
+  context.quadraticCurveTo(7.6, 1.7, 7, 2.8)
+  context.quadraticCurveTo(6.4, 1.7, 5, 1.4)
+  context.quadraticCurveTo(6.4, 1.1, 7, 0)
+  context.fill()
 
-  context.fillStyle = palette.cheek
+  context.fillStyle = CLAUDE_PALETTE.cheek
   for (const x of [3.4, 10.6]) {
     context.beginPath()
     context.ellipse(x, 8.6, 0.7, 0.4, 0, 0, Math.PI * 2)
@@ -76,18 +53,33 @@ function drawBody(context: CanvasRenderingContext2D, family: MascotFamily): void
   }
 }
 
-function drawEyes(
+function drawSpiral(context: CanvasRenderingContext2D, cx: number, cy: number, radius: number, angle: number): void {
+  context.save()
+  context.translate(cx, cy)
+  context.rotate(angle)
+  context.beginPath()
+  for (let step = 0; step <= 48; step++) {
+    const phase = (step / 48) * Math.PI * 4
+    const r = (step / 48) * radius
+    const sx = Math.cos(phase) * r
+    const sy = Math.sin(phase) * r
+    if (step === 0) context.moveTo(sx, sy)
+    else context.lineTo(sx, sy)
+  }
+  context.stroke()
+  context.restore()
+}
+
+function drawClaudeEyes(
   context: CanvasRenderingContext2D,
   closed: number,
   pupilX: number,
   pupilY: number,
   dizzy: boolean,
   angle: number,
-  family: MascotFamily,
 ): void {
-  const palette = PALETTES[family] ?? PALETTES.claude
-  context.fillStyle = palette.eye
-  context.strokeStyle = palette.eye
+  context.fillStyle = CLAUDE_PALETTE.eye
+  context.strokeStyle = CLAUDE_PALETTE.eye
   context.lineWidth = 0.2
   context.lineCap = 'round'
   for (const x of [4.5, 9.5]) {
@@ -95,16 +87,7 @@ function drawEyes(
     context.translate(x, 7.2)
     context.beginPath()
     if (dizzy) {
-      context.rotate(angle)
-      for (let step = 0; step <= 48; step++) {
-        const phase = (step / 48) * Math.PI * 4
-        const radius = (step / 48) * 0.72
-        const sx = Math.cos(phase) * radius
-        const sy = Math.sin(phase) * radius
-        if (step === 0) context.moveTo(sx, sy)
-        else context.lineTo(sx, sy)
-      }
-      context.stroke()
+      drawSpiral(context, 0, 0, 0.72, angle)
     } else if (closed > 0.95) {
       context.moveTo(-0.55, 0)
       context.lineTo(0.55, 0)
@@ -115,6 +98,247 @@ function drawEyes(
     }
     context.restore()
   }
+}
+
+function drawCodex(
+  context: CanvasRenderingContext2D,
+  sleeping: boolean,
+  closed: number,
+  pupilX: number,
+  pupilY: number,
+  dizzy: boolean,
+  angle: number,
+  greetingWave: number | null,
+): void {
+  const bodyGrad = context.createLinearGradient(0, 7.2, 0, 10.6)
+  bodyGrad.addColorStop(0, '#5E82F7')
+  bodyGrad.addColorStop(1, '#3655CC')
+
+  const headGrad = context.createLinearGradient(0, 0.6, 0, 7.6)
+  headGrad.addColorStop(0, '#94B6FF')
+  headGrad.addColorStop(1, '#4669E8')
+
+  context.lineWidth = 0.4
+  context.strokeStyle = '#182454'
+  context.lineJoin = 'round'
+
+  // Patitas
+  context.fillStyle = '#3655CC'
+  for (const fx of [4.6, 7.5]) {
+    context.beginPath()
+    context.roundRect(fx, 10.1, 1.9, 1.45, 0.72)
+    context.fill()
+    context.stroke()
+  }
+
+  // Brazos
+  context.fillStyle = bodyGrad
+  context.beginPath()
+  context.roundRect(2.7, 7.55, 1.55, 2.5, 0.78)
+  context.fill()
+  context.stroke()
+
+  context.save()
+  if (greetingWave !== null) {
+    context.translate(10.5, 8.0)
+    context.rotate(-0.8 + greetingWave)
+    context.beginPath()
+    context.roundRect(-0.78, -0.4, 1.55, 2.5, 0.78)
+    context.fill()
+    context.stroke()
+  } else {
+    context.beginPath()
+    context.roundRect(9.75, 7.55, 1.55, 2.5, 0.78)
+    context.fill()
+    context.stroke()
+  }
+  context.restore()
+
+  // Torso y simbolo >-
+  context.fillStyle = bodyGrad
+  context.beginPath()
+  context.roundRect(4.2, 7.25, 5.6, 3.3, 1.5)
+  context.fill()
+  context.stroke()
+
+  context.strokeStyle = '#E0F7FA'
+  context.lineWidth = 0.42
+  context.lineCap = 'round'
+  context.beginPath()
+  context.moveTo(6.05, 8.4)
+  context.lineTo(6.85, 8.95)
+  context.lineTo(6.05, 9.5)
+  context.stroke()
+  context.strokeStyle = '#5CE1E6'
+  context.beginPath()
+  context.moveTo(7.25, 9.45)
+  context.lineTo(8.1, 9.45)
+  context.stroke()
+
+  // Cabeza tipo nube esponjosa
+  context.fillStyle = headGrad
+  context.strokeStyle = '#182454'
+  context.lineWidth = 0.4
+  context.beginPath()
+  context.moveTo(3.9, 7.6)
+  context.bezierCurveTo(2.4, 7.6, 1.8, 6.2, 2.35, 4.8)
+  context.bezierCurveTo(2.0, 3.3, 3.0, 1.9, 4.45, 2.05)
+  context.bezierCurveTo(5.1, 0.75, 6.1, 0.6, 7.0, 0.6)
+  context.bezierCurveTo(7.9, 0.6, 8.9, 0.75, 9.55, 2.05)
+  context.bezierCurveTo(11.0, 1.9, 12.0, 3.3, 11.65, 4.8)
+  context.bezierCurveTo(12.2, 6.2, 11.6, 7.6, 10.1, 7.6)
+  context.closePath()
+  context.fill()
+  context.stroke()
+
+  // Visor terminal oscuro
+  context.fillStyle = '#111A3D'
+  context.strokeStyle = '#2D4294'
+  context.lineWidth = 0.36
+  context.beginPath()
+  context.roundRect(3.75, 2.75, 6.5, 4.25, 1.25)
+  context.fill()
+  context.stroke()
+
+  if (dizzy) {
+    context.strokeStyle = '#5CE1E6'
+    context.lineWidth = 0.28
+    drawSpiral(context, 5.55, 4.9, 0.85, angle)
+    drawSpiral(context, 8.45, 4.9, 0.85, angle)
+  } else if (sleeping) {
+    context.strokeStyle = 'rgba(92, 225, 230, 0.55)'
+    context.lineWidth = 0.52
+    context.lineCap = 'round'
+    context.beginPath()
+    context.moveTo(4.9, 4.9)
+    context.lineTo(6.2, 4.9)
+    context.moveTo(7.8, 4.9)
+    context.lineTo(9.1, 4.9)
+    context.stroke()
+  } else {
+    const ox = Math.max(-0.4, Math.min(0.4, pupilX * 2.5))
+    const oy = Math.max(-0.35, Math.min(0.35, pupilY * 1.5))
+    context.save()
+    context.beginPath()
+    context.roundRect(4.35, 3.05, 5.3, 3.7, 0.85)
+    context.clip()
+    context.strokeStyle = '#5CE1E6'
+    context.lineWidth = 0.6
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.beginPath()
+    context.moveTo(5.05 + ox, 3.95 + oy)
+    context.lineTo(6.45 + ox, 4.85 + oy)
+    context.lineTo(5.05 + ox, 5.75 + oy)
+    context.stroke()
+    if (closed < 0.7) {
+      context.fillStyle = '#5CE1E6'
+      context.beginPath()
+      context.roundRect(7.15 + ox, 5.4 + oy, 1.7, 0.58, 0.2)
+      context.fill()
+    }
+    context.restore()
+  }
+}
+
+function drawMicroStar(context: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  const k = r * 0.22
+  context.beginPath()
+  context.moveTo(cx, cy - r)
+  context.bezierCurveTo(cx + k * 0.35, cy - k, cx + k, cy - k * 0.35, cx + r, cy)
+  context.bezierCurveTo(cx + k, cy + k * 0.35, cx + k * 0.35, cy + k, cx, cy + r)
+  context.bezierCurveTo(cx - k * 0.35, cy + k, cx - k, cy + k * 0.35, cx - r, cy)
+  context.bezierCurveTo(cx - k, cy - k * 0.35, cx - k * 0.35, cy - k, cx, cy - r)
+  context.closePath()
+  context.fill()
+}
+
+function drawGemini(
+  context: CanvasRenderingContext2D,
+  now: number,
+  sleeping: boolean,
+  reduced: boolean,
+  pupilX: number,
+  pupilY: number,
+  dizzy: boolean,
+  angle: number,
+): void {
+  context.save()
+  if (sleeping) context.globalAlpha = 0.72
+
+  const traceStar = () => {
+    context.beginPath()
+    context.moveTo(7, -0.4)
+    context.bezierCurveTo(7.25, 3.35, 9.25, 5.35, 13, 5.6)
+    context.bezierCurveTo(9.25, 5.85, 7.25, 7.85, 7, 11.6)
+    context.bezierCurveTo(6.75, 7.85, 4.75, 5.85, 1, 5.6)
+    context.bezierCurveTo(4.75, 5.35, 6.75, 3.35, 7, -0.4)
+    context.closePath()
+  }
+
+  context.save()
+  traceStar()
+  context.clip()
+
+  context.fillStyle = '#3B82F6'
+  context.fillRect(1, -0.4, 12, 12)
+
+  const topGrad = context.createRadialGradient(6.4, 0.56, 0, 6.4, 0.56, 7.0)
+  topGrad.addColorStop(0, 'rgba(250, 66, 72, 1)')
+  topGrad.addColorStop(0.55, 'rgba(250, 66, 72, 0.68)')
+  topGrad.addColorStop(1, 'rgba(250, 66, 72, 0)')
+  context.fillStyle = topGrad
+  context.fillRect(1, -0.4, 12, 12)
+
+  const leftGrad = context.createRadialGradient(1.72, 5.6, 0, 1.72, 5.6, 7.0)
+  leftGrad.addColorStop(0, 'rgba(251, 188, 4, 1)')
+  leftGrad.addColorStop(0.55, 'rgba(251, 188, 4, 0.7)')
+  leftGrad.addColorStop(1, 'rgba(251, 188, 4, 0)')
+  context.fillStyle = leftGrad
+  context.fillRect(1, -0.4, 12, 12)
+
+  const botGrad = context.createRadialGradient(6.4, 10.64, 0, 6.4, 10.64, 6.7)
+  botGrad.addColorStop(0, 'rgba(52, 168, 83, 1)')
+  botGrad.addColorStop(0.55, 'rgba(52, 168, 83, 0.7)')
+  botGrad.addColorStop(1, 'rgba(52, 168, 83, 0)')
+  context.fillStyle = botGrad
+  context.fillRect(1, -0.4, 12, 12)
+
+  const sx = 8.4 + pupilX * 2.5
+  const sy = 3.7 + pupilY * 2.5
+  const specGrad = context.createRadialGradient(sx, sy, 0, sx, sy, 4.2)
+  specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.44)')
+  specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = specGrad
+  context.fillRect(1, -0.4, 12, 12)
+  context.restore()
+
+  traceStar()
+  context.strokeStyle = 'rgba(255, 255, 255, 0.22)'
+  context.lineWidth = 0.24
+  context.stroke()
+
+  if (!sleeping && !reduced) {
+    const pulseA = 0.7 + 0.3 * Math.sin(now / 420)
+    const pulseB = 0.7 + 0.3 * Math.cos(now / 420 + 1.1)
+    const orbitAngle = dizzy ? angle * 0.25 : Math.sin(now / 900) * 0.12
+
+    context.save()
+    context.translate(7, 5.6)
+    context.rotate(orbitAngle)
+    context.translate(-7, -5.6)
+
+    context.fillStyle = '#93C5FD'
+    context.globalAlpha = 0.55 + 0.4 * pulseA
+    drawMicroStar(context, 11.4, 1.4, 0.88 * pulseA)
+
+    context.fillStyle = '#FDE68A'
+    context.globalAlpha = 0.55 + 0.4 * pulseB
+    drawMicroStar(context, 2.6, 9.8, 0.75 * pulseB)
+    context.restore()
+  }
+
+  context.restore()
 }
 
 export function ChispaCanvas({ width, height, cursorRef, emote, sleeping = false, family = 'claude' }: ChispaCanvasProps): JSX.Element {
@@ -222,15 +446,40 @@ export function ChispaCanvas({ width, height, cursorRef, emote, sleeping = false
       context.scale(unit * scaleX, unit * scaleY)
       context.rotate(rotation)
       context.translate(-7, -11)
-      drawBody(context, inputs.family)
-      if (name === 'greeting') {
-        const palette = PALETTES[inputs.family] ?? PALETTES.claude
-        context.fillStyle = palette.body
-        context.beginPath()
-        context.ellipse(12.3, 6.2 + wave, 0.7, 1.4, -0.4 + wave, 0, Math.PI * 2)
-        context.fill()
+
+      if (inputs.family === 'codex') {
+        drawCodex(
+          context,
+          inputs.sleeping,
+          closed,
+          pupilX,
+          pupilY,
+          name === 'dizzy',
+          progress * Math.PI * 8,
+          name === 'greeting' ? wave : null,
+        )
+      } else if (inputs.family === 'gemini') {
+        drawGemini(
+          context,
+          now,
+          inputs.sleeping,
+          reduced,
+          pupilX,
+          pupilY,
+          name === 'dizzy',
+          progress * Math.PI * 8,
+        )
+      } else {
+        drawClaudeBody(context)
+        if (name === 'greeting') {
+          context.fillStyle = CLAUDE_PALETTE.body
+          context.beginPath()
+          context.ellipse(12.3, 6.2 + wave, 0.7, 1.4, -0.4 + wave, 0, Math.PI * 2)
+          context.fill()
+        }
+        drawClaudeEyes(context, inputs.sleeping ? 1 : closed, pupilX, pupilY, name === 'dizzy', progress * Math.PI * 8)
       }
-      drawEyes(context, inputs.sleeping ? 1 : closed, pupilX, pupilY, name === 'dizzy', progress * Math.PI * 8, inputs.family)
+
       context.restore()
     }
 

@@ -1,30 +1,19 @@
 /* estados nuevos de Chispa: tool, thinking, waiting, error, familias y las insignias de proveedor */
 .mascot {
   --mascot-wait: #f2c14e;
+  --mascot-dot: var(--mascot-spark);
 }
 .mascot-family-codex:not(.mascot-error) {
-  --mascot-body: #10a37f;
-  --mascot-cheek: #6ee7b7;
-  --mascot-spark: #93c5fd;
-}
-.mascot-family-codex .m-spark {
-  animation: codex-antenna 1.4s ease-in-out infinite;
-}
-@keyframes codex-antenna {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+  --mascot-body: #4669e8;
+  --mascot-cheek: #94b6ff;
+  --mascot-spark: #5ce1e6;
+  --mascot-dot: light-dark(#2447b2, #5ce1e6);
 }
 .mascot-family-gemini:not(.mascot-error) {
-  --mascot-body: #6366f1;
-  --mascot-cheek: #c084fc;
-  --mascot-spark: #38bdf8;
-}
-.mascot-family-gemini .m-spark {
-  animation: gemini-star 1.8s ease-in-out infinite;
-}
-@keyframes gemini-star {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  --mascot-body: #3b82f6;
+  --mascot-cheek: #fbbc04;
+  --mascot-spark: #93c5fd;
+  --mascot-dot: light-dark(#1d4ed8, #7dd3fc);
 }
 .mascot-error {
   --mascot-body: #ff6f61;
@@ -33,6 +22,114 @@
 }
 .mascot-error .m-body {
   animation-duration: 3.2s;
+}
+
+/* Codex: cursor de terminal, balanceo de brazos y rebote suave */
+.m-codex-cursor {
+  animation: codex-cursor-blink 1s steps(1, end) infinite;
+}
+@keyframes codex-cursor-blink {
+  0%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0.12; }
+}
+.m-codex-arm-l,
+.m-codex-arm-r {
+  transform-box: fill-box;
+  transform-origin: 50% 18%;
+}
+.mascot-family-codex.mascot-working .m-body {
+  animation: codex-work-bob 0.85s ease-in-out infinite;
+}
+@keyframes codex-work-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.6px); }
+}
+.mascot-family-codex.mascot-working .m-codex-arm-l {
+  animation: codex-arm-swing-l 0.85s ease-in-out infinite;
+}
+.mascot-family-codex.mascot-working .m-codex-arm-r {
+  animation: codex-arm-swing-r 0.85s ease-in-out infinite;
+}
+.mascot-family-codex.mascot-tool .m-codex-arm-l {
+  animation: codex-arm-tool 0.34s ease-in-out infinite;
+}
+.mascot-family-codex.mascot-tool .m-codex-arm-r {
+  animation: codex-arm-tool 0.34s ease-in-out 0.17s infinite;
+}
+.mascot-family-codex.mascot-announce .m-codex-arm-r {
+  animation: codex-arm-wave 0.48s ease-in-out 5;
+}
+.mascot-family-codex.mascot-talking .m-codex-prompt-group {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: codex-talk-prompt 360ms ease-in-out infinite;
+}
+@keyframes codex-arm-swing-l {
+  0%, 100% { transform: rotate(4deg); }
+  50% { transform: rotate(-10deg); }
+}
+@keyframes codex-arm-swing-r {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+}
+@keyframes codex-arm-tool {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1.2px) rotate(-14deg); }
+}
+@keyframes codex-arm-wave {
+  0%, 100% { transform: rotate(-16deg); }
+  50% { transform: rotate(-42deg); }
+}
+@keyframes codex-talk-prompt {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.55px); }
+}
+
+/* Gemini: respiracion de la estrella, pulso activo y destellos satelites */
+.m-gemini-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gemini-breathe 3.2s ease-in-out infinite;
+}
+.mascot-family-gemini.mascot-working .m-body,
+.mascot-family-gemini.mascot-tool .m-body {
+  animation: gemini-pulse 1.1s ease-in-out infinite;
+}
+.mascot-family-gemini.mascot-tool .m-body {
+  animation-duration: 0.75s;
+}
+.mascot-family-gemini.mascot-sleeping .m-gemini-star {
+  opacity: 0.72;
+  filter: saturate(0.45);
+  animation-duration: 4.5s;
+}
+.m-gemini-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gemini-orbit-twinkle 2.4s ease-in-out infinite;
+}
+.m-gemini-orbit-b {
+  animation-delay: 1.2s;
+}
+.mascot-family-gemini.mascot-working .m-gemini-orbit {
+  animation-duration: 1.3s;
+}
+@keyframes gemini-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@keyframes gemini-pulse {
+  0%, 100% { transform: scale(0.97); }
+  50% { transform: scale(1.06); }
+}
+@keyframes gemini-orbit-twinkle {
+  0%, 100% { opacity: 0.45; transform: scale(0.85) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(12deg); }
+}
+
+.mascot-family-codex.mascot-alert .m-body,
+.mascot-family-gemini.mascot-alert .m-body {
+  animation: shake 0.3s steps(2, end) infinite;
 }
 
 /* tool: manos que alternan rapido */
@@ -216,15 +313,32 @@
 /* movimiento reducido: especificidad mayor que style.css (.mascot-alert .m-body, .m-alert) */
 @media (prefers-reduced-motion: reduce) {
   .mascot.mascot-talking,
-  .mascot-talking .m-mouth-frame { animation: none; }
+  .mascot-talking .m-mouth-frame,
+  .mascot-family-codex.mascot-talking .m-codex-prompt-group { animation: none; }
   .mascot.mascot-talking .m-body { animation: none; }
   .mascot.mascot-announce .m-body { animation: none; }
   .m-wave, .m-glint { display: none; }
   .m-hand, .m-dot, .m-wait, .codex-badge, .gemini-badge, .provider-badge { animation: none; }
-  .mascot-family-codex .m-spark,
-  .mascot-family-gemini .m-spark { animation: none; }
+  .m-codex-cursor,
+  .m-codex-arm-l,
+  .m-codex-arm-r,
+  .m-gemini-star,
+  .m-gemini-orbit,
+  .mascot-family-codex .m-body,
+  .mascot-family-gemini .m-body,
+  .mascot-family-codex.mascot-working .m-body,
+  .mascot-family-codex.mascot-working .m-codex-arm-l,
+  .mascot-family-codex.mascot-working .m-codex-arm-r,
+  .mascot-family-gemini.mascot-working .m-body,
+  .mascot-family-codex.mascot-tool .m-codex-arm-l,
+  .mascot-family-codex.mascot-tool .m-codex-arm-r,
+  .mascot-family-codex.mascot-announce .m-codex-arm-r,
+  .mascot-family-gemini.mascot-tool .m-body,
+  .mascot-family-gemini.mascot-working .m-gemini-orbit { animation: none; }
   .mascot .m-alert,
   .mascot.mascot-alert .m-body,
+  .mascot-family-codex.mascot-alert .m-body,
+  .mascot-family-gemini.mascot-alert .m-body,
   .mascot .m-sweat,
   .mascot .m-ring { animation: none; }
 }

@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { GeminiBadge, GRIDS, Mascot } from '../src/web/mascot/Mascot'
+import { CodexBadge, GeminiBadge, GRIDS, Mascot } from '../src/web/mascot/Mascot'
 import {
   codexBusy,
   exhaustText,
@@ -171,5 +171,81 @@ describe('familias de mascota (Claude, Codex, Gemini)', () => {
     const badgeHtml = renderToStaticMarkup(createElement(GeminiBadge))
     expect(badgeHtml).toContain('gemini-badge')
     expect(badgeHtml).toContain('aria-label="Gemini trabajando"')
+  })
+
+  it('renderiza Mascot de Codex con nube azul, visor terminal y prompt >_', () => {
+    const html = renderToStaticMarkup(createElement(Mascot, { family: 'codex', state: 'working', level: 4 }))
+    expect(html).toContain('viewBox="0 0 28 28"')
+    expect(html).toContain('m-codex-head')
+    expect(html).toContain('m-codex-visor')
+    expect(html).toContain('m-codex-cursor')
+    expect(html).toContain('m-codex-arm-l')
+    expect(html).toContain('m-codex-arm-r')
+    expect(html).toContain('#94B6FF')
+    expect(html).toContain('#4669E8')
+    expect(html).toContain('#111A3D')
+    expect(html).toContain('#5CE1E6')
+    expect(html).toContain('m-ring')
+    expect(html).toContain('m-sweat')
+
+    const sleepHtml = renderToStaticMarkup(createElement(Mascot, { family: 'codex', state: 'sleeping' }))
+    expect(sleepHtml).toContain('m-codex-sleep')
+    expect(sleepHtml).toContain('m-z')
+    expect(sleepHtml).not.toContain('m-codex-cursor')
+
+    const thinkHtml = renderToStaticMarkup(createElement(Mascot, { family: 'codex', state: 'thinking' }))
+    expect(thinkHtml).toContain('m-codex-thinking')
+    expect(thinkHtml).toContain('m-dot-1')
+
+    const errHtml = renderToStaticMarkup(createElement(Mascot, { family: 'codex', state: 'error' }))
+    expect(errHtml).toContain('m-codex-error')
+    expect(errHtml).toContain('#FF8A80')
+  })
+
+  it('renderiza Mascot de Gemini con estrella de 4 puntas y gradientes oficiales', () => {
+    const html = renderToStaticMarkup(createElement(Mascot, { family: 'gemini', state: 'working', announce: true }))
+    expect(html).toContain('viewBox="0 0 28 28"')
+    expect(html).toContain('m-gemini-star')
+    expect(html).toContain('m-gemini-orbit')
+    expect(html).toContain('m-glint')
+    expect(html).toContain('#3B82F6')
+    expect(html).toContain('#FA4248')
+    expect(html).toContain('#FBBC04')
+    expect(html).toContain('#34A853')
+    expect(html).toContain('radialGradient')
+    expect(html).toContain('clipPath')
+
+    const sleepHtml = renderToStaticMarkup(createElement(Mascot, { family: 'gemini', state: 'sleeping' }))
+    expect(sleepHtml).toContain('m-z')
+    expect(sleepHtml).not.toContain('m-gemini-orbit')
+
+    const errHtml = renderToStaticMarkup(createElement(Mascot, { family: 'gemini', state: 'error' }))
+    expect(errHtml).toContain('m-gemini-error-flare')
+  })
+
+  it('usa IDs únicos por instancia en SVG y renderiza CodexBadge y GeminiBadge', () => {
+    const twoMascots = renderToStaticMarkup(
+      createElement('div', null,
+        createElement(Mascot, { family: 'gemini', state: 'happy' }),
+        createElement(Mascot, { family: 'gemini', state: 'working' }),
+      ),
+    )
+    const clipIds = [...twoMascots.matchAll(/clipPath id="([^"]+)"/g)].map((m) => m[1])
+    expect(clipIds).toHaveLength(2)
+    expect(new Set(clipIds).size).toBe(2)
+
+    const codexBadgeHtml = renderToStaticMarkup(createElement(CodexBadge))
+    expect(codexBadgeHtml).toContain('provider-badge codex-badge')
+    expect(codexBadgeHtml).toContain('#111A3D')
+    expect(codexBadgeHtml).toContain('#4669E8')
+    expect(codexBadgeHtml).toContain('#5CE1E6')
+
+    const geminiBadgeHtml = renderToStaticMarkup(createElement(GeminiBadge))
+    expect(geminiBadgeHtml).toContain('provider-badge gemini-badge')
+    expect(geminiBadgeHtml).toContain('#0F172A')
+    expect(geminiBadgeHtml).toContain('#FA4248')
+    expect(geminiBadgeHtml).toContain('#FBBC04')
+    expect(geminiBadgeHtml).toContain('#34A853')
+    expect(geminiBadgeHtml).toContain('#3B82F6')
   })
 })
