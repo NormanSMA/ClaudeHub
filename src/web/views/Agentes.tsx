@@ -215,7 +215,7 @@ export function AgentesView() {
       </div>
       <h3>Agentes ahora</h3>
       <AgentsNow agents={agents} />
-      <h3>Chats activos de Claude</h3>
+      <h3>Chats activos</h3>
       <ActiveList chats={data.chats} agents={agents} alertAt={data.alertAt} />
       {data.chats.some((c) => c.context.estimated) && (
         <p className="foot">

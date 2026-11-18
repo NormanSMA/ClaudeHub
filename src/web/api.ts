@@ -215,6 +215,7 @@ export function useApi<T>(path: string, every = 30_000): { data: T | null; error
 }
 
 export interface ActiveChat {
+  source?: SourceId
   session: string
   title: string
   project: string

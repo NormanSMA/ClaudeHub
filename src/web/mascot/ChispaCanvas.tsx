@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type JSX, type MutableRefObject } from 'react'
+import type { MascotFamily } from './mascotState'
 
 export type ChispaEmote = 'greeting' | 'squish' | 'dizzy' | 'happyJump'
 
@@ -8,13 +9,13 @@ export interface ChispaCanvasProps {
   cursorRef: MutableRefObject<{ x: number; y: number } | null>
   emote: { name: ChispaEmote; id: number } | null
   sleeping?: boolean
+  family?: MascotFamily
 }
 
-const COLORS = {
-  body: '#D97757',
-  cheek: '#F0A488',
-  spark: '#F3C3A8',
-  eye: '#1F1E1D',
+const PALETTES: Record<MascotFamily, { body: string; cheek: string; spark: string; eye: string }> = {
+  claude: { body: '#D97757', cheek: '#F0A488', spark: '#F3C3A8', eye: '#1F1E1D' },
+  codex: { body: '#10A37F', cheek: '#6EE7B7', spark: '#93C5FD', eye: '#1F1E1D' },
+  gemini: { body: '#6366F1', cheek: '#C084FC', spark: '#38BDF8', eye: '#1F1E1D' },
 }
 const DURATION: Record<ChispaEmote, number> = {
   greeting: 1_000,
@@ -24,8 +25,9 @@ const DURATION: Record<ChispaEmote, number> = {
 }
 const MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
-function drawBody(context: CanvasRenderingContext2D): void {
-  context.fillStyle = COLORS.body
+function drawBody(context: CanvasRenderingContext2D, family: MascotFamily): void {
+  const palette = PALETTES[family] ?? PALETTES.claude
+  context.fillStyle = palette.body
   context.beginPath()
   context.roundRect(2, 4, 10, 6.6, 2.1)
   context.fill()
@@ -38,16 +40,35 @@ function drawBody(context: CanvasRenderingContext2D): void {
   context.roundRect(6.8, 2.5, 0.7, 2, 0.35)
   context.fill()
 
-  context.fillStyle = COLORS.spark
+  context.fillStyle = palette.spark
   context.beginPath()
-  context.moveTo(7, 0)
-  context.quadraticCurveTo(7.6, 1.1, 9, 1.4)
-  context.quadraticCurveTo(7.6, 1.7, 7, 2.8)
-  context.quadraticCurveTo(6.4, 1.7, 5, 1.4)
-  context.quadraticCurveTo(6.4, 1.1, 7, 0)
-  context.fill()
+  if (family === 'codex') {
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3 - Math.PI / 6
+      const hx = 7 + Math.cos(a) * 1.45
+      const hy = 1.4 + Math.sin(a) * 1.45
+      if (i === 0) context.moveTo(hx, hy)
+      else context.lineTo(hx, hy)
+    }
+    context.closePath()
+    context.fill()
+  } else if (family === 'gemini') {
+    context.moveTo(7, -0.2)
+    context.quadraticCurveTo(7.35, 1.05, 9.3, 1.4)
+    context.quadraticCurveTo(7.35, 1.75, 7, 3)
+    context.quadraticCurveTo(6.65, 1.75, 4.7, 1.4)
+    context.quadraticCurveTo(6.65, 1.05, 7, -0.2)
+    context.fill()
+  } else {
+    context.moveTo(7, 0)
+    context.quadraticCurveTo(7.6, 1.1, 9, 1.4)
+    context.quadraticCurveTo(7.6, 1.7, 7, 2.8)
+    context.quadraticCurveTo(6.4, 1.7, 5, 1.4)
+    context.quadraticCurveTo(6.4, 1.1, 7, 0)
+    context.fill()
+  }
 
-  context.fillStyle = COLORS.cheek
+  context.fillStyle = palette.cheek
   for (const x of [3.4, 10.6]) {
     context.beginPath()
     context.ellipse(x, 8.6, 0.7, 0.4, 0, 0, Math.PI * 2)
@@ -62,9 +83,11 @@ function drawEyes(
   pupilY: number,
   dizzy: boolean,
   angle: number,
+  family: MascotFamily,
 ): void {
-  context.fillStyle = COLORS.eye
-  context.strokeStyle = COLORS.eye
+  const palette = PALETTES[family] ?? PALETTES.claude
+  context.fillStyle = palette.eye
+  context.strokeStyle = palette.eye
   context.lineWidth = 0.2
   context.lineCap = 'round'
   for (const x of [4.5, 9.5]) {
@@ -94,15 +117,15 @@ function drawEyes(
   }
 }
 
-export function ChispaCanvas({ width, height, cursorRef, emote, sleeping = false }: ChispaCanvasProps): JSX.Element {
+export function ChispaCanvas({ width, height, cursorRef, emote, sleeping = false, family = 'claude' }: ChispaCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const inputsRef = useRef({ cursorRef, emote, sleeping })
+  const inputsRef = useRef({ cursorRef, emote, sleeping, family })
   const emoteRef = useRef<{ name: ChispaEmote; start: number } | null>(null)
   const emoteIdRef = useRef<number | null>(null)
   const [reduced, setReduced] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia(MOTION_QUERY).matches,
   )
-  inputsRef.current = { cursorRef, emote, sleeping }
+  inputsRef.current = { cursorRef, emote, sleeping, family }
 
   useEffect(() => {
     const media = window.matchMedia(MOTION_QUERY)
@@ -199,14 +222,15 @@ export function ChispaCanvas({ width, height, cursorRef, emote, sleeping = false
       context.scale(unit * scaleX, unit * scaleY)
       context.rotate(rotation)
       context.translate(-7, -11)
-      drawBody(context)
+      drawBody(context, inputs.family)
       if (name === 'greeting') {
-        context.fillStyle = COLORS.body
+        const palette = PALETTES[inputs.family] ?? PALETTES.claude
+        context.fillStyle = palette.body
         context.beginPath()
         context.ellipse(12.3, 6.2 + wave, 0.7, 1.4, -0.4 + wave, 0, Math.PI * 2)
         context.fill()
       }
-      drawEyes(context, inputs.sleeping ? 1 : closed, pupilX, pupilY, name === 'dizzy', progress * Math.PI * 8)
+      drawEyes(context, inputs.sleeping ? 1 : closed, pupilX, pupilY, name === 'dizzy', progress * Math.PI * 8, inputs.family)
       context.restore()
     }
 
@@ -225,7 +249,7 @@ export function ChispaCanvas({ width, height, cursorRef, emote, sleeping = false
     }
     frameId = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(frameId)
-  }, [width, height, reduced])
+  }, [width, height, reduced, family])
 
   return <canvas ref={canvasRef} width={width} height={height} style={{ width, height }} aria-hidden="true" />
 }

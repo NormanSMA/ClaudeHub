@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
-import type { ActiveChat, ActiveReport, PlanReport, PlanWindow } from '../api'
+import type { ActiveChat, ActiveReport, PlanReport, PlanWindow, SourceId } from '../api'
 import { compact, pct } from '../format'
 import { AnimatedNumber } from './AnimatedNumber'
+
+const SOURCE_LABEL: Record<SourceId, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  omniroute: 'OmniRoute',
+  antigravity: 'Antigravity',
+}
 
 export function ctxColor(p: number, alertAt = 0.85): string {
   return p >= alertAt ? 'var(--danger)' : p >= 0.6 ? 'var(--warn)' : 'var(--ok)'
@@ -129,6 +137,12 @@ export function ActiveList({ chats, agents = [], alertAt = 0.85, dense = false }
               </span>
             </div>
             <div className="active-meta">
+              {c.source && SOURCE_LABEL[c.source] && (
+                <>
+                  <span className={`src-pill src-${c.source}`}>{SOURCE_LABEL[c.source]}</span>
+                  {' · '}
+                </>
+              )}
               {c.project} · {c.model} · {ago(c.lastTs)}
               {c.activeSubagents > 0 && <b> · {c.activeSubagents} subagente{c.activeSubagents > 1 ? 's' : ''}</b>}
             </div>

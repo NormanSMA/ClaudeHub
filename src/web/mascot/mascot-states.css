@@ -1,6 +1,30 @@
-/* estados nuevos de Chispa: tool, thinking, waiting, error, y la insignia de Codex */
+/* estados nuevos de Chispa: tool, thinking, waiting, error, familias y las insignias de proveedor */
 .mascot {
   --mascot-wait: #f2c14e;
+}
+.mascot-family-codex:not(.mascot-error) {
+  --mascot-body: #10a37f;
+  --mascot-cheek: #6ee7b7;
+  --mascot-spark: #93c5fd;
+}
+.mascot-family-codex .m-spark {
+  animation: codex-antenna 1.4s ease-in-out infinite;
+}
+@keyframes codex-antenna {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.mascot-family-gemini:not(.mascot-error) {
+  --mascot-body: #6366f1;
+  --mascot-cheek: #c084fc;
+  --mascot-spark: #38bdf8;
+}
+.mascot-family-gemini .m-spark {
+  animation: gemini-star 1.8s ease-in-out infinite;
+}
+@keyframes gemini-star {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 .mascot-error {
   --mascot-body: #ff6f61;
@@ -49,8 +73,16 @@
   50% { opacity: 0.15; }
 }
 
-/* insignia de Codex en la esquina inferior derecha */
-.codex-badge {
+/* insignias de Codex y Gemini en la esquina inferior derecha */
+.mascot-badges {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 2px;
+}
+.codex-badge,
+.gemini-badge {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -61,7 +93,12 @@
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
   animation: codex-pulse 1.6s steps(2, end) infinite;
 }
-.codex-badge svg {
+.mascot-badges .codex-badge,
+.mascot-badges .gemini-badge {
+  position: static;
+}
+.codex-badge svg,
+.gemini-badge svg {
   display: block;
 }
 @keyframes codex-pulse {
@@ -183,7 +220,9 @@
   .mascot.mascot-talking .m-body { animation: none; }
   .mascot.mascot-announce .m-body { animation: none; }
   .m-wave, .m-glint { display: none; }
-  .m-hand, .m-dot, .m-wait, .codex-badge { animation: none; }
+  .m-hand, .m-dot, .m-wait, .codex-badge, .gemini-badge, .provider-badge { animation: none; }
+  .mascot-family-codex .m-spark,
+  .mascot-family-gemini .m-spark { animation: none; }
   .mascot .m-alert,
   .mascot.mascot-alert .m-body,
   .mascot .m-sweat,

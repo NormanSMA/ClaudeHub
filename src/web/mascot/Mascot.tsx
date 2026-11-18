@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react'
-import type { MascotState } from './mascotState'
+import type { MascotFamily, MascotState } from './mascotState'
 import './mascot-states.css'
 
-export type { MascotState } from './mascotState'
+export type { MascotFamily, MascotState } from './mascotState'
 
 // Personaje propio: "Chispa". Cuadricula 14 x 12. o = cuerpo, l = mejilla, s = chispa, e = ojo.
 const GRID = [
@@ -19,6 +19,44 @@ const GRID = [
   '.ooo.oooo.ooo.',
   '.oo..o..o..oo.',
 ]
+
+export const GRIDS: Record<MascotFamily, string[]> = {
+  claude: GRID,
+  codex: [
+    '.....ssss.....',
+    '....s.ss.s....',
+    '.....ssss.....',
+    '......oo......',
+    '..oooooooooo..',
+    '.oooooooooooo.',
+    '.oooeooooeooo.',
+    '.oooeooooeooo.',
+    '.oolooooooolo.',
+    '..oooooooooo..',
+    '...oo.oo.oo...',
+    '...o..oo..o...',
+  ],
+  gemini: [
+    '......ss......',
+    '....ssssss....',
+    '......ss......',
+    '......oo......',
+    '....oooooo....',
+    '..oooooooooo..',
+    '..ooeooooeoo..',
+    '..ooeooooeoo..',
+    '..oloooooolo..',
+    '...oooooooo...',
+    '..oo..oo..oo..',
+    '.o....oo....o.',
+  ],
+}
+
+const FAMILY_NAME: Record<MascotFamily, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+}
 
 const COLOR: Record<string, string> = { o: 'var(--mascot-body)', l: 'var(--mascot-cheek)', s: 'var(--mascot-spark)' }
 
@@ -55,12 +93,14 @@ const GLINTS: [number, number, number][] = [
 
 export function Mascot({
   state = 'sleeping',
+  family = 'claude',
   size = 56,
   level,
   announce = false,
   talking = false,
 }: {
   state?: MascotState
+  family?: MascotFamily
   size?: number
   level?: number | null
   announce?: boolean
@@ -70,7 +110,8 @@ export function Mascot({
   const cells: ReactElement[] = []
   const eyes: [number, number][] = []
   const calm = state === 'thinking' // los puntos de pensar ocupan el lugar de la chispa
-  GRID.forEach((row, y) =>
+  const grid = GRIDS[family] ?? GRIDS.claude
+  grid.forEach((row, y) =>
     [...row].forEach((c, x) => {
       if (c === '.') return
       if (c === 'e') {
@@ -85,15 +126,16 @@ export function Mascot({
     }),
   )
   const busy = state === 'working' || state === 'tool' || state === 'thinking'
+  const baseLabel = family === 'claude' ? LABEL[state] : LABEL[state].replace('Claude', FAMILY_NAME[family])
   return (
     <svg
-      className={`mascot mascot-${state}${busy ? ' mascot-working' : ''}${lv ? ` mascot-lv${lv}` : ''}${announce ? ' mascot-announce' : ''}${talking ? ' mascot-talking' : ''}`}
+      className={`mascot mascot-family-${family} mascot-${state}${busy ? ' mascot-working' : ''}${lv ? ` mascot-lv${lv}` : ''}${announce ? ' mascot-announce' : ''}${talking ? ' mascot-talking' : ''}`}
       width={size}
       height={Math.round((size * 12) / 14)}
       viewBox="0 0 14 12"
       shapeRendering="crispEdges"
       role="img"
-      aria-label={lv ? `${LABEL[state]}, nivel ${lv}` : LABEL[state]}
+      aria-label={lv ? `${baseLabel}, nivel ${lv}` : baseLabel}
     >
       {lv !== null && lv >= 4 && <rect className="m-ring" x={0.2} y={0.2} width={13.6} height={11.6} rx={1.5} fill="none" stroke="var(--lv)" strokeWidth={0.3} />}
       <g className="m-body">
@@ -187,11 +229,32 @@ export function CodexBadge() {
     }),
   )
   return (
-    <span className="codex-badge" title="Codex trabajando" role="img" aria-label="Codex trabajando">
+    <span className="provider-badge codex-badge" title="Codex trabajando" role="img" aria-label="Codex trabajando">
       <svg width={18} height={18} viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
-        <rect x={1} y={0} width={8} height={10} fill="var(--blue)" />
-        <rect x={0} y={1} width={10} height={8} fill="var(--blue)" />
+        <rect x={1} y={0} width={8} height={10} fill="#1d4ed8" />
+        <rect x={0} y={1} width={10} height={8} fill="#1d4ed8" />
         {letter}
+      </svg>
+    </span>
+  )
+}
+
+// Insignia pixel de Gemini: estrella de 4 puntas sobre fondo violeta de contraste alto.
+const GEMINI_STAR = ['..#..', '.###.', '#####', '.###.', '..#..']
+
+export function GeminiBadge() {
+  const star: ReactElement[] = []
+  GEMINI_STAR.forEach((row, y) =>
+    [...row].forEach((c, x) => {
+      if (c === '#') star.push(<rect key={`${x}-${y}`} x={x + 2.5} y={y + 2.5} width={1} height={1} fill="#fff" />)
+    }),
+  )
+  return (
+    <span className="provider-badge gemini-badge" title="Gemini trabajando" role="img" aria-label="Gemini trabajando">
+      <svg width={18} height={18} viewBox="0 0 10 10" shapeRendering="crispEdges" aria-hidden="true">
+        <rect x={1} y={0} width={8} height={10} fill="#5b21b6" />
+        <rect x={0} y={1} width={10} height={8} fill="#5b21b6" />
+        {star}
       </svg>
     </span>
   )
