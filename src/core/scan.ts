@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, statSync, readFileSync, openSync, readSync, closeSync } from 'node:fs'
 import { mkdir, writeFile, rename } from 'node:fs/promises'
-import { join, dirname, basename, sep, relative, isAbsolute } from 'node:path'
+import { join, dirname, basename, sep, relative, isAbsolute, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { dataDir, codexSessionsDir, geminiTmpDir, antigravityBrainDir, antigravityDir } from './paths'
+import { dataDir, codexSessionsDir, geminiTmpDir, antigravityBrainDir, antigravityDir, loomRunsFile } from './paths'
 import { config } from './config'
 import { newerVersion, parseFile } from './parse'
 import { initCodexState, parseCodexChunk, type CodexState } from './sources/codex'
@@ -14,11 +14,12 @@ import {
   seenAntigravityIds,
   type AntigravityState,
 } from './sources/antigravity'
+import { parseLoomChunk, seenLoomIds } from './sources/loom'
 import { preferLimitHit, type LimitHit, type Rec, type SessionMeta, type Source, type SourceStat } from './types'
 
 export const PROJECTS_DIR = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects')
 const CACHE_FILE = process.env.CLAUDEHUB_CACHE ?? join(dataDir(), 'cache.json')
-const CACHE_VERSION = 10
+const CACHE_VERSION = 11
 const SAVE_EVERY_MS = 60_000
 const CHUNK = 8 * 1024 * 1024
 
@@ -59,7 +60,7 @@ export interface ScanOptions {
   onRead?: (file: string, bytes: number) => void
 }
 
-type FileSource = 'claude' | 'codex' | 'gemini' | 'antigravity'
+type FileSource = 'claude' | 'codex' | 'gemini' | 'antigravity' | 'loom'
 type Stat = { mtimeMs: number; size: number }
 
 interface Entry {
@@ -74,9 +75,11 @@ interface Ctx {
   codex: string
   gemini: string
   antigravity: string
+  loomFile: string
   wantCodex: boolean
   wantGemini: boolean
   wantAntigravity: boolean
+  wantLoom: boolean
   key: string
 }
 
@@ -199,15 +202,19 @@ function context(root: string, opts: ScanOptions): Ctx {
   const gemini = geminiTmpDir()
   const wantAntigravity = extra && cfg.sources.antigravity
   const antigravity = antigravityBrainDir()
+  const wantLoom = extra && cfg.sources.loom
+  const loomFile = loomRunsFile()
   return {
     root,
     codex,
     gemini,
     antigravity,
+    loomFile,
     wantCodex,
     wantGemini,
     wantAntigravity,
-    key: [root, codex, gemini, antigravity, wantCodex, wantGemini, wantAntigravity].join('|'),
+    wantLoom,
+    key: [root, codex, gemini, antigravity, loomFile, wantCodex, wantGemini, wantAntigravity, wantLoom].join('|'),
   }
 }
 
@@ -218,6 +225,7 @@ function listEntries(ctx: Ctx): Entry[] {
   }
   if (ctx.wantGemini) entries.push(...listGemini(ctx.gemini))
   if (ctx.wantAntigravity) entries.push(...listAntigravity(ctx.antigravity))
+  if (ctx.wantLoom && existsSync(ctx.loomFile)) entries.push({ file: ctx.loomFile, source: 'loom', project: '' })
   return entries
 }
 
@@ -241,6 +249,7 @@ function classify(p: string, ctx: Ctx): Entry | null {
       return { file: p, source: 'antigravity', project: '' }
     }
   }
+  if (ctx.wantLoom && resolve(p) === resolve(ctx.loomFile)) return { file: p, source: 'loom', project: '' }
   return null
 }
 
@@ -367,6 +376,16 @@ function readAntigravity({ e, st, prior }: Job): Read {
   return { entry: { mtime: st.mtimeMs, size: st.size, offset, recs, meta, antigravity: state }, added: changed ? recs : added }
 }
 
+function readLoom({ e, st, prior }: Job): Read {
+  const seen = seenLoomIds(prior?.recs ?? [])
+  const added: Rec[] = []
+  const offset = feedLines(e.file, prior?.offset ?? 0, st.size, (text) => {
+    for (const r of parseLoomChunk(text, seen)) added.push(r)
+  })
+  const recs = prior ? prior.recs.concat(added) : added
+  return { entry: { mtime: st.mtimeMs, size: st.size, offset, recs, meta: {} }, added }
+}
+
 function newMerged(): Merged {
   return {
     recs: [],
@@ -374,8 +393,12 @@ function newMerged(): Merged {
     index: new Map(),
     sessions: new Map(),
     limitHit: null,
-    counts: { claude: { files: 0, records: 0 }, codex: { files: 0, records: 0 }, gemini: { files: 0, records: 0 },
+    counts: {
+      claude: { files: 0, records: 0 },
+      codex: { files: 0, records: 0 },
+      gemini: { files: 0, records: 0 },
       antigravity: { files: 0, records: 0 },
+      loom: { files: 0, records: 0 },
     },
     skipped: 0,
   }
@@ -459,7 +482,16 @@ function applyFile(eng: Engine, e: Entry, st: Stat): void {
   const grew = !!hit && st.size > hit.size && hit.offset <= st.size
   const prior = grew ? hit : undefined
   try {
-    const read = e.source === 'claude' ? readClaude({ e, st, prior }) : e.source === 'codex' ? readCodex({ e, st, prior }) : e.source === 'gemini' ? readGemini({ e, st, prior }) : readAntigravity({ e, st, prior })
+    const read =
+      e.source === 'claude'
+        ? readClaude({ e, st, prior })
+        : e.source === 'codex'
+          ? readCodex({ e, st, prior })
+          : e.source === 'gemini'
+            ? readGemini({ e, st, prior })
+            : e.source === 'loom'
+              ? readLoom({ e, st, prior })
+              : readAntigravity({ e, st, prior })
     eng.report(e.file, st.size - (prior?.offset ?? 0))
     eng.cache.files[e.file] = read.entry
     eng.infos.set(e.file, e)
@@ -529,6 +561,12 @@ function makeResult(eng: Engine, ctx: Ctx): ScanResult {
       gemini: stat('gemini', ctx.wantGemini, ctx.gemini),
       antigravity: stat('antigravity', ctx.wantAntigravity, ctx.antigravity),
       omniroute: { enabled: false, files: 0, records: 0, ok: false, reason: 'sin configurar' },
+      opencode: { enabled: false, files: 0, records: 0, ok: false, reason: 'sin configurar' },
+      loom: !ctx.wantLoom
+        ? { enabled: false, files: 0, records: 0, ok: false, reason: 'desactivada' }
+        : existsSync(ctx.loomFile)
+          ? { enabled: true, ...m.counts.loom, ok: true }
+          : { enabled: true, files: 0, records: 0, ok: false, reason: 'sin registros' },
     },
   }
 }

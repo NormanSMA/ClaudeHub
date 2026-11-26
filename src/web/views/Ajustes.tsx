@@ -336,7 +336,14 @@ function AboutSettings() {
   )
 }
 
-const SOURCE_LABELS = { codex: 'Codex', gemini: 'Gemini', omniroute: 'OmniRoute', antigravity: 'Antigravity' } as const
+const SOURCE_LABELS = {
+  codex: 'Codex',
+  gemini: 'Gemini',
+  omniroute: 'OmniRoute',
+  antigravity: 'Antigravity',
+  opencode: 'OpenCode',
+  loom: 'Loom',
+} as const
 
 function SourceSettings({ sources, onChange }: {
   sources: Form['sources']

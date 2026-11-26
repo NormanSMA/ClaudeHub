@@ -234,13 +234,18 @@ export function demoData(now = Date.now()): ScanResult {
 
   const other = demoOtherSources(now)
   const omni = demoOmniroute(now)
-  recs.push(...other.recs, ...omni)
+  const opencode = demoOpencode(now)
+  const loom = demoLoom(now)
+  recs.push(...other.recs, ...omni, ...opencode, ...loom)
+  const claudeCount = recs.length - other.recs.length - omni.length - opencode.length - loom.length
   const sources = {
-    claude: { enabled: true, files: SPECS.length, records: recs.length - other.recs.length - omni.length, ok: true },
+    claude: { enabled: true, files: SPECS.length, records: claudeCount, ok: true },
     codex: { enabled: true, files: other.codexFiles, records: other.codex, ok: true },
     gemini: { enabled: true, files: other.geminiFiles, records: other.gemini, ok: true },
     omniroute: { enabled: true, files: 1, records: omni.length, ok: true },
     antigravity: { enabled: true, files: other.antigravityFiles, records: other.antigravity, ok: true },
+    opencode: { enabled: true, files: 1, records: opencode.length, ok: true },
+    loom: { enabled: true, files: 1, records: loom.length, ok: true },
   }
   return { recs, sessions, limitHit: null, sources }
 }
@@ -378,4 +383,64 @@ function demoOtherSources(now: number) {
     geminiFiles: GEMINI_SPECS.length,
     antigravityFiles: ANTIGRAVITY_SPECS.length,
   }
+}
+
+/** Registros ficticios de OpenCode (incluye subagentes). Generador propio. */
+function demoOpencode(now: number): Rec[] {
+  const rand = rng(20261125)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const recs: Rec[] = []
+  for (let d = 7; d >= 0; d--) {
+    const dayStart = today.getTime() - d * DAY_MS
+    const count = 4 + Math.round(rand() * 8)
+    for (let i = 0; i < count; i++) {
+      const sub = rand() > 0.65
+      recs.push({
+        id: `opencode:demo-${recs.length}`,
+        ts: Math.min(now - 10 * 60_000, dayStart + (9 + rand() * 10) * 3_600_000),
+        model: sub ? 'gemini-3.8-flash' : 'deepseek-v4-pro',
+        input: 400 + Math.round(rand() * 2_000),
+        cacheWrite: 0,
+        cacheRead: 2_000 + Math.round(rand() * 12_000),
+        output: 120 + Math.round(rand() * 600),
+        session: `oc-demo-${d}`,
+        project: 'inventario-api',
+        role: sub ? 'subagent' : 'orchestrator',
+        ...(sub ? { agent: 'explore', agentFile: `oc-sub-${d}` } : {}),
+        source: 'opencode',
+      })
+    }
+  }
+  return recs
+}
+
+/** Registros ficticios de Loom (orquestador y subagentes). Generador propio. */
+function demoLoom(now: number): Rec[] {
+  const rand = rng(20261126)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const recs: Rec[] = []
+  for (let d = 5; d >= 0; d--) {
+    const dayStart = today.getTime() - d * DAY_MS
+    const count = 3 + Math.round(rand() * 6)
+    for (let i = 0; i < count; i++) {
+      const sub = rand() > 0.45
+      recs.push({
+        id: `loom:demo-${recs.length}`,
+        ts: Math.min(now - 10 * 60_000, dayStart + (10 + rand() * 9) * 3_600_000),
+        model: sub ? 'gpt-6.1-sol' : 'claude-sonnet-5-5',
+        input: 350 + Math.round(rand() * 1_800),
+        cacheWrite: 150,
+        cacheRead: 1_500 + Math.round(rand() * 10_000),
+        output: 180 + Math.round(rand() * 800),
+        session: `msn-demo-${d}`,
+        project: 'Loom',
+        role: sub ? 'subagent' : 'orchestrator',
+        ...(sub ? { agent: 'implementer', agentFile: `msn-demo-${d}-sub` } : {}),
+        source: 'loom',
+      })
+    }
+  }
+  return recs
 }

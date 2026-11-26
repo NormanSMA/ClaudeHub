@@ -184,7 +184,7 @@ describe('PUT /api/settings', () => {
     const { config } = (await res.json()) as { config: { name: string; alertAt: number; sources: Record<string, boolean> } }
     expect(config.name).toBe('Ada')
     expect(config.alertAt).toBe(0.7)
-    expect(config.sources).toEqual({ codex: true, gemini: false, omniroute: true, antigravity: true })
+    expect(config.sources).toEqual({ codex: true, gemini: false, omniroute: true, antigravity: true, opencode: true, loom: true })
     await put({ sources: { omniroute: false } })
   })
 })

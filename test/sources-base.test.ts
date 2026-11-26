@@ -63,13 +63,13 @@ describe('rutas de fuentes', () => {
 describe('config de fuentes', () => {
   it('trae valores por defecto', () => {
     const c = sanitize({})
-    expect(c.sources).toEqual({ codex: true, gemini: true, omniroute: false, antigravity: true })
+    expect(c.sources).toEqual({ codex: true, gemini: true, omniroute: false, antigravity: true, opencode: true, loom: true })
     expect(c.omniroute).toEqual({ container: 'omniroute', dbPath: '' })
     expect(c).toEqual(DEFAULTS)
   })
   it('acepta valores validos', () => {
     const c = sanitize({ sources: { codex: false, omniroute: true }, omniroute: { container: 'mi.omni-1', dbPath: ' C:\\db\\storage.sqlite ' } })
-    expect(c.sources).toEqual({ codex: false, gemini: true, omniroute: true, antigravity: true })
+    expect(c.sources).toEqual({ codex: false, gemini: true, omniroute: true, antigravity: true, opencode: true, loom: true })
     expect(c.omniroute).toEqual({ container: 'mi.omni-1', dbPath: 'C:\\db\\storage.sqlite' })
   })
   it('rechaza container invalido y acota dbPath', () => {

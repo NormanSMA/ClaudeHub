@@ -9,6 +9,8 @@ const SOURCE_LABEL: Record<SourceId, string> = {
   gemini: 'Gemini',
   omniroute: 'OmniRoute',
   antigravity: 'Antigravity',
+  opencode: 'OpenCode',
+  loom: 'Loom',
 }
 
 export function ctxColor(p: number, alertAt = 0.85): string {

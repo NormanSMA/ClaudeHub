@@ -6,7 +6,7 @@ import { fresh, sourceOf, total, type Range, type Rec, type SessionMeta, type So
 
 export type Metas = Map<string, SessionMeta>
 
-const SOURCES: readonly Source[] = ['claude', 'codex', 'gemini', 'omniroute', 'antigravity']
+const SOURCES: readonly Source[] = ['claude', 'codex', 'gemini', 'omniroute', 'antigravity', 'opencode', 'loom']
 
 /** Valida ?source= contra una lista blanca. Cualquier otro valor equivale a 'all'. */
 export function parseSource(v: string | undefined): Source | 'all' {
@@ -331,6 +331,8 @@ function chatTitle(meta: SessionMeta | undefined, source: Source, project: strin
   if (title !== 'Sin titulo') return title
   if (source === 'codex') return project && project !== 'unknown' ? `Codex · ${project}` : 'Sesión de Codex'
   if (source === 'antigravity') return project && project !== 'antigravity' ? `Antigravity · ${project}` : 'Sesión de Antigravity'
+  if (source === 'opencode') return project && project !== 'opencode' ? `OpenCode · ${project}` : 'Sesión de OpenCode'
+  if (source === 'loom') return project && project !== 'loom' ? `Loom · ${project}` : 'Misión de Loom'
   return title
 }
 

@@ -19,7 +19,7 @@ function Stat({ label, value, hint, labelTitle, valueTitle, showHint }: { label:
   )
 }
 
-export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: string; billing: Billing }) {
+export function ResumenView({ q, qClaude: _qClaude, billing }: { q: string; qClaude?: string; billing: Billing }) {
   const { data, error } = useApi<Summary>(`/api/summary?${q}`)
   if (!data) return <Loading error={error} />
   const t = data.tokens
@@ -75,8 +75,8 @@ export function ResumenView({ q, qClaude, billing }: { q: string; qClaude: strin
         <Stat label="Salida visible" value={<AnimatedNumber value={Math.max(0, t.output - (t.reasoning ?? 0))} format={compact} />} hint="Salida sin pensamiento" />
       </div>
       <CategoryBar tokens={t} />
-      <h3 className="section-title">Orquestador vs subagentes (solo Claude)</h3>
-      <RolesView q={qClaude} />
+      <h3 className="section-title">Orquestador vs subagentes</h3>
+      <RolesView q={q} />
     </>
   )
 }

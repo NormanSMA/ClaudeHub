@@ -10,7 +10,15 @@ export interface TodayTokens {
   todayBySource?: Partial<Record<string, { fresh: number; costUsd: number; costUnpriced: number }>>
 }
 
-const SOURCE_LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', omniroute: 'OmniRoute' }
+const SOURCE_LABEL: Record<string, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  omniroute: 'OmniRoute',
+  antigravity: 'Antigravity',
+  opencode: 'OpenCode',
+  loom: 'Loom',
+}
 
 /** Una linea por fuente con consumo hoy. Con una sola fuente no hace falta desglose. */
 function sourceLines(t: TodayTokens): string {
