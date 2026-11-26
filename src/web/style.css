@@ -1627,3 +1627,64 @@ html[data-anim='off'] :is(.m-wave, .m-glint) {
 .src-pill.src-claude { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
 .src-pill.src-codex { border-color: color-mix(in srgb, var(--blue) 55%, var(--line)); }
 .src-pill.src-antigravity { border-color: color-mix(in srgb, var(--teal) 55%, var(--line)); }
+.src-pill.src-opencode { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.src-pill.src-loom { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+
+.agent-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.agent-state-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.agent-state.thinking .agent-state-dot,
+.agent-state.starting .agent-state-dot {
+  color: var(--blue);
+}
+.agent-state.tool .agent-state-dot {
+  color: var(--ok);
+}
+.loom-bridge-pill {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line));
+  border-radius: 999px;
+  background: var(--stat);
+  color: var(--text);
+  font-size: 12px;
+}
+.loom-bridge-pill .agent-state-dot {
+  color: var(--ok);
+}
+.loom-bridge-pill a {
+  color: var(--blue);
+  font-weight: 600;
+  text-decoration: none;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+}
+.loom-bridge-pill a:hover {
+  text-decoration: underline;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes agent-pulse {
+    0%, 100% { transform: scale(0.92); opacity: 0.45; }
+    50% { transform: scale(1.2); opacity: 1; }
+  }
+  html:not([data-anim='off']) .agent-state.thinking .agent-state-dot,
+  html:not([data-anim='off']) .agent-state.starting .agent-state-dot,
+  html:not([data-anim='off']) .agent-state.tool .agent-state-dot,
+  html:not([data-anim='off']) .agent-state.waiting .agent-state-dot,
+  html:not([data-anim='off']) .loom-bridge-pill .agent-state-dot {
+    animation: agent-pulse 1.5s ease-in-out infinite;
+  }
+}

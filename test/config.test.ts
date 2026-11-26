@@ -143,7 +143,7 @@ describe('configuracion', () => {
   })
 
   it('guarda sources completo y conserva las otras fuentes al alternar OmniRoute', () => {
-    const sources = { codex: false, gemini: true, omniroute: true, antigravity: true }
+    const sources = { codex: false, gemini: true, omniroute: true, antigravity: true, opencode: true, loom: true }
     expect(saveConfig({ sources }).sources).toEqual(sources)
     expect(JSON.parse(readFileSync(file, 'utf8')).sources).toEqual(sources)
     expect(config().sources).toEqual(sources)
@@ -175,7 +175,7 @@ describe('guardado parcial', () => {
       pricing: { freeProviders: [] },
       mascot: { talkCooldownMin: 5 },
     })
-    expect(saved.sources).toEqual({ codex: false, gemini: false, omniroute: true, antigravity: true })
+    expect(saved.sources).toEqual({ codex: false, gemini: false, omniroute: true, antigravity: true, opencode: true, loom: true })
     expect(saved.omniroute).toEqual({ container: 'otro', dbPath: 'C:\\db.sqlite' })
     expect(saved.pricing).toEqual({ overrides: { 'Opus 5': { input: 4 } }, freeProviders: [] })
     expect(saved.mascot).toEqual({ talk: false, talkCooldownMin: 5 })

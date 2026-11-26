@@ -26,6 +26,9 @@ const mixed = [
   rec('c', 70_000, 'codex'),
   rec('d', 9_000, 'gemini'),
   rec('e', 300, 'omniroute'),
+  rec('f', 1_200, 'opencode', 'subagent'),
+  rec('g', 800, 'loom', 'orchestrator'),
+  rec('h', 400, 'loom', 'subagent'),
 ]
 
 describe('filtro por fuente', () => {
@@ -34,6 +37,9 @@ describe('filtro por fuente', () => {
     expect(parseSource('codex')).toBe('codex')
     expect(parseSource('gemini')).toBe('gemini')
     expect(parseSource('omniroute')).toBe('omniroute')
+    expect(parseSource('opencode')).toBe('opencode')
+    expect(parseSource('loom')).toBe('loom')
+    expect(parseSource('antigravity')).toBe('antigravity')
     expect(parseSource('all')).toBe('all')
     expect(parseSource(undefined)).toBe('all')
     expect(parseSource('')).toBe('all')
@@ -43,11 +49,24 @@ describe('filtro por fuente', () => {
   })
 
   it('filterSource separa por fuente y trata la ausencia como claude', () => {
-    expect(filterSource(mixed, 'all')).toHaveLength(5)
+    expect(filterSource(mixed, 'all')).toHaveLength(8)
     expect(filterSource(mixed, 'claude').map((r) => r.id)).toEqual(['a', 'b'])
     expect(filterSource(mixed, 'codex').map((r) => r.id)).toEqual(['c'])
     expect(filterSource(mixed, 'gemini').map((r) => r.id)).toEqual(['d'])
     expect(filterSource(mixed, 'omniroute').map((r) => r.id)).toEqual(['e'])
+    expect(filterSource(mixed, 'opencode').map((r) => r.id)).toEqual(['f'])
+    expect(filterSource(mixed, 'loom').map((r) => r.id)).toEqual(['g', 'h'])
+  })
+
+  it('rolesReport soporta filtro por fuente y combinacion total', () => {
+    const loomRoles = rolesReport(filterSource(mixed, 'loom'), 'all', now)
+    expect(loomRoles.orchestrator.total).toBe(800)
+    expect(loomRoles.subagent.total).toBe(400)
+    const opencodeRoles = rolesReport(filterSource(mixed, 'opencode'), 'all', now)
+    expect(opencodeRoles.orchestrator.total).toBe(0)
+    expect(opencodeRoles.subagent.total).toBe(1200)
+    const allRoles = rolesReport(mixed, 'all', now)
+    expect(allRoles.subagent.total).toBe(500 + 1200 + 400)
   })
 
   it('summary por fuente da menos tokens que all', () => {

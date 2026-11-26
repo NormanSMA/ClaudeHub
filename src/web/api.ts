@@ -75,7 +75,7 @@ export interface ProjectRow {
   cacheSavingsUsd: number
 }
 
-export type SourceId = 'claude' | 'codex' | 'gemini' | 'omniroute' | 'antigravity'
+export type SourceId = 'claude' | 'codex' | 'gemini' | 'omniroute' | 'antigravity' | 'opencode' | 'loom'
 
 export interface SourceInfo {
   enabled: boolean
@@ -301,7 +301,7 @@ export interface SettingsInfo {
     activeMinutes: number
     contextLimits: Record<string, number>
     checkUpdates?: boolean
-    sources: { codex: boolean; gemini: boolean; omniroute: boolean; antigravity: boolean }
+    sources: { codex: boolean; gemini: boolean; omniroute: boolean; antigravity: boolean; opencode: boolean; loom: boolean }
     billing: Billing
     mascot: MascotConfig
     overlayMode?: OverlayMode
@@ -363,6 +363,12 @@ export interface Collision {
   project: string
   sessions: { source: 'claude' | 'codex'; session: string }[]
   since: number
+}
+
+export interface LoomBridgeInfo {
+  reachable: boolean
+  version?: string
+  url: string
 }
 
 export interface ActiveReport extends TodayFields {

@@ -1,5 +1,5 @@
 import { ActiveList, PlanLimits, ctxColor, untilText } from '../components/Active'
-import { useApi, type ActiveReport, type AgentLive, type AgentState, type AntigravityQuotas, type PlanReport, type SourceId, type TokenLevel } from '../api'
+import { useApi, type ActiveReport, type AgentLive, type AgentState, type AntigravityQuotas, type LoomBridgeInfo, type PlanReport, type SourceId, type TokenLevel } from '../api'
 import { compact, minutesText, pct } from '../format'
 import { ArcGauge } from '../components/charts'
 import { AnimatedNumber } from '../components/AnimatedNumber'
@@ -11,6 +11,8 @@ const SOURCE_NAME: Record<SourceId, string> = {
   gemini: 'Gemini',
   omniroute: 'OmniRoute',
   antigravity: 'Antigravity',
+  opencode: 'OpenCode',
+  loom: 'Loom',
 }
 
 const SOURCE_COLOR: Record<SourceId, string> = {
@@ -19,6 +21,8 @@ const SOURCE_COLOR: Record<SourceId, string> = {
   gemini: 'var(--violet)',
   omniroute: 'var(--ok)',
   antigravity: 'var(--teal)',
+  opencode: 'var(--warn)',
+  loom: 'var(--ok)',
 }
 
 const STATE_LABEL: Record<AgentState, string> = {
@@ -167,6 +171,7 @@ function AgentsNow({ agents }: { agents: AgentLive[] }) {
             {a.project}
           </span>
           <span className={`agent-state ${a.state}`}>
+            <i className="agent-state-dot" aria-hidden="true" />
             {STATE_LABEL[a.state]}
             {a.state === 'tool' && a.tool ? `: ${a.tool}` : ''}
           </span>
@@ -184,6 +189,7 @@ function AgentsNow({ agents }: { agents: AgentLive[] }) {
 
 export function AgentesView() {
   const { data, error } = useApi<ActiveReport>('/api/active', 4_000)
+  const { data: loom } = useApi<LoomBridgeInfo>('/api/loom', 15_000)
   if (!data) return <Loading error={error} />
   const claudePlan = data.plans?.claude ?? data.plan
   const codexPlan = data.plans?.codex ?? null
@@ -221,6 +227,13 @@ export function AgentesView() {
         <p className="foot">
           * Límite de contexto estimado: los logs no lo declaran. Fíjalo en la pestaña Ajustes o activa la línea de estado de ClaudeHub para usar el valor real.
         </p>
+      )}
+      {loom?.reachable && (
+        <div className="loom-bridge-pill">
+          <i className="agent-state-dot" aria-hidden="true" />
+          <span>Loom conectado{loom.version ? ` v${loom.version}` : ''}</span>
+          <a href={loom.url} target="_blank" rel="noopener noreferrer">Abrir Telar</a>
+        </div>
       )}
     </>
   )

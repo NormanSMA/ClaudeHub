@@ -13,13 +13,14 @@ import { readEvents } from '../core/agents'
 import { latestCodexLimits } from '../core/sources/codex-limits'
 import { latestAntigravityQuotas } from '../core/sources/antigravity'
 import { config, configPath, saveConfig, useDefaultsOnly } from '../core/config'
-import { dataDir, codexSessionsDir, geminiTmpDir, antigravityBrainDir, exchangeDir, exchangeReadDirs } from '../core/paths'
+import { dataDir, codexSessionsDir, geminiTmpDir, antigravityBrainDir, exchangeDir, exchangeReadDirs, opencodeDbPath } from '../core/paths'
 import { createEventHub, createWatcher } from './watch'
 import { extensionCors } from './cors'
 import { modelName } from '../core/models'
 import { demoOmniroute } from '../core/demo-omniroute'
 import { attachVia } from '../core/omniroute-via'
 import { readOmniroute, type OmnirouteResult } from '../core/sources/omniroute'
+import { readOpencode, type OpencodeResult } from '../core/sources/opencode'
 import {
   summary,
   modelsReport,
@@ -88,6 +89,45 @@ function withOmniroute(base: ScanResult): ScanResult {
   return { ...base, recs, sources: { ...base.sources, omniroute: stat } }
 }
 
+const OPENCODE_EVERY_MS = 30_000
+let opencodeData: OpencodeResult | null = null
+let opencodeAt = 0
+let opencodeBusy = false
+
+function refreshOpencode(): void {
+  if (DEMO || opencodeBusy || !config().sources.opencode) return
+  if (Date.now() - opencodeAt < OPENCODE_EVERY_MS) return
+  opencodeBusy = true
+  opencodeAt = Date.now()
+  readOpencode({ dbPath: opencodeDbPath() })
+    .then((r) => {
+      opencodeData = r
+      cached = null
+    })
+    .catch(() => {
+      /* readOpencode no lanza; conserva el ultimo resultado */
+    })
+    .finally(() => {
+      opencodeBusy = false
+    })
+}
+
+function withOpencode(base: ScanResult): ScanResult {
+  if (DEMO || !config().sources.opencode) return base
+  const extra = opencodeData?.recs ?? []
+  const ids = new Set(base.recs.map((r) => r.id))
+  const recs = [...base.recs, ...extra.filter((r) => !ids.has(r.id))]
+  const status = opencodeData?.status
+  const stat: SourceStat = {
+    enabled: true,
+    files: status?.ok ? 1 : 0,
+    records: extra.length,
+    ok: status?.ok ?? false,
+    ...(status ? (status.reason ? { reason: status.reason } : {}) : { reason: 'leyendo' }),
+  }
+  return { ...base, recs, sources: { ...base.sources, opencode: stat } }
+}
+
 // El vigilante entrega las rutas que cambiaron y scan solo revisa esas.
 // Un escaneo completo cada 60 s cubre avisos perdidos; sin vigilancia completa, todos son completos.
 const FULL_SCAN_EVERY_MS = 60_000
@@ -105,24 +145,27 @@ function scanNow(): ScanResult {
 
 let cached: { at: number; data: ScanResult } | null = null
 // revision sube solo cuando cambia el contenido: scan devuelve el mismo objeto si nada cambio,
-// y omni cambia de identidad con cada lectura nueva. El demo es relativo a la hora y siempre cambia.
+// y omni/opencode cambian de identidad con cada lectura nueva. El demo es relativo a la hora y siempre cambia.
 let revision = 0
 let lastScan: ScanResult | null = null
 let lastOmni: OmnirouteResult | null = null
+let lastOpencode: OpencodeResult | null = null
 
 function data(): ScanResult {
   refreshOmniroute()
+  refreshOpencode()
   if (!cached || Date.now() - cached.at > 4_000) {
     const base = DEMO ? demoData() : scanNow()
-    if (DEMO || base !== lastScan || omni !== lastOmni) revision++
+    if (DEMO || base !== lastScan || omni !== lastOmni || opencodeData !== lastOpencode) revision++
     lastScan = base
     lastOmni = omni
-    cached = { at: Date.now(), data: DEMO ? base : withOmniroute(base) }
+    lastOpencode = opencodeData
+    cached = { at: Date.now(), data: DEMO ? base : withOpencode(withOmniroute(base)) }
   }
   return cached.data
 }
 const records = () => data().recs
-/** Solo registros de Claude: el plan, los chats activos y los roles no deben mezclarse con otras fuentes. */
+/** Solo registros de Claude: los limites del plan no deben mezclarse con otras fuentes. */
 const claudeRecords = () => filterSource(records(), 'claude')
 
 // Un reporte se recalcula solo si cambiaron los datos o el dia local (los rangos 7d y 30d son por calendario).
@@ -197,7 +240,19 @@ app.get('/api/models', (c) =>
     }),
   ),
 )
-app.get('/api/roles', (c) => c.json(cachedReport(c, 'roles', (_source, range) => rolesReport(claudeRecords(), range))))
+app.get('/api/roles', (c) => c.json(cachedReport(c, 'roles', (source, range) => rolesReport(filterSource(records(), source), range))))
+app.get('/api/loom', async (c) => {
+  const url = 'http://127.0.0.1:4320'
+  if (DEMO) return c.json({ reachable: false, url })
+  try {
+    const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(500) })
+    if (!res.ok) return c.json({ reachable: false, url })
+    const body = (await res.json()) as { version?: unknown }
+    return c.json({ reachable: true, url, ...(typeof body.version === 'string' ? { version: body.version } : {}) })
+  } catch {
+    return c.json({ reachable: false, url })
+  }
+})
 app.get('/api/sessions', (c) =>
   c.json(cachedReport(c, 'sessions', (source, range) => sessionsReport(filterSource(records(), source), data().sessions, range))),
 )

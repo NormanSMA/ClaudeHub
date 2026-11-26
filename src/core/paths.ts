@@ -13,6 +13,13 @@ export const geminiTmpDir = (): string => process.env.GEMINI_TMP_DIR ?? join(hom
 export const antigravityDir = (): string => process.env.ANTIGRAVITY_DIR ?? join(homedir(), '.gemini', 'antigravity')
 export const antigravityBrainDir = (): string => join(antigravityDir(), 'brain')
 
+/** Base SQLite de OpenCode. OPENCODE_DB_PATH reemplaza la ruta. */
+export const opencodeDbPath = (): string =>
+  process.env.OPENCODE_DB_PATH ?? join(homedir(), '.local', 'share', 'opencode', 'opencode.db')
+
+/** Bitacora de corridas emitidas por Loom en exchangeDir. LOOM_RUNS_FILE reemplaza la ruta. */
+export const loomRunsFile = (): string => process.env.LOOM_RUNS_FILE ?? join(exchangeDir(), 'loom-runs.jsonl')
+
 /**
  * Carpeta donde ClaudeHub guarda su cache y su configuracion.
  * Windows: %APPDATA%\ClaudeHub. macOS: ~/Library/Application Support/ClaudeHub. Linux: ~/.config/ClaudeHub.

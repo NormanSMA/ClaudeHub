@@ -1,7 +1,7 @@
 export type Role = 'orchestrator' | 'subagent'
 
 /** Herramienta de origen del registro */
-export type Source = 'claude' | 'codex' | 'gemini' | 'omniroute' | 'antigravity'
+export type Source = 'claude' | 'codex' | 'gemini' | 'omniroute' | 'antigravity' | 'opencode' | 'loom'
 
 /** Estado de lectura de una fuente */
 export interface SourceStat {
